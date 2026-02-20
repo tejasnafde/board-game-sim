@@ -36,7 +36,7 @@ describe("presentation system", () => {
 
   test("registers and builds renderer by board type", () => {
     const registry = new RendererRegistry();
-    registry.register("grid", () => ({ render: () => undefined }));
+    registry.register("grid", () => ({ render: () => "ok" }));
     const renderer = registry.create("grid");
     expect(typeof renderer.render).toBe("function");
     expect(() => registry.create("hex")).toThrow("renderer_not_registered");

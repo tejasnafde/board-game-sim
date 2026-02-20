@@ -1,7 +1,7 @@
 import type { BoardType } from "./presentation";
 
 export type GameRenderer = {
-  render(view: unknown): void;
+  render(view: unknown): string;
 };
 
 export type RendererFactory = () => GameRenderer;

@@ -6,5 +6,6 @@
 - `data-model.md`: persistence model and replay strategy.
 - `realtime-protocol.md`: websocket event definitions.
 - `testing-strategy.md`: quality gates and scenario coverage.
+- `web-client.md`: frontend runtime and module map.
 - `roadmap.md`: phased delivery plan.
 - `contributing-vision.md`: contributor guardrails.

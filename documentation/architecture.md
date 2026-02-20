@@ -24,6 +24,9 @@
 7. Client Rendering Layer
 - `AssetManager` resolves per-game asset IDs to URLs.
 - `RendererRegistry` maps board type (`grid`/`hex`/`graph`) to concrete renderer implementation.
+- `RealtimeClient` transports websocket protocol events.
+- `ClientController` maps UI interactions to intent submissions using sequence-safe envelopes.
+- `ClientState` reducer applies `state_sync`, `action_accepted/rejected`, `state_patch`, and `terminal` events.
 
 ## Runtime Flow
 

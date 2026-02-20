@@ -26,6 +26,13 @@
 1. Correct player-scoped sync after reconnect.
 2. Snapshot + replay equals in-memory state hash.
 
+## Web Client Scenarios
+
+1. Realtime reducer handles sync/patch/reject/terminal transitions.
+2. Controller submits sequence-safe intent envelopes.
+3. Runtime wires presentation, assets, renderer, and transport.
+4. Rejoin behavior reuses cached session identity.
+
 ## Environment Notes
 
 - `tests/contract/ws-server.test.ts` is gated by `ALLOW_SOCKET_TESTS=1` because some sandboxed environments disallow opening listening sockets.
