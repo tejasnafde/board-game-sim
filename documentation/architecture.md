@@ -13,12 +13,17 @@
 
 4. Game Registry
 - Resolves `gameId@version` to definition + module.
+- Presentation metadata (`presentation.json`) is loaded by the web client for render mappings and assets.
 
 5. Persistence
 - Append-only `game_events` and periodic `game_snapshots`.
 
 6. View Projection
 - Produces redacted state per player.
+
+7. Client Rendering Layer
+- `AssetManager` resolves per-game asset IDs to URLs.
+- `RendererRegistry` maps board type (`grid`/`hex`/`graph`) to concrete renderer implementation.
 
 ## Runtime Flow
 

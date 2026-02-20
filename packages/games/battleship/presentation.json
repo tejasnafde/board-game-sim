@@ -1,0 +1,33 @@
+{
+  "gameId": "battleship",
+  "version": "0.1.0",
+  "presentationVersion": "0.1.0",
+  "board": {
+    "boardType": "grid",
+    "rows": 10,
+    "cols": 10,
+    "cellSize": 40
+  },
+  "theme": {
+    "name": "oceanic",
+    "colors": {
+      "bg": "#f2f9ff",
+      "grid": "#1f4e79",
+      "hit": "#d62828",
+      "miss": "#8d99ae"
+    }
+  },
+  "assets": [
+    { "id": "tile-water", "kind": "image", "path": "assets/tiles/water.png" },
+    { "id": "tile-hit", "kind": "image", "path": "assets/tiles/hit.png" },
+    { "id": "tile-miss", "kind": "image", "path": "assets/tiles/miss.png" },
+    { "id": "ship-destroyer", "kind": "image", "path": "assets/ships/destroyer.png" }
+  ],
+  "pieceSprites": {
+    "destroyer": "ship-destroyer"
+  },
+  "effects": {
+    "shot.hit": "tile-hit",
+    "shot.miss": "tile-miss"
+  }
+}
