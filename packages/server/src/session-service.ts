@@ -119,6 +119,22 @@ export class SessionService {
     return entry.runtime.getPlayerView(sessionId, playerId);
   }
 
+  getSessionSeq(sessionId: string): number {
+    const entry = this.sessions.get(sessionId);
+    if (!entry) {
+      throw new Error(`session_not_found:${sessionId}`);
+    }
+    return entry.runtime.getSeq(sessionId);
+  }
+
+  getTerminalResult(sessionId: string) {
+    const entry = this.sessions.get(sessionId);
+    if (!entry) {
+      throw new Error(`session_not_found:${sessionId}`);
+    }
+    return entry.runtime.getTerminalResult(sessionId);
+  }
+
   getSessionMeta(sessionId: string): SessionMetadata | null {
     return this.sessions.get(sessionId)?.meta ?? null;
   }
