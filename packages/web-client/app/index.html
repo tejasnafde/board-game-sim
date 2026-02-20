@@ -37,6 +37,46 @@
         background: #1f4e79;
         color: #fff;
       }
+
+      .board-columns {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+      }
+
+      .board-grid {
+        display: grid;
+        grid-template-columns: repeat(10, 20px);
+        grid-template-rows: repeat(10, 20px);
+        gap: 2px;
+      }
+
+      .cell {
+        width: 20px;
+        height: 20px;
+        border-radius: 3px;
+        border: 1px solid #9eb6cc;
+      }
+
+      .cell.water {
+        background: #bde6ff;
+      }
+
+      .cell.ship {
+        background: #5e7489;
+      }
+
+      .cell.taken-hit {
+        background: #d62828;
+      }
+
+      .cell.attack-hit {
+        background: #b3001b;
+      }
+
+      .cell.attack-miss {
+        background: #6b7f93;
+      }
     </style>
   </head>
   <body>
