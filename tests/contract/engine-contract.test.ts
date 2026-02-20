@@ -1,6 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { SessionRuntime } from "@board-game-sim/engine/runtime";
-import { InMemoryEventRepository, InMemorySnapshotRepository } from "@board-game-sim/engine/store";
+import { SessionRuntime, InMemoryEventRepository, InMemorySnapshotRepository } from "@board-game-sim/engine";
 import { BattleshipModule } from "@board-game-sim/battleship";
 import definition from "../../packages/games/battleship/definition.json";
 
