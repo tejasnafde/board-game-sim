@@ -4,7 +4,8 @@ import type {
   GameModule,
   JsonValue,
   SessionMetadata,
-  SessionSnapshot
+  SessionSnapshot,
+  TerminalResult
 } from "@board-game-sim/shared";
 import { deterministicHash } from "@board-game-sim/shared";
 import type { EventRepository, SnapshotRepository } from "./store";
@@ -97,6 +98,22 @@ export class SessionRuntime<State> {
       throw new Error(`session_not_found:${sessionId}`);
     }
     return this.gameModule.getPlayerView({ state: session.state, playerId }).visibleState;
+  }
+
+  getSeq(sessionId: string): number {
+    const session = this.sessions.get(sessionId);
+    if (!session) {
+      throw new Error(`session_not_found:${sessionId}`);
+    }
+    return session.seq;
+  }
+
+  getTerminalResult(sessionId: string): TerminalResult | null {
+    const session = this.sessions.get(sessionId);
+    if (!session) {
+      throw new Error(`session_not_found:${sessionId}`);
+    }
+    return this.gameModule.isTerminal(session.state);
   }
 
   hydrateSession(meta: SessionMetadata, snapshot: SessionSnapshot): void {
