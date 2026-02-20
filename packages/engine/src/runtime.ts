@@ -36,6 +36,10 @@ export class SessionRuntime<State> {
   ) {}
 
   async initSession(meta: SessionMetadata, definition: unknown): Promise<RuntimeSession<State>> {
+    if (this.sessions.has(meta.sessionId)) {
+      throw new Error(`session_already_exists:${meta.sessionId}`);
+    }
+
     const initialized = this.gameModule.initGame({
       sessionId: meta.sessionId,
       gameId: meta.gameId,
@@ -81,6 +85,14 @@ export class SessionRuntime<State> {
     return this.sessions.get(sessionId);
   }
 
+  getPlayerView(sessionId: string, playerId: string): unknown {
+    const session = this.sessions.get(sessionId);
+    if (!session) {
+      throw new Error(`session_not_found:${sessionId}`);
+    }
+    return this.gameModule.getPlayerView({ state: session.state, playerId }).visibleState;
+  }
+
   async submitAction(envelope: EngineActionEnvelope): Promise<RuntimeResult<State>> {
     const session = this.sessions.get(envelope.sessionId);
     if (!session) {
@@ -109,6 +121,30 @@ export class SessionRuntime<State> {
       return {
         accepted: false,
         reason: "stale_sequence",
+        seq: session.seq,
+        state: session.state,
+        integrityHash: session.integrityHash,
+        events: []
+      };
+    }
+
+    if (!session.meta.players.includes(envelope.actorPlayerId)) {
+      return {
+        accepted: false,
+        reason: "actor_not_in_session",
+        seq: session.seq,
+        state: session.state,
+        integrityHash: session.integrityHash,
+        events: []
+      };
+    }
+
+    const legalActions = this.gameModule.listLegalActions(session.state, envelope.actorPlayerId);
+    const actionIsLegal = legalActions.some((action) => action.actionType === envelope.actionType);
+    if (!actionIsLegal) {
+      return {
+        accepted: false,
+        reason: "illegal_action",
         seq: session.seq,
         state: session.state,
         integrityHash: session.integrityHash,
