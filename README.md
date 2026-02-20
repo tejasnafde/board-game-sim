@@ -36,3 +36,8 @@ Browser-first, authoritative, turn-based board game platform.
 Optional:
 - Run both together: `npm run dev`
 - Override websocket URL for frontend: `VITE_WS_URL=ws://127.0.0.1:8080/realtime npm run dev:web`
+
+UI flow:
+1. Landing: set `session` + `player`, click `Join Mission`.
+2. Setup: click `Load Valid Fleet` (or `Randomize Fleet`), then `Submit Setup`.
+3. Gameplay: click cells on `Opponent Board` when it is your turn.

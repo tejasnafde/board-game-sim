@@ -5,15 +5,30 @@ import battleshipPresentation from "../../games/battleship/presentation.json";
 import battleshipDefinition from "../../games/battleship/definition.json";
 import { createDefaultPlacementsFromDefinition } from "./battleship-template";
 
+type ClientView = {
+  phase?: "setup" | "play" | "terminal";
+  currentPlayerId?: string;
+  winnerPlayerId?: string | null;
+};
+
 function parsePlacements(raw: string): ShipPlacement[] {
   return JSON.parse(raw) as ShipPlacement[];
 }
 
-function parseCoord(rowInput: string, colInput: string): Coord {
-  return {
-    row: Number(rowInput),
-    col: Number(colInput)
-  };
+function createRandomizedPlacements(): ShipPlacement[] {
+  return battleshipDefinition.ships.map((ship, idx) => ({
+    shipId: ship.id,
+    cells: Array.from({ length: ship.size }).map((_, c) => ({
+      row: idx * 2,
+      col: c + ((idx * 2) % 3)
+    }))
+  }));
+}
+
+function inferScreen(joined: boolean, view: ClientView): "landing" | "setup" | "gameplay" {
+  if (!joined) return "landing";
+  if ((view.phase ?? "setup") === "setup") return "setup";
+  return "gameplay";
 }
 
 export function mountPlayableClient(root: HTMLElement, options: {
@@ -35,110 +50,185 @@ export function mountPlayableClient(root: HTMLElement, options: {
     transport
   });
 
-  root.innerHTML = `
-    <section>
-      <h1>Board Game Sim - Battleship</h1>
-      <p>Workflow: 1) Join, 2) Submit full fleet setup, 3) Fire only when phase is <code>play</code>.</p>
-      <div>
-        <label>Session <input id="session-id" value="demo-battleship" /></label>
-        <label>Player <input id="player-id" value="player-1" /></label>
-        <button id="join-btn">Join</button>
-        <button id="rejoin-btn">Rejoin</button>
-      </div>
-      <div>
-        <label>Placements JSON</label>
-        <textarea id="placements-input" rows="8">${JSON.stringify(createDefaultPlacementsFromDefinition(battleshipDefinition), null, 2)}</textarea>
-        <button id="load-template-btn">Load Valid Fleet</button>
-        <button id="place-btn">Submit Setup</button>
-      </div>
-      <div>
-        <label>Fire Row <input id="fire-row" value="0" /></label>
-        <label>Fire Col <input id="fire-col" value="0" /></label>
-        <button id="fire-btn">Fire</button>
-      </div>
-      <pre id="status-view">status: waiting_for_state</pre>
-      <pre id="state-view">waiting_for_state</pre>
-      <pre id="render-view">waiting_for_render</pre>
-    </section>
-  `;
+  const water = runtime.assetManager.resolveAssetUrl("tile-water");
+  const shipPreview = {
+    carrier: runtime.assetManager.resolveAssetUrl("ship-carrier"),
+    battleship: runtime.assetManager.resolveAssetUrl("ship-battleship"),
+    cruiser: runtime.assetManager.resolveAssetUrl("ship-cruiser"),
+    submarine: runtime.assetManager.resolveAssetUrl("ship-submarine"),
+    destroyer: runtime.assetManager.resolveAssetUrl("ship-destroyer")
+  };
 
-  const sessionInput = root.querySelector<HTMLInputElement>("#session-id");
-  const playerInput = root.querySelector<HTMLInputElement>("#player-id");
-  const placementsInput = root.querySelector<HTMLTextAreaElement>("#placements-input");
-  const fireRowInput = root.querySelector<HTMLInputElement>("#fire-row");
-  const fireColInput = root.querySelector<HTMLInputElement>("#fire-col");
-  const loadTemplateBtn = root.querySelector<HTMLButtonElement>("#load-template-btn");
-  const joinBtn = root.querySelector<HTMLButtonElement>("#join-btn");
-  const rejoinBtn = root.querySelector<HTMLButtonElement>("#rejoin-btn");
-  const placeBtn = root.querySelector<HTMLButtonElement>("#place-btn");
-  const fireBtn = root.querySelector<HTMLButtonElement>("#fire-btn");
-  const statusView = root.querySelector<HTMLElement>("#status-view");
-  const stateView = root.querySelector<HTMLElement>("#state-view");
-  const renderView = root.querySelector<HTMLElement>("#render-view");
+  let joined = false;
+  let sessionId = "demo-battleship";
+  let playerId = "player-1";
+  let placementsText = JSON.stringify(createDefaultPlacementsFromDefinition(battleshipDefinition), null, 2);
+  let localError: string | null = null;
 
-  const refresh = (): void => {
+  const render = (): void => {
     const state = runtime.controller.getState();
-    const view = (state.view ?? {}) as { phase?: string; currentPlayerId?: string };
+    const view = (state.view ?? {}) as ClientView;
+    const screen = inferScreen(joined, view);
     const phase = view.phase ?? "setup";
-    const canFire = phase === "play";
+    const canFire = phase === "play" && view.currentPlayerId === playerId;
 
-    if (stateView) {
-      stateView.textContent = JSON.stringify(state, null, 2);
-    }
-    if (renderView) {
-      renderView.innerHTML = runtime.renderer.render(state.view ?? {});
-    }
-    if (statusView) {
-      const pieces = [
-        `phase=${phase}`,
-        `current=${view.currentPlayerId ?? "-"}`,
-        `error=${state.lastError ?? "none"}`,
-        canFire ? "fire=enabled" : "fire=disabled (wait for play)"
-      ];
-      statusView.textContent = `status: ${pieces.join(" | ")}`;
-    }
-    if (fireBtn) {
-      fireBtn.disabled = !canFire;
-    }
+    const landing = `
+      <section class="screen landing-screen">
+        <header class="hero">
+          <p class="eyebrow">Remote tabletop nights</p>
+          <h1>Battleship Command Deck</h1>
+          <p>Join your friends, lock fleet positions, and launch turns live from browser.</p>
+        </header>
+        <div class="panel join-panel">
+          <h2>Start Session</h2>
+          <label>Session ID <input id="session-id" value="${sessionId}" /></label>
+          <label>Player ID <input id="player-id" value="${playerId}" /></label>
+          <button id="join-btn">Join Mission</button>
+          <p class="hint">Use two windows with different player IDs to test locally.</p>
+        </div>
+      </section>
+    `;
+
+    const setup = `
+      <section class="screen setup-screen">
+        <header class="screen-header">
+          <h2>Fleet Setup</h2>
+          <p>Submit all ships before battle starts. Current phase: <strong>${phase}</strong></p>
+        </header>
+        <div class="setup-layout">
+          <aside class="panel fleet-panel">
+            <h3>Fleet Manifest</h3>
+            ${battleshipDefinition.ships
+              .map(
+                (ship) => `
+                  <div class="fleet-row">
+                    <img src="${shipPreview[ship.id as keyof typeof shipPreview]}" alt="${ship.id}" />
+                    <span>${ship.id} (${ship.size})</span>
+                  </div>
+                `
+              )
+              .join("")}
+            <div class="fleet-actions">
+              <button id="load-template-btn">Load Valid Fleet</button>
+              <button id="random-template-btn">Randomize Fleet</button>
+            </div>
+          </aside>
+          <section class="panel setup-editor">
+            <h3>Placement JSON</h3>
+            <textarea id="placements-input" rows="12">${placementsText}</textarea>
+            <div class="row-actions">
+              <button id="submit-setup-btn">Submit Setup</button>
+              <button id="rejoin-btn">Rejoin</button>
+            </div>
+            <p class="status">Last error: <strong>${localError ?? state.lastError ?? "none"}</strong></p>
+          </section>
+        </div>
+      </section>
+    `;
+
+    const gameplay = `
+      <section class="screen gameplay-screen">
+        <header class="screen-header">
+          <h2>Live Battle</h2>
+          <p>
+            Phase: <strong>${phase}</strong> · Turn: <strong>${view.currentPlayerId ?? "-"}</strong>
+            ${view.winnerPlayerId ? `· Winner: <strong>${view.winnerPlayerId}</strong>` : ""}
+          </p>
+          <p>${canFire ? "Your turn: click a cell on Opponent Board." : "Waiting for opponent turn or setup completion."}</p>
+        </header>
+        <div class="panel board-panel" id="render-view">${runtime.renderer.render(state.view ?? {})}</div>
+        <div class="panel log-panel">
+          <h3>Session State</h3>
+          <pre id="state-view">${JSON.stringify(state, null, 2)}</pre>
+        </div>
+      </section>
+    `;
+
+    root.innerHTML = `
+      <section class="app-shell" style="--water-url:url('${water}')">
+        <nav class="topbar">
+          <span>Session: ${sessionId}</span>
+          <span>Player: ${playerId}</span>
+          <span>Screen: ${screen}</span>
+        </nav>
+        ${screen === "landing" ? landing : ""}
+        ${screen === "setup" ? setup : ""}
+        ${screen === "gameplay" ? gameplay : ""}
+      </section>
+    `;
+
+    const sessionInput = root.querySelector<HTMLInputElement>("#session-id");
+    const playerInput = root.querySelector<HTMLInputElement>("#player-id");
+    const joinBtn = root.querySelector<HTMLButtonElement>("#join-btn");
+    const placementsInput = root.querySelector<HTMLTextAreaElement>("#placements-input");
+    const loadTemplateBtn = root.querySelector<HTMLButtonElement>("#load-template-btn");
+    const randomTemplateBtn = root.querySelector<HTMLButtonElement>("#random-template-btn");
+    const submitSetupBtn = root.querySelector<HTMLButtonElement>("#submit-setup-btn");
+    const rejoinBtn = root.querySelector<HTMLButtonElement>("#rejoin-btn");
+    const renderView = root.querySelector<HTMLElement>("#render-view");
+
+    sessionInput?.addEventListener("input", () => {
+      sessionId = sessionInput.value;
+    });
+
+    playerInput?.addEventListener("input", () => {
+      playerId = playerInput.value;
+    });
+
+    joinBtn?.addEventListener("click", () => {
+      joined = true;
+      runtime.controller.join(sessionId, playerId);
+      render();
+    });
+
+    loadTemplateBtn?.addEventListener("click", () => {
+      placementsText = JSON.stringify(createDefaultPlacementsFromDefinition(battleshipDefinition), null, 2);
+      render();
+    });
+
+    randomTemplateBtn?.addEventListener("click", () => {
+      placementsText = JSON.stringify(createRandomizedPlacements(), null, 2);
+      render();
+    });
+
+    submitSetupBtn?.addEventListener("click", () => {
+      try {
+        placementsText = placementsInput?.value ?? placementsText;
+        runtime.controller.submitPlaceShips(parsePlacements(placementsText));
+        localError = null;
+      } catch {
+        localError = "invalid_placements_json";
+      }
+      render();
+    });
+
+    rejoinBtn?.addEventListener("click", () => {
+      runtime.rejoin();
+      render();
+    });
+
+    renderView?.addEventListener("click", (event) => {
+      const target = event.target as HTMLElement;
+      if (!target.classList.contains("opponent-cell")) {
+        return;
+      }
+      if (!canFire) {
+        return;
+      }
+      const row = Number(target.dataset.r ?? "-1");
+      const col = Number(target.dataset.c ?? "-1");
+      if (row >= 0 && col >= 0) {
+        runtime.controller.submitFire({ row, col });
+        render();
+      }
+    });
   };
 
   transport.subscribe(() => {
-    refresh();
+    render();
   });
 
-  loadTemplateBtn?.addEventListener("click", () => {
-    if (placementsInput) {
-      placementsInput.value = JSON.stringify(createDefaultPlacementsFromDefinition(battleshipDefinition), null, 2);
-    }
-    refresh();
-  });
-
-  joinBtn?.addEventListener("click", () => {
-    runtime.controller.join(sessionInput?.value ?? "demo-battleship", playerInput?.value ?? "player-1");
-    refresh();
-  });
-
-  rejoinBtn?.addEventListener("click", () => {
-    runtime.rejoin();
-    refresh();
-  });
-
-  placeBtn?.addEventListener("click", () => {
-    try {
-      const placements = parsePlacements(placementsInput?.value ?? "[]");
-      runtime.controller.submitPlaceShips(placements);
-    } catch {
-      if (stateView) {
-        stateView.textContent = "invalid_placements_json";
-      }
-    }
-    refresh();
-  });
-
-  fireBtn?.addEventListener("click", () => {
-    runtime.controller.submitFire(parseCoord(fireRowInput?.value ?? "0", fireColInput?.value ?? "0"));
-    refresh();
-  });
+  render();
 
   return {
     runtime,
