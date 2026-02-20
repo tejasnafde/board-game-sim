@@ -9,12 +9,17 @@ import { BattleshipModule } from "@board-game-sim/battleship";
 import { SessionService } from "@board-game-sim/server";
 import definition from "../../packages/games/battleship/definition.json";
 
+const miniDefinition = {
+  ...definition,
+  ships: [{ id: "destroyer", size: 2 }]
+};
+
 function makeService() {
   const registry = new InMemoryGameRegistry();
   registry.register({
     gameId: "battleship",
     version: "0.1.0",
-    definition,
+    definition: miniDefinition,
     module: new BattleshipModule()
   });
 
@@ -93,7 +98,7 @@ describe("session service", () => {
     registry.register({
       gameId: "battleship",
       version: "0.1.0",
-      definition,
+      definition: miniDefinition,
       module: new BattleshipModule()
     });
     const eventRepo = new InMemoryEventRepository();

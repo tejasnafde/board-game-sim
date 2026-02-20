@@ -4,6 +4,10 @@ import { BattleshipModule } from "@board-game-sim/battleship";
 import definition from "../../packages/games/battleship/definition.json";
 
 const players = ["p1", "p2"];
+const miniDefinition = {
+  ...definition,
+  ships: [{ id: "destroyer", size: 2 }]
+};
 
 function placements(playerOffset = 0) {
   return {
@@ -32,7 +36,7 @@ describe("engine contract", () => {
         seed: "seed-1",
         players
       },
-      definition
+      miniDefinition
     );
 
     await second.initSession(
@@ -43,7 +47,7 @@ describe("engine contract", () => {
         seed: "seed-1",
         players
       },
-      definition
+      miniDefinition
     );
 
     await first.submitAction({
@@ -93,7 +97,7 @@ describe("engine contract", () => {
         seed: "seed-1",
         players
       },
-      definition
+      miniDefinition
     );
 
     const stale = await runtime.submitAction({
@@ -119,7 +123,7 @@ describe("engine contract", () => {
         seed: "seed-1",
         players
       },
-      definition
+      miniDefinition
     );
 
     await runtime.submitAction({ sessionId: "s4", expectedSeq: 0, actorPlayerId: "p1", actionType: "place_ships", payload: placements(0), clientActionId: "b1" });
@@ -150,14 +154,15 @@ describe("engine contract", () => {
       gameVersion: "0.1.0",
       seed: "seed-1",
       players,
-      definition
+      definition: miniDefinition
     }).initialState;
 
     state.players[1].ships = [{ shipId: "destroyer", cells: [{ row: 5, col: 5 }, { row: 5, col: 6 }] }];
 
-    const view = module.getPlayerView({ state, playerId: "p1" });
-    const opponent = (view.visibleState as any).players.find((p: any) => p.playerId === "p2");
+    const view = module.getPlayerView({ state, playerId: "p1" }).visibleState as {
+      opponentBoard: { sunkShips: Array<{ shipId: string }> };
+    };
 
-    expect(opponent.ships[0].cells).toEqual([]);
+    expect(view.opponentBoard.sunkShips).toEqual([]);
   });
 });
