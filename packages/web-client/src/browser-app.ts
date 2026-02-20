@@ -31,6 +31,10 @@ function inferScreen(joined: boolean, view: ClientView): "landing" | "setup" | "
   return "gameplay";
 }
 
+export function getGameplayPanelOrder(): Array<"debug" | "state"> {
+  return ["debug", "state"];
+}
+
 export function mountPlayableClient(root: HTMLElement, options: {
   websocketFactory: () => SocketLike;
   assetBasePath?: string;
@@ -148,14 +152,16 @@ export function mountPlayableClient(root: HTMLElement, options: {
           <p>${canFire ? "Your turn: click a cell on Opponent Board." : "Waiting for opponent turn or setup completion."}</p>
         </header>
         <div class="panel board-panel" id="render-view">${runtime.renderer.render(state.view ?? {})}</div>
-        <div class="panel log-panel">
-          <h3>Session State</h3>
-          <pre id="state-view">${JSON.stringify(state, null, 2)}</pre>
-        </div>
-        <div class="panel debug-panel">
-          <h3>Debug Log</h3>
-          <pre id="debug-view">${logs.join("\n") || "no_logs_yet"}</pre>
-        </div>
+        <aside class="side-stack">
+          <div class="panel debug-panel">
+            <h3>Debug Log</h3>
+            <pre id="debug-view">${logs.join("\n") || "no_logs_yet"}</pre>
+          </div>
+          <div class="panel log-panel">
+            <h3>Session State</h3>
+            <pre id="state-view">${JSON.stringify(state, null, 2)}</pre>
+          </div>
+        </aside>
       </section>
     `;
 
