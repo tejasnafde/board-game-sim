@@ -115,4 +115,22 @@ describe("realtime gateway", () => {
     expect(events[0]?.type).toBe("session.action_accepted");
     expect(events[1]?.type).toBe("session.state_patch");
   });
+
+  test("builds player-specific state sync event", async () => {
+    const { service, gateway } = build();
+    await service.createSession({
+      sessionId: "gw-4",
+      gameId: "battleship",
+      gameVersion: "0.1.0",
+      seed: "seed-1",
+      players: ["p1", "p2"]
+    });
+
+    const sync = await gateway.createStateSyncEvent("gw-4", "p1");
+    expect(sync.type).toBe("session.state_sync");
+    if (sync.type === "session.state_sync") {
+      expect(sync.sessionId).toBe("gw-4");
+      expect(sync.seq).toBe(0);
+    }
+  });
 });

@@ -11,7 +11,7 @@ export type WsServerOptions = {
 };
 
 type ConnectionContext = {
-  sessions: Set<string>;
+  playerBySession: Map<string, string>;
 };
 
 function safeParseClientEvent(raw: string): ClientEvent | null {
@@ -35,13 +35,13 @@ export function createWsRealtimeServer(options: WsServerOptions) {
   const contexts = new WeakMap<WebSocket, ConnectionContext>();
   const sessionRooms = new Map<string, Set<WebSocket>>();
 
-  function joinRoom(socket: WebSocket, sessionId: string): void {
+  function joinRoom(socket: WebSocket, sessionId: string, playerId: string): void {
     const room = sessionRooms.get(sessionId) ?? new Set<WebSocket>();
     room.add(socket);
     sessionRooms.set(sessionId, room);
     const ctx = contexts.get(socket);
     if (ctx) {
-      ctx.sessions.add(sessionId);
+      ctx.playerBySession.set(sessionId, playerId);
     }
   }
 
@@ -55,14 +55,14 @@ export function createWsRealtimeServer(options: WsServerOptions) {
     }
     const ctx = contexts.get(socket);
     if (ctx) {
-      ctx.sessions.delete(sessionId);
+      ctx.playerBySession.delete(sessionId);
     }
   }
 
   function cleanupSocket(socket: WebSocket): void {
     const ctx = contexts.get(socket);
     if (!ctx) return;
-    for (const sessionId of ctx.sessions) {
+    for (const sessionId of ctx.playerBySession.keys()) {
       leaveRoom(socket, sessionId);
     }
     contexts.delete(socket);
@@ -81,7 +81,7 @@ export function createWsRealtimeServer(options: WsServerOptions) {
   });
 
   wss.on("connection", (socket: WebSocket) => {
-    contexts.set(socket, { sessions: new Set<string>() });
+    contexts.set(socket, { playerBySession: new Map<string, string>() });
 
     socket.on("message", async (data: WebSocket.RawData) => {
       const incoming = safeParseClientEvent(data.toString());
@@ -95,7 +95,7 @@ export function createWsRealtimeServer(options: WsServerOptions) {
       }
 
       if (incoming.type === "session.join") {
-        joinRoom(socket, incoming.sessionId);
+        joinRoom(socket, incoming.sessionId, incoming.playerId);
       }
 
       if (incoming.type === "session.leave") {
@@ -120,8 +120,14 @@ export function createWsRealtimeServer(options: WsServerOptions) {
 
         const room = sessionRooms.get(incoming.envelope.sessionId) ?? new Set<WebSocket>();
         for (const peer of room) {
+          const peerCtx = contexts.get(peer);
+          const playerId = peerCtx?.playerBySession.get(incoming.envelope.sessionId);
           for (const event of outbound) {
             send(peer, event);
+          }
+          if (playerId) {
+            const sync = await options.gateway.createStateSyncEvent(incoming.envelope.sessionId, playerId);
+            send(peer, sync);
           }
         }
       }

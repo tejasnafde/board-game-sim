@@ -13,6 +13,16 @@ function extractReason(error: unknown): string {
 export class RealtimeGateway {
   constructor(private readonly sessions: SessionService) {}
 
+  async createStateSyncEvent(sessionId: string, playerId: string): Promise<ServerEvent> {
+    await this.sessions.recoverSession(sessionId);
+    return {
+      type: "session.state_sync",
+      sessionId,
+      seq: this.sessions.getSessionSeq(sessionId),
+      view: this.sessions.getPlayerView(sessionId, playerId) as JsonValue
+    };
+  }
+
   async handleClientEvent(event: ClientEvent): Promise<ServerEvent[]> {
     if (event.type === "session.join") {
       try {
@@ -38,14 +48,7 @@ export class RealtimeGateway {
         ];
       }
 
-      return [
-        {
-          type: "session.state_sync",
-          sessionId: event.sessionId,
-          seq: this.sessions.getSessionSeq(event.sessionId),
-          view: this.sessions.getPlayerView(event.sessionId, event.playerId) as JsonValue
-        }
-      ];
+      return [await this.createStateSyncEvent(event.sessionId, event.playerId)];
     }
 
     if (event.type === "action.submit") {
@@ -95,4 +98,3 @@ export class RealtimeGateway {
     return [];
   }
 }
-
