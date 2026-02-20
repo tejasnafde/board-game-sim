@@ -33,7 +33,7 @@ function renderOwnBoard(board: BoardView): string {
       let className = "cell water";
       if (shipCells.has(coord)) className = "cell ship";
       if (hits.has(coord)) className = "cell taken-hit";
-      cells.push(`<div class="${className}" data-r="${r}" data-c="${c}"></div>`);
+      cells.push(`<button class="${className} own-cell" data-board="own" data-r="${r}" data-c="${c}" type="button"></button>`);
     }
   }
 
@@ -51,11 +51,11 @@ function renderOpponentBoard(board: BoardView): string {
       let className = "cell water";
       if (fired.has(coord) && knownHits.has(coord)) className = "cell attack-hit";
       else if (fired.has(coord)) className = "cell attack-miss";
-      cells.push(`<div class="${className}" data-r="${r}" data-c="${c}"></div>`);
+      cells.push(`<button class="${className} opponent-cell" data-board="opponent" data-r="${r}" data-c="${c}" type="button"></button>`);
     }
   }
 
-  return `<div class="board-grid">${cells.join("")}</div>`;
+  return `<div class="board-grid opponent-grid">${cells.join("")}</div>`;
 }
 
 export class GridRenderer implements GameRenderer {
@@ -71,11 +71,11 @@ export class GridRenderer implements GameRenderer {
       <div class="board-root" data-phase="${phase}">
         <div class="board-meta">phase=${phase} current=${current} winner=${winner}</div>
         <div class="board-columns">
-          <section>
+          <section class="own-panel">
             <h3>Your Board</h3>
             ${renderOwnBoard(own)}
           </section>
-          <section>
+          <section class="opponent-panel">
             <h3>Opponent Board</h3>
             ${renderOpponentBoard(opponent)}
           </section>

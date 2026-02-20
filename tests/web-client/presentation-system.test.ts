@@ -25,7 +25,9 @@ describe("presentation system", () => {
   test("resolves asset paths from base path", () => {
     const validated = validatePresentationDefinition(presentation);
     const manager = new AssetManager(validated, "/games/battleship");
-    expect(manager.resolveAssetUrl("tile-water")).toBe("/games/battleship/assets/tiles/water.svg");
+    expect(manager.resolveAssetUrl("tile-water")).toBe(
+      "/games/battleship/assets/external/sea-warfare-set/effects/water.png"
+    );
   });
 
   test("throws when resolving unknown asset", () => {

@@ -11,6 +11,12 @@
 - `browser-app.ts`: minimal interactive UI mount function.
 - `grid-renderer.ts`: default renderer for grid board games.
 
+## Screens
+
+- Landing: session/player entry with a clear join CTA.
+- Setup: fleet manifest with ship art preview, template loaders, and setup submit action.
+- Gameplay: clickable opponent board for firing and live own/opponent grid state.
+
 ## Runtime Flow
 
 1. UI joins a session with `session.join`.
@@ -23,3 +29,10 @@
 
 Use `initPlayableWebClient(root, websocketFactory)` from `packages/web-client/src/index.ts`.
 The websocket factory should return an object compatible with `SocketLike`.
+
+## External Free Assets
+
+- Current Battleship art uses OpenGameArt \"Sea Warfare Set\" (CC0):
+  https://opengameart.org/content/sea-warfare-set-ships-and-more
+- Repository copy and attribution are stored in:
+  `packages/games/battleship/assets/external/sea-warfare-set/`

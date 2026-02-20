@@ -5,77 +5,273 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Board Game Sim</title>
     <style>
+      @import url("https://fonts.googleapis.com/css2?family=Bebas+Neue&family=IBM+Plex+Sans:wght@400;500;700&display=swap");
+
       :root {
-        font-family: "IBM Plex Sans", "Avenir Next", sans-serif;
+        --ink: #09263a;
+        --muted: #5f7384;
+        --line: #c8d9e8;
+        --card: #ffffffee;
+        --accent: #0f6ea8;
+        --accent-soft: #e2f3ff;
+        --danger: #bc2438;
+      }
+
+      * {
+        box-sizing: border-box;
       }
 
       body {
         margin: 0;
-        background: linear-gradient(160deg, #ecf7ff 0%, #f8fcff 35%, #e8f1fb 100%);
         min-height: 100vh;
+        color: var(--ink);
+        font-family: "IBM Plex Sans", "Avenir Next", sans-serif;
+        background: radial-gradient(circle at 5% 0%, #f7fdff 0%, #dcecf8 35%, #c6dbec 100%);
       }
 
       #app {
-        max-width: 960px;
-        margin: 24px auto;
-        padding: 16px;
-        background: rgba(255, 255, 255, 0.88);
-        border: 1px solid #d9e5f2;
-        border-radius: 14px;
+        max-width: 1200px;
+        margin: 26px auto;
+        padding: 0 18px;
       }
 
-      input,
-      textarea,
-      button {
-        margin: 6px;
-        padding: 8px;
+      .app-shell {
+        border: 1px solid var(--line);
+        border-radius: 18px;
+        background: var(--card);
+        box-shadow: 0 12px 35px #1f3f5a22;
+        overflow: hidden;
       }
 
-      button {
-        border-radius: 8px;
-        border: 1px solid #1f4e79;
-        background: #1f4e79;
+      .topbar {
+        display: flex;
+        gap: 16px;
+        align-items: center;
+        padding: 12px 18px;
+        border-bottom: 1px solid var(--line);
+        font-size: 13px;
+        color: var(--muted);
+        background: #f8fcff;
+      }
+
+      .screen {
+        padding: 24px;
+      }
+
+      .landing-screen {
+        display: grid;
+        grid-template-columns: 1.3fr 1fr;
+        gap: 20px;
+      }
+
+      .hero {
+        padding: 20px;
+        border-radius: 16px;
+        background: linear-gradient(135deg, #0f6ea8 0%, #155b87 45%, #0c4668 100%);
         color: #fff;
+      }
+
+      .hero h1 {
+        margin: 8px 0;
+        font-family: "Bebas Neue", sans-serif;
+        letter-spacing: 1px;
+        font-size: 64px;
+      }
+
+      .eyebrow {
+        letter-spacing: 1.2px;
+        text-transform: uppercase;
+        font-size: 12px;
+        margin: 0;
+      }
+
+      .panel {
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        background: #fff;
+        padding: 16px;
+      }
+
+      .join-panel {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+
+      .hint {
+        margin: 2px 0 0;
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      .screen-header h2 {
+        margin: 0;
+        font-family: "Bebas Neue", sans-serif;
+        font-size: 46px;
+        letter-spacing: 0.8px;
+      }
+
+      .screen-header p {
+        margin: 6px 0 0;
+        color: var(--muted);
+      }
+
+      .setup-layout {
+        margin-top: 14px;
+        display: grid;
+        grid-template-columns: 360px 1fr;
+        gap: 12px;
+      }
+
+      .fleet-panel h3,
+      .setup-editor h3,
+      .log-panel h3 {
+        margin-top: 0;
+      }
+
+      .fleet-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px;
+        border-bottom: 1px solid #edf3f8;
+      }
+
+      .fleet-row img {
+        width: 72px;
+        height: 24px;
+        object-fit: contain;
+      }
+
+      .fleet-actions,
+      .row-actions {
+        margin-top: 12px;
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+
+      .status {
+        margin-top: 10px;
+        color: var(--muted);
+      }
+
+      .gameplay-screen {
+        display: grid;
+        grid-template-columns: 1.5fr 1fr;
+        gap: 12px;
+      }
+
+      .board-panel {
+        background: linear-gradient(180deg, #f8fdff 0%, #eef7ff 100%);
+      }
+
+      .board-root {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+
+      .board-meta {
+        font-size: 13px;
+        color: var(--muted);
       }
 
       .board-columns {
         display: grid;
         grid-template-columns: 1fr 1fr;
-        gap: 12px;
+        gap: 14px;
       }
 
       .board-grid {
         display: grid;
-        grid-template-columns: repeat(10, 20px);
-        grid-template-rows: repeat(10, 20px);
+        grid-template-columns: repeat(10, 1fr);
         gap: 2px;
+        width: 100%;
+        max-width: 360px;
       }
 
       .cell {
-        width: 20px;
-        height: 20px;
+        width: 100%;
+        aspect-ratio: 1 / 1;
+        border: 1px solid #8aabc4;
         border-radius: 3px;
-        border: 1px solid #9eb6cc;
+        background: #a9d9f6;
       }
 
       .cell.water {
-        background: #bde6ff;
+        background-image: var(--water-url);
+        background-size: cover;
+        background-position: center;
       }
 
       .cell.ship {
-        background: #5e7489;
+        background: #496278;
       }
 
-      .cell.taken-hit {
-        background: #d62828;
-      }
-
+      .cell.taken-hit,
       .cell.attack-hit {
-        background: #b3001b;
+        background: var(--danger);
       }
 
       .cell.attack-miss {
-        background: #6b7f93;
+        background: #6c8293;
+      }
+
+      .opponent-cell {
+        cursor: crosshair;
+      }
+
+      .opponent-cell:hover {
+        outline: 2px solid #ffd166;
+      }
+
+      input,
+      textarea,
+      button {
+        width: 100%;
+        font: inherit;
+      }
+
+      input,
+      textarea {
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 10px;
+      }
+
+      button {
+        width: auto;
+        border: 0;
+        border-radius: 10px;
+        padding: 10px 14px;
+        background: var(--accent);
+        color: #fff;
+        font-weight: 700;
+      }
+
+      button:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+
+      pre {
+        margin: 0;
+        white-space: pre-wrap;
+        font-family: "IBM Plex Sans", monospace;
+      }
+
+      @media (max-width: 960px) {
+        .landing-screen,
+        .setup-layout,
+        .gameplay-screen,
+        .board-columns {
+          grid-template-columns: 1fr;
+        }
+
+        .hero h1 {
+          font-size: 44px;
+        }
       }
     </style>
   </head>
