@@ -9,12 +9,17 @@ import { BattleshipModule } from "@board-game-sim/battleship";
 import { RealtimeGateway, SessionService } from "@board-game-sim/server";
 import definition from "../../packages/games/battleship/definition.json";
 
+const miniDefinition = {
+  ...definition,
+  ships: [{ id: "destroyer", size: 2 }]
+};
+
 function build() {
   const registry = new InMemoryGameRegistry();
   registry.register({
     gameId: "battleship",
     version: "0.1.0",
-    definition,
+    definition: miniDefinition,
     module: new BattleshipModule()
   });
 

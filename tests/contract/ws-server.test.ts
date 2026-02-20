@@ -11,6 +11,11 @@ import { BattleshipModule } from "@board-game-sim/battleship";
 import { RealtimeGateway, SessionService, createWsRealtimeServer, type ServerEvent } from "@board-game-sim/server";
 import definition from "../../packages/games/battleship/definition.json";
 
+const miniDefinition = {
+  ...definition,
+  ships: [{ id: "destroyer", size: 2 }]
+};
+
 function waitForOpen(ws: WebSocket): Promise<void> {
   return new Promise((resolve, reject) => {
     const timeout = setTimeout(() => reject(new Error("open_timeout")), 2000);
@@ -55,7 +60,7 @@ describe("ws server adapter", () => {
     registry.register({
       gameId: "battleship",
       version: "0.1.0",
-      definition,
+      definition: miniDefinition,
       module: new BattleshipModule()
     });
 
