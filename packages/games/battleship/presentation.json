@@ -18,12 +18,20 @@
     }
   },
   "assets": [
-    { "id": "tile-water", "kind": "image", "path": "assets/tiles/water.png" },
-    { "id": "tile-hit", "kind": "image", "path": "assets/tiles/hit.png" },
-    { "id": "tile-miss", "kind": "image", "path": "assets/tiles/miss.png" },
-    { "id": "ship-destroyer", "kind": "image", "path": "assets/ships/destroyer.png" }
+    { "id": "tile-water", "kind": "image", "path": "assets/tiles/water.svg" },
+    { "id": "tile-hit", "kind": "image", "path": "assets/tiles/hit.svg" },
+    { "id": "tile-miss", "kind": "image", "path": "assets/tiles/miss.svg" },
+    { "id": "ship-carrier", "kind": "image", "path": "assets/ships/carrier.svg" },
+    { "id": "ship-battleship", "kind": "image", "path": "assets/ships/battleship.svg" },
+    { "id": "ship-cruiser", "kind": "image", "path": "assets/ships/cruiser.svg" },
+    { "id": "ship-submarine", "kind": "image", "path": "assets/ships/submarine.svg" },
+    { "id": "ship-destroyer", "kind": "image", "path": "assets/ships/destroyer.svg" }
   ],
   "pieceSprites": {
+    "carrier": "ship-carrier",
+    "battleship": "ship-battleship",
+    "cruiser": "ship-cruiser",
+    "submarine": "ship-submarine",
     "destroyer": "ship-destroyer"
   },
   "effects": {

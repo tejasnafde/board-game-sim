@@ -34,8 +34,8 @@ describe("web client runtime", () => {
       transport
     });
 
-    expect(runtime.assetManager.resolveAssetUrl("tile-water")).toContain("/games/battleship/assets/tiles/water.png");
-    expect(runtime.renderer.render({ phase: "setup" })).toContain("phase=setup");
+    expect(runtime.assetManager.resolveAssetUrl("tile-water")).toContain("/games/battleship/assets/tiles/water.svg");
+    expect(runtime.renderer.render({ phase: "setup" })).toContain("board-root");
 
     runtime.controller.join("s1", "p1");
     expect(transport.sent[0]?.type).toBe("session.join");

@@ -86,7 +86,7 @@ export function mountPlayableClient(root: HTMLElement, options: {
       stateView.textContent = JSON.stringify(state, null, 2);
     }
     if (renderView) {
-      renderView.textContent = runtime.renderer.render(state.view ?? {});
+      renderView.innerHTML = runtime.renderer.render(state.view ?? {});
     }
     if (statusView) {
       const pieces = [
