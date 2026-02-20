@@ -2,6 +2,7 @@ import {
   deterministicHash,
   type ApplyActionInput,
   type ApplyResult,
+  type DomainEvent,
   type GameModule,
   type InitGameInput,
   type InitResult,
@@ -205,7 +206,7 @@ export class BattleshipModule implements GameModule<BattleshipState> {
         .flatMap((ship) => ship.cells)
         .filter((cell) => !opponent.hitsTaken.some((hit) => coordKey(hit) === coordKey(cell)));
 
-      const events = [{ eventType: "shot.resolved", payload: { at: target, hit: isHit } }];
+      const events: DomainEvent[] = [{ eventType: "shot.resolved", payload: { at: target, hit: isHit } }];
       if (remainingCells.length === 0) {
         state.phase = "terminal";
         state.winnerPlayerId = actor.playerId;

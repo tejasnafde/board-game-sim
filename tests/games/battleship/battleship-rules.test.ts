@@ -177,9 +177,19 @@ describe("battleship rules", () => {
       seed: "seed-1"
     }).nextState;
 
-    const duplicate = module.applyAction({
+    state = module.applyAction({
       sessionId: "s1",
       seq: 4,
+      actorPlayerId: "p2",
+      actionType: "fire",
+      payload: { row: 0, col: 0 },
+      state,
+      seed: "seed-1"
+    }).nextState;
+
+    const duplicate = module.applyAction({
+      sessionId: "s1",
+      seq: 5,
       actorPlayerId: "p1",
       actionType: "fire",
       payload: { row: 1, col: 0 },
