@@ -2,6 +2,7 @@ import type {
   EngineActionEnvelope,
   GameEvent,
   GameModule,
+  JsonValue,
   SessionMetadata,
   SessionSnapshot
 } from "@board-game-sim/shared";
@@ -23,6 +24,11 @@ export type RuntimeResult<State> = {
   state: State;
   integrityHash: string;
   events: GameEvent[];
+};
+
+type AcceptedActionPayload = {
+  actionType: string;
+  payload: JsonValue;
 };
 
 export class SessionRuntime<State> {
@@ -91,6 +97,55 @@ export class SessionRuntime<State> {
       throw new Error(`session_not_found:${sessionId}`);
     }
     return this.gameModule.getPlayerView({ state: session.state, playerId }).visibleState;
+  }
+
+  hydrateSession(meta: SessionMetadata, snapshot: SessionSnapshot): void {
+    if (this.sessions.has(meta.sessionId)) {
+      throw new Error(`session_already_exists:${meta.sessionId}`);
+    }
+    const state = snapshot.stateBlob as State;
+    this.sessions.set(meta.sessionId, {
+      meta,
+      seq: snapshot.seq,
+      state,
+      integrityHash: snapshot.integrityHash,
+      terminal: this.gameModule.isTerminal(state) !== null
+    });
+  }
+
+  replayAcceptedAction(
+    sessionId: string,
+    action: { seq: number; actorPlayerId: string; actionType: string; payload: JsonValue }
+  ): void {
+    const session = this.sessions.get(sessionId);
+    if (!session) {
+      throw new Error(`session_not_found:${sessionId}`);
+    }
+    if (action.seq !== session.seq + 1) {
+      throw new Error(`invalid_replay_sequence:${action.seq}`);
+    }
+    if (session.terminal) {
+      throw new Error("invalid_replay_terminal");
+    }
+
+    const applied = this.gameModule.applyAction({
+      sessionId,
+      seq: action.seq,
+      actorPlayerId: action.actorPlayerId,
+      actionType: action.actionType,
+      payload: action.payload,
+      state: session.state,
+      seed: session.meta.seed
+    });
+
+    if (!applied.accepted) {
+      throw new Error(`invalid_replay_action:${applied.reason ?? "unknown"}`);
+    }
+
+    session.seq = action.seq;
+    session.state = applied.nextState;
+    session.integrityHash = applied.integrityHash || deterministicHash(applied.nextState);
+    session.terminal = this.gameModule.isTerminal(session.state) !== null;
   }
 
   async submitAction(envelope: EngineActionEnvelope): Promise<RuntimeResult<State>> {
@@ -175,6 +230,19 @@ export class SessionRuntime<State> {
     }
 
     const persistedEvents: GameEvent[] = [];
+    const actionPayload: AcceptedActionPayload = {
+      actionType: envelope.actionType,
+      payload: envelope.payload
+    };
+    await this.eventRepo.append({
+      sessionId: envelope.sessionId,
+      seq: nextSeq,
+      actorPlayerId: envelope.actorPlayerId,
+      eventType: "action.accepted",
+      payload: actionPayload,
+      createdAt: new Date().toISOString()
+    });
+
     for (const emitted of applied.emittedEvents) {
       const event: GameEvent = {
         sessionId: envelope.sessionId,
