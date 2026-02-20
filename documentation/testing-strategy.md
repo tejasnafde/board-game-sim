@@ -25,3 +25,7 @@
 
 1. Correct player-scoped sync after reconnect.
 2. Snapshot + replay equals in-memory state hash.
+
+## Environment Notes
+
+- `tests/contract/ws-server.test.ts` is gated by `ALLOW_SOCKET_TESTS=1` because some sandboxed environments disallow opening listening sockets.
