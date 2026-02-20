@@ -158,8 +158,14 @@
 
       .gameplay-screen {
         display: grid;
-        grid-template-columns: 1.4fr 1fr 1fr;
+        grid-template-columns: 1.6fr 1fr;
         gap: 12px;
+      }
+
+      .side-stack {
+        display: grid;
+        gap: 12px;
+        align-content: start;
       }
 
       .board-panel {
@@ -259,6 +265,12 @@
         margin: 0;
         white-space: pre-wrap;
         font-family: "IBM Plex Sans", monospace;
+      }
+
+      .debug-panel pre,
+      .log-panel pre {
+        max-height: 220px;
+        overflow: auto;
       }
 
       @media (max-width: 960px) {
