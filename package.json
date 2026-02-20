@@ -1,0 +1,19 @@
+{
+  "name": "board-game-sim",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Browser-first board game simulator monorepo",
+  "workspaces": [
+    "packages/*",
+    "packages/games/*"
+  ],
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.3"
+  }
+}

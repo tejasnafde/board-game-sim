@@ -1,0 +1,20 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@board-game-sim/shared": ["packages/shared/src/index.ts"],
+      "@board-game-sim/shared/*": ["packages/shared/src/*"],
+      "@board-game-sim/engine": ["packages/engine/src/index.ts"],
+      "@board-game-sim/engine/*": ["packages/engine/src/*"],
+      "@board-game-sim/server": ["packages/server/src/index.ts"],
+      "@board-game-sim/server/*": ["packages/server/src/*"],
+      "@board-game-sim/battleship": ["packages/games/battleship/src/index.ts"],
+      "@board-game-sim/battleship/*": ["packages/games/battleship/src/*"]
+    }
+  },
+  "include": [
+    "packages/**/*.ts",
+    "tests/**/*.ts"
+  ]
+}
