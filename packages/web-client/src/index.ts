@@ -1,4 +1,7 @@
 export type ClientConnectionState = "disconnected" | "connecting" | "connected";
+export * from "./asset-manager";
+export * from "./presentation";
+export * from "./renderer-registry";
 
 export class RealtimeClient {
   private state: ClientConnectionState = "disconnected";

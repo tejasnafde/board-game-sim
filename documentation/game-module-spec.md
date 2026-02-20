@@ -19,3 +19,9 @@ Each game module must implement:
 
 - Sessions are pinned to `gameId@version`.
 - Breaking changes require a new game module version.
+
+## Presentation Contract (Client)
+
+- Each game should provide `presentation.json` alongside `definition.json`.
+- `presentation.json` contains board render metadata, asset list, sprite/effect mappings, and theme tokens.
+- `pieceSprites` and `effects` entries must reference valid asset IDs from `assets`.
