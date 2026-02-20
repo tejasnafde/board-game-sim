@@ -30,13 +30,16 @@ export class RealtimeClient {
   private lastJoinEvent: Extract<ClientEvent, { type: "session.join" }> | null = null;
   private readonly serverListeners = new Set<(event: ServerEvent) => void>();
   private readonly clientListeners = new Set<(event: ClientEvent) => void>();
+  private readonly logListeners = new Set<(entry: string) => void>();
 
   constructor(private readonly socketFactory: SocketFactory) {}
 
   connect(): void {
     this.socket = this.socketFactory();
+    this.emitLog("connect");
     this.socket.onmessage = (event) => {
       const parsed = JSON.parse(event.data) as ServerEvent;
+      this.emitLog(`recv ${parsed.type}`);
       for (const listener of this.serverListeners) {
         listener(parsed);
       }
@@ -49,6 +52,7 @@ export class RealtimeClient {
   }
 
   disconnect(): void {
+    this.emitLog("disconnect");
     this.socket?.close();
     this.socket = null;
   }
@@ -65,6 +69,7 @@ export class RealtimeClient {
     if (event.type === "session.join") {
       this.lastJoinEvent = event;
     }
+    this.emitLog(`send ${event.type}`);
     this.socket.send(JSON.stringify(event));
     for (const listener of this.clientListeners) {
       listener(event);
@@ -79,5 +84,16 @@ export class RealtimeClient {
   onClientEvent(listener: (event: ClientEvent) => void): () => void {
     this.clientListeners.add(listener);
     return () => this.clientListeners.delete(listener);
+  }
+
+  onLog(listener: (entry: string) => void): () => void {
+    this.logListeners.add(listener);
+    return () => this.logListeners.delete(listener);
+  }
+
+  private emitLog(entry: string): void {
+    for (const listener of this.logListeners) {
+      listener(entry);
+    }
   }
 }

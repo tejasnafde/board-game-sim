@@ -33,6 +33,7 @@ describe("realtime client", () => {
     const socket = new FakeSocket();
     const received: ServerEvent[] = [];
     const sent: ClientEvent[] = [];
+    const logs: string[] = [];
 
     const client = new RealtimeClient(() => socket);
     client.onServerEvent((event) => {
@@ -40,6 +41,9 @@ describe("realtime client", () => {
     });
     client.onClientEvent((event) => {
       sent.push(event);
+    });
+    client.onLog((entry) => {
+      logs.push(entry);
     });
 
     client.connect();
@@ -51,6 +55,9 @@ describe("realtime client", () => {
 
     socket.emitMessage({ type: "session.action_rejected", sessionId: "s1", reason: "x" });
     expect(received[0]?.type).toBe("session.action_rejected");
+    expect(logs.some((line) => line.includes("connect"))).toBe(true);
+    expect(logs.some((line) => line.includes("send session.join"))).toBe(true);
+    expect(logs.some((line) => line.includes("recv session.action_rejected"))).toBe(true);
   });
 
   test("reconnect re-sends last join event", () => {

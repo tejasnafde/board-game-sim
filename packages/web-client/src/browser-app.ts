@@ -64,6 +64,17 @@ export function mountPlayableClient(root: HTMLElement, options: {
   let playerId = "player-1";
   let placementsText = JSON.stringify(createDefaultPlacementsFromDefinition(battleshipDefinition), null, 2);
   let localError: string | null = null;
+  const logs: string[] = [];
+
+  const pushLog = (entry: string): void => {
+    logs.unshift(`${new Date().toLocaleTimeString()} ${entry}`);
+    if (logs.length > 50) {
+      logs.pop();
+    }
+    console.info(`[web-client] ${entry}`);
+  };
+
+  realtimeClient.onLog((entry) => pushLog(entry));
 
   const render = (): void => {
     const state = runtime.controller.getState();
@@ -141,6 +152,10 @@ export function mountPlayableClient(root: HTMLElement, options: {
           <h3>Session State</h3>
           <pre id="state-view">${JSON.stringify(state, null, 2)}</pre>
         </div>
+        <div class="panel debug-panel">
+          <h3>Debug Log</h3>
+          <pre id="debug-view">${logs.join("\n") || "no_logs_yet"}</pre>
+        </div>
       </section>
     `;
 
@@ -213,11 +228,13 @@ export function mountPlayableClient(root: HTMLElement, options: {
         return;
       }
       if (!canFire) {
+        pushLog(`click_ignored not_your_turn_or_not_play phase=${phase} current=${view.currentPlayerId ?? "-"}`);
         return;
       }
       const row = Number(target.dataset.r ?? "-1");
       const col = Number(target.dataset.c ?? "-1");
       if (row >= 0 && col >= 0) {
+        pushLog(`click_fire row=${row} col=${col}`);
         runtime.controller.submitFire({ row, col });
         render();
       }
