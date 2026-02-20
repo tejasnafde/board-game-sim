@@ -18,3 +18,21 @@ Browser-first, authoritative, turn-based board game platform.
 - Intent-based client actions
 - Event log + snapshots for replay and recovery
 - Per-player redacted views for hidden information
+
+## Local Run (End-to-End)
+
+1. Install dependencies:
+`npm install`
+
+2. Start backend:
+`npm run dev:server`
+
+3. Start web client (new terminal):
+`npm run dev:web`
+
+4. Open:
+`http://127.0.0.1:5173`
+
+Optional:
+- Run both together: `npm run dev`
+- Override websocket URL for frontend: `VITE_WS_URL=ws://127.0.0.1:8080/realtime npm run dev:web`
