@@ -1,5 +1,11 @@
 import type { EngineActionEnvelope, SessionMetadata } from "@board-game-sim/shared";
-import { SessionRuntime, type GameRegistry, type EventRepository, type SnapshotRepository } from "@board-game-sim/engine";
+import {
+  SessionRuntime,
+  type GameRegistry,
+  type EventRepository,
+  type SessionRepository,
+  type SnapshotRepository
+} from "@board-game-sim/engine";
 
 type SessionRuntimeEntry = {
   runtime: SessionRuntime<unknown>;
@@ -12,6 +18,7 @@ export class SessionService {
   constructor(
     private readonly registry: GameRegistry,
     private readonly eventRepo: EventRepository,
+    private readonly sessionRepo: SessionRepository,
     private readonly snapshotRepo: SnapshotRepository,
     private readonly snapshotEvery = 10
   ) {}
@@ -33,6 +40,58 @@ export class SessionService {
       this.snapshotEvery
     );
     await runtime.initSession(meta, resolved.definition);
+    await this.sessionRepo.put(meta);
+    this.sessions.set(meta.sessionId, { runtime: runtime as SessionRuntime<unknown>, meta });
+  }
+
+  async recoverSession(sessionId: string): Promise<void> {
+    if (this.sessions.has(sessionId)) {
+      return;
+    }
+
+    const meta = await this.sessionRepo.get(sessionId);
+    if (!meta) {
+      throw new Error(`session_not_found:${sessionId}`);
+    }
+
+    const resolved = this.registry.resolve(meta.gameId, meta.gameVersion);
+    if (!resolved) {
+      throw new Error(`game_not_registered:${meta.gameId}@${meta.gameVersion}`);
+    }
+
+    const runtime = new SessionRuntime(
+      resolved.module,
+      this.eventRepo,
+      this.snapshotRepo,
+      this.snapshotEvery
+    );
+    const latestSnapshot = await this.snapshotRepo.getLatest(sessionId);
+
+    if (!latestSnapshot) {
+      await runtime.initSession(meta, resolved.definition);
+      this.sessions.set(meta.sessionId, { runtime: runtime as SessionRuntime<unknown>, meta });
+      return;
+    }
+
+    runtime.hydrateSession(meta, latestSnapshot);
+
+    const tailAcceptedActions = (await this.eventRepo.list(sessionId))
+      .filter((event) => event.seq > latestSnapshot.seq && event.eventType === "action.accepted")
+      .sort((a, b) => a.seq - b.seq);
+
+    for (const actionEvent of tailAcceptedActions) {
+      const payload = actionEvent.payload as {
+        actionType: string;
+        payload: unknown;
+      };
+      runtime.replayAcceptedAction(sessionId, {
+        seq: actionEvent.seq,
+        actorPlayerId: actionEvent.actorPlayerId,
+        actionType: payload.actionType,
+        payload: payload.payload as never
+      });
+    }
+
     this.sessions.set(meta.sessionId, { runtime: runtime as SessionRuntime<unknown>, meta });
   }
 

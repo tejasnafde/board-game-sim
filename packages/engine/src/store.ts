@@ -1,4 +1,5 @@
 import type { GameEvent, SessionSnapshot } from "@board-game-sim/shared/types/persistence";
+import type { SessionMetadata } from "@board-game-sim/shared/types/engine";
 
 export interface EventRepository {
   append(event: GameEvent): Promise<void>;
@@ -8,6 +9,11 @@ export interface EventRepository {
 export interface SnapshotRepository {
   put(snapshot: SessionSnapshot): Promise<void>;
   getLatest(sessionId: string): Promise<SessionSnapshot | null>;
+}
+
+export interface SessionRepository {
+  put(meta: SessionMetadata): Promise<void>;
+  get(sessionId: string): Promise<SessionMetadata | null>;
 }
 
 export class InMemoryEventRepository implements EventRepository {
@@ -33,5 +39,17 @@ export class InMemorySnapshotRepository implements SnapshotRepository {
 
   async getLatest(sessionId: string): Promise<SessionSnapshot | null> {
     return this.snapshots.get(sessionId) ?? null;
+  }
+}
+
+export class InMemorySessionRepository implements SessionRepository {
+  private readonly sessions = new Map<string, SessionMetadata>();
+
+  async put(meta: SessionMetadata): Promise<void> {
+    this.sessions.set(meta.sessionId, meta);
+  }
+
+  async get(sessionId: string): Promise<SessionMetadata | null> {
+    return this.sessions.get(sessionId) ?? null;
   }
 }

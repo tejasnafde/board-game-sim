@@ -1,5 +1,10 @@
 import { describe, expect, test } from "vitest";
-import { InMemoryEventRepository, InMemoryGameRegistry, InMemorySnapshotRepository } from "@board-game-sim/engine";
+import {
+  InMemoryEventRepository,
+  InMemoryGameRegistry,
+  InMemorySessionRepository,
+  InMemorySnapshotRepository
+} from "@board-game-sim/engine";
 import { BattleshipModule } from "@board-game-sim/battleship";
 import { SessionService } from "@board-game-sim/server";
 import definition from "../../packages/games/battleship/definition.json";
@@ -16,6 +21,7 @@ function makeService() {
   return new SessionService(
     registry,
     new InMemoryEventRepository(),
+    new InMemorySessionRepository(),
     new InMemorySnapshotRepository()
   );
 }
@@ -51,6 +57,7 @@ describe("session service", () => {
     const service = new SessionService(
       new InMemoryGameRegistry(),
       new InMemoryEventRepository(),
+      new InMemorySessionRepository(),
       new InMemorySnapshotRepository()
     );
 
@@ -79,5 +86,75 @@ describe("session service", () => {
 
     expect(result.accepted).toBe(false);
     expect(result.reason).toBe("session_not_found");
+  });
+
+  test("recovers session from snapshot and action tail", async () => {
+    const registry = new InMemoryGameRegistry();
+    registry.register({
+      gameId: "battleship",
+      version: "0.1.0",
+      definition,
+      module: new BattleshipModule()
+    });
+    const eventRepo = new InMemoryEventRepository();
+    const sessionRepo = new InMemorySessionRepository();
+    const snapshotRepo = new InMemorySnapshotRepository();
+
+    const serviceA = new SessionService(registry, eventRepo, sessionRepo, snapshotRepo, 2);
+    const meta = {
+      sessionId: "ss-recover",
+      gameId: "battleship",
+      gameVersion: "0.1.0",
+      seed: "seed-1",
+      players: ["p1", "p2"]
+    };
+    await serviceA.createSession(meta);
+
+    await serviceA.submitAction({
+      sessionId: meta.sessionId,
+      expectedSeq: 0,
+      actorPlayerId: "p1",
+      actionType: "place_ships",
+      payload: {
+        placements: [{ shipId: "destroyer", cells: [{ row: 0, col: 0 }, { row: 0, col: 1 }] }]
+      },
+      clientActionId: "r1"
+    });
+    await serviceA.submitAction({
+      sessionId: meta.sessionId,
+      expectedSeq: 1,
+      actorPlayerId: "p2",
+      actionType: "place_ships",
+      payload: {
+        placements: [{ shipId: "destroyer", cells: [{ row: 1, col: 0 }, { row: 1, col: 1 }] }]
+      },
+      clientActionId: "r2"
+    });
+    await serviceA.submitAction({
+      sessionId: meta.sessionId,
+      expectedSeq: 2,
+      actorPlayerId: "p1",
+      actionType: "fire",
+      payload: { row: 1, col: 0 },
+      clientActionId: "r3"
+    });
+
+    const serviceB = new SessionService(registry, eventRepo, sessionRepo, snapshotRepo, 2);
+    await serviceB.recoverSession(meta.sessionId);
+
+    const recoveredView = serviceB.getPlayerView(meta.sessionId, "p1") as { phase: string };
+    expect(recoveredView.phase).toBe("play");
+
+    const recoveredAction = await serviceB.submitAction({
+      sessionId: meta.sessionId,
+      expectedSeq: 3,
+      actorPlayerId: "p2",
+      actionType: "fire",
+      payload: { row: 0, col: 0 },
+      clientActionId: "r4"
+    });
+
+    expect(recoveredAction.accepted).toBe(true);
+    expect(recoveredAction.seq).toBe(4);
   });
 });
