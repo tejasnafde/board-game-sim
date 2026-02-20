@@ -1,4 +1,5 @@
 export * from "./asset-manager";
+export * from "./battleship-template";
 export * from "./browser-app";
 export * from "./client-controller";
 export * from "./grid-renderer";
