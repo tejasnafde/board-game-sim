@@ -70,7 +70,11 @@ export class RealtimeClient {
       this.lastJoinEvent = event;
     }
     this.emitLog(`send ${event.type}`);
-    this.socket.send(JSON.stringify(event));
+    if (this.socket.readyState === 1) {
+      this.socket.send(JSON.stringify(event));
+    } else {
+      this.emitLog(`send_deferred readyState=${this.socket.readyState}`);
+    }
     for (const listener of this.clientListeners) {
       listener(event);
     }
