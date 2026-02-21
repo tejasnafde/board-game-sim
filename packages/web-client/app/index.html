@@ -137,6 +137,28 @@
         border-bottom: 1px solid #edf3f8;
       }
 
+      .fleet-button {
+        width: 100%;
+        border: 1px solid #edf3f8;
+        border-radius: 10px;
+        background: #fff;
+        color: var(--ink);
+        font-weight: 500;
+        justify-content: flex-start;
+        display: flex;
+      }
+
+      .fleet-button.active {
+        border-color: var(--accent);
+        background: var(--accent-soft);
+      }
+
+      .fleet-button strong {
+        margin-left: auto;
+        color: var(--muted);
+        font-size: 12px;
+      }
+
       .fleet-row img {
         width: 72px;
         height: 24px;
@@ -154,6 +176,77 @@
       .status {
         margin-top: 10px;
         color: var(--muted);
+      }
+
+      .placement-board {
+        margin-top: 10px;
+        position: relative;
+        width: min(100%, 460px);
+        aspect-ratio: 1 / 1;
+      }
+
+      .placement-grid {
+        position: absolute;
+        inset: 0;
+        display: grid;
+        grid-template-columns: repeat(10, 1fr);
+        gap: 4px;
+      }
+
+      .placement-ships-layer {
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+      }
+
+      .placement-cell {
+        width: 100%;
+        aspect-ratio: 1 / 1;
+        padding: 0;
+        border-radius: 6px;
+        border: 1px solid #8aabc4;
+        background: #ffffff;
+        color: #325067;
+        font-size: 11px;
+      }
+
+      .placement-cell.selected-anchor {
+        outline: 2px solid #ffd166;
+      }
+
+      .placement-cell.occupied {
+        box-shadow: inset 0 0 0 1px #2b5878;
+      }
+
+      .placement-cell.selected-cell {
+        background: #fff4c7;
+      }
+
+      .placement-ship {
+        position: absolute;
+        left: calc((100% / 10) * var(--ship-col));
+        top: calc((100% / 10) * var(--ship-row));
+        width: calc((100% / 10) * var(--ship-width));
+        height: calc((100% / 10) * var(--ship-height));
+        background-image: var(--ship-url);
+        background-size: 100% 100%;
+        background-repeat: no-repeat;
+        background-position: center;
+        filter: drop-shadow(0 2px 3px #22394a66);
+        overflow: visible;
+      }
+
+      .placement-ship img {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+        transform: rotate(var(--ship-rotation));
+        transform-origin: center center;
+        display: block;
+      }
+
+      .placement-ship.selected {
+        filter: drop-shadow(0 0 0 #0000) drop-shadow(0 0 8px #ffd166);
       }
 
       .gameplay-screen {
