@@ -78,4 +78,25 @@ describe("client controller", () => {
 
     expect(transport.sent[1]).toEqual({ type: "session.join", sessionId: "s2", playerId: "p2" });
   });
+
+  test("generic submitAction forwards custom payload", () => {
+    const transport = new FakeTransport();
+    const controller = createClientController(transport);
+
+    controller.join("s3", "p3");
+    transport.emit({
+      type: "session.state_sync",
+      sessionId: "s3",
+      seq: 0,
+      view: { phase: "play", currentPlayerId: "p3" }
+    });
+
+    controller.submitAction("insert_tile", { edge: "top", index: 1 });
+    const action = transport.sent[1];
+    expect(action?.type).toBe("action.submit");
+    if (action?.type === "action.submit") {
+      expect(action.envelope.actionType).toBe("insert_tile");
+      expect(action.envelope.payload).toEqual({ edge: "top", index: 1 });
+    }
+  });
 });

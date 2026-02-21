@@ -1,0 +1,616 @@
+import {
+  deterministicHash,
+  type ApplyActionInput,
+  type ApplyResult,
+  type DomainEvent,
+  type GameModule,
+  type InitGameInput,
+  type InitResult,
+  type LegalAction,
+  type PlayerView,
+  type PlayerViewInput,
+  type TerminalResult
+} from "@board-game-sim/shared";
+import type {
+  Coord,
+  Direction,
+  Edge,
+  InsertTilePayload,
+  Insertion,
+  LabyrinthConfig,
+  LabyrinthPlayerState,
+  LabyrinthState,
+  MovePawnPayload,
+  Tile,
+  TileShape
+} from "./types";
+
+type LabyrinthDefinition = {
+  board?: {
+    rows?: number;
+    cols?: number;
+    insertionIndexes?: number[];
+  };
+  objectiveCatalog?: string[];
+  objectivesPerPlayer?: number;
+  playerCount?: {
+    min?: number;
+    max?: number;
+  };
+};
+
+const DIRS: Direction[] = ["N", "E", "S", "W"];
+const OPPOSITE: Record<Direction, Direction> = { N: "S", S: "N", E: "W", W: "E" };
+
+function cloneState(state: LabyrinthState): LabyrinthState {
+  return JSON.parse(JSON.stringify(state)) as LabyrinthState;
+}
+
+function inBounds(c: Coord, config: LabyrinthConfig): boolean {
+  return c.row >= 0 && c.row < config.rows && c.col >= 0 && c.col < config.cols;
+}
+
+function coordKey(c: Coord): string {
+  return `${c.row}:${c.col}`;
+}
+
+function sameCoord(a: Coord, b: Coord): boolean {
+  return a.row === b.row && a.col === b.col;
+}
+
+function nextCoord(c: Coord, dir: Direction): Coord {
+  if (dir === "N") return { row: c.row - 1, col: c.col };
+  if (dir === "S") return { row: c.row + 1, col: c.col };
+  if (dir === "E") return { row: c.row, col: c.col + 1 };
+  return { row: c.row, col: c.col - 1 };
+}
+
+function parseConfig(definition: LabyrinthDefinition): { config: LabyrinthConfig; objectiveCatalog: string[] } {
+  const rows = definition.board?.rows ?? 7;
+  const cols = definition.board?.cols ?? 7;
+  const insertionIndexes = definition.board?.insertionIndexes ?? [1, 3, 5];
+  const objectivesPerPlayer = definition.objectivesPerPlayer ?? 3;
+  const objectiveCatalog = definition.objectiveCatalog ?? [
+    "helmet",
+    "ring",
+    "keys",
+    "book",
+    "owl",
+    "bat",
+    "crown",
+    "coin",
+    "map",
+    "scroll",
+    "gem",
+    "chalice",
+    "lantern",
+    "sword",
+    "shield",
+    "compass"
+  ];
+
+  return {
+    config: {
+      rows,
+      cols,
+      insertionIndexes,
+      objectivesPerPlayer
+    },
+    objectiveCatalog
+  };
+}
+
+function hashSeed(seed: string): number {
+  let h = 2166136261 >>> 0;
+  for (let i = 0; i < seed.length; i += 1) {
+    h ^= seed.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return h >>> 0;
+}
+
+function createRng(seed: string): () => number {
+  let x = hashSeed(seed) || 1;
+  return () => {
+    x ^= x << 13;
+    x ^= x >>> 17;
+    x ^= x << 5;
+    return ((x >>> 0) % 1_000_000) / 1_000_000;
+  };
+}
+
+function randomInt(rng: () => number, maxExclusive: number): number {
+  return Math.floor(rng() * maxExclusive);
+}
+
+function rotateOpenings(base: Record<Direction, boolean>, rotationDeg: 0 | 90 | 180 | 270): Record<Direction, boolean> {
+  if (rotationDeg === 0) return { ...base };
+  if (rotationDeg === 90) {
+    return { N: base.W, E: base.N, S: base.E, W: base.S };
+  }
+  if (rotationDeg === 180) {
+    return { N: base.S, E: base.W, S: base.N, W: base.E };
+  }
+  return { N: base.E, E: base.S, S: base.W, W: base.N };
+}
+
+function baseOpenings(shape: TileShape): Record<Direction, boolean> {
+  if (shape === "straight") return { N: true, E: false, S: true, W: false };
+  if (shape === "corner") return { N: true, E: true, S: false, W: false };
+  return { N: true, E: true, S: false, W: true };
+}
+
+function createTile(id: string, shape: TileShape, rotationDeg: 0 | 90 | 180 | 270, objectiveId: string | null = null): Tile {
+  return {
+    id,
+    shape,
+    rotationDeg,
+    openings: rotateOpenings(baseOpenings(shape), rotationDeg),
+    objectiveId
+  };
+}
+
+function pickHome(index: number, config: LabyrinthConfig): Coord {
+  const corners: Coord[] = [
+    { row: 0, col: 0 },
+    { row: 0, col: config.cols - 1 },
+    { row: config.rows - 1, col: config.cols - 1 },
+    { row: config.rows - 1, col: 0 }
+  ];
+  return corners[index] ?? corners[0];
+}
+
+function getCurrentPlayer(state: LabyrinthState): LabyrinthPlayerState {
+  const player = state.players.find((p) => p.playerId === state.currentPlayerId);
+  if (!player) {
+    throw new Error("current_player_missing");
+  }
+  return player;
+}
+
+function nextPlayerId(state: LabyrinthState): string {
+  const index = state.players.findIndex((player) => player.playerId === state.currentPlayerId);
+  const next = (index + 1) % state.players.length;
+  return state.players[next]?.playerId ?? state.players[0]?.playerId ?? state.currentPlayerId;
+}
+
+function isValidInsertionSlot(state: LabyrinthState, payload: InsertTilePayload): boolean {
+  const onCorrectEdge =
+    (payload.edge === "top" || payload.edge === "bottom")
+      ? payload.index >= 0 && payload.index < state.config.cols
+      : payload.index >= 0 && payload.index < state.config.rows;
+
+  return onCorrectEdge && state.config.insertionIndexes.includes(payload.index);
+}
+
+function oppositeEdge(edge: Edge): Edge {
+  if (edge === "top") return "bottom";
+  if (edge === "bottom") return "top";
+  if (edge === "left") return "right";
+  return "left";
+}
+
+function isReverseInsertion(last: Insertion | null, next: InsertTilePayload): boolean {
+  if (!last) return false;
+  return oppositeEdge(last.edge) === next.edge && last.index === next.index;
+}
+
+function shiftPosition(position: Coord, insertion: Insertion, config: LabyrinthConfig): Coord {
+  if (insertion.edge === "top" && position.col === insertion.index) {
+    return { row: (position.row + 1) % config.rows, col: position.col };
+  }
+  if (insertion.edge === "bottom" && position.col === insertion.index) {
+    return { row: (position.row - 1 + config.rows) % config.rows, col: position.col };
+  }
+  if (insertion.edge === "left" && position.row === insertion.index) {
+    return { row: position.row, col: (position.col + 1) % config.cols };
+  }
+  if (insertion.edge === "right" && position.row === insertion.index) {
+    return { row: position.row, col: (position.col - 1 + config.cols) % config.cols };
+  }
+  return position;
+}
+
+function applyInsertionShift(state: LabyrinthState, insertion: Insertion): void {
+  const { board, config, spareTile } = state;
+
+  let ejected: Tile;
+  if (insertion.edge === "top") {
+    ejected = board[config.rows - 1][insertion.index] as Tile;
+    for (let row = config.rows - 1; row > 0; row -= 1) {
+      board[row][insertion.index] = board[row - 1][insertion.index] as Tile;
+    }
+    board[0][insertion.index] = spareTile;
+  } else if (insertion.edge === "bottom") {
+    ejected = board[0][insertion.index] as Tile;
+    for (let row = 0; row < config.rows - 1; row += 1) {
+      board[row][insertion.index] = board[row + 1][insertion.index] as Tile;
+    }
+    board[config.rows - 1][insertion.index] = spareTile;
+  } else if (insertion.edge === "left") {
+    ejected = board[insertion.index][config.cols - 1] as Tile;
+    for (let col = config.cols - 1; col > 0; col -= 1) {
+      board[insertion.index][col] = board[insertion.index][col - 1] as Tile;
+    }
+    board[insertion.index][0] = spareTile;
+  } else {
+    ejected = board[insertion.index][0] as Tile;
+    for (let col = 0; col < config.cols - 1; col += 1) {
+      board[insertion.index][col] = board[insertion.index][col + 1] as Tile;
+    }
+    board[insertion.index][config.cols - 1] = spareTile;
+  }
+
+  state.spareTile = ejected;
+
+  for (const player of state.players) {
+    player.position = shiftPosition(player.position, insertion, config);
+    player.home = shiftPosition(player.home, insertion, config);
+    player.remainingObjectives = player.remainingObjectives.map((objective) => ({
+      ...objective,
+      position: shiftPosition(objective.position, insertion, config)
+    }));
+  }
+}
+
+function neighbors(state: LabyrinthState, origin: Coord): Coord[] {
+  const tile = state.board[origin.row]?.[origin.col];
+  if (!tile) return [];
+
+  const result: Coord[] = [];
+  for (const dir of DIRS) {
+    if (!tile.openings[dir]) continue;
+    const dest = nextCoord(origin, dir);
+    if (!inBounds(dest, state.config)) continue;
+    const nextTile = state.board[dest.row]?.[dest.col];
+    if (!nextTile?.openings[OPPOSITE[dir]]) continue;
+    result.push(dest);
+  }
+  return result;
+}
+
+function findReachable(state: LabyrinthState, from: Coord): Set<string> {
+  const visited = new Set<string>();
+  const queue: Coord[] = [from];
+  visited.add(coordKey(from));
+
+  while (queue.length > 0) {
+    const current = queue.shift();
+    if (!current) break;
+    for (const n of neighbors(state, current)) {
+      const key = coordKey(n);
+      if (visited.has(key)) continue;
+      visited.add(key);
+      queue.push(n);
+    }
+  }
+
+  return visited;
+}
+
+function collectObjectiveIfPresent(player: LabyrinthPlayerState): string | null {
+  const currentObjective = player.remainingObjectives[0];
+  if (!currentObjective) return null;
+  if (!sameCoord(currentObjective.position, player.position)) {
+    return null;
+  }
+
+  player.collectedObjectiveIds.push(currentObjective.id);
+  player.remainingObjectives = player.remainingObjectives.slice(1);
+  return currentObjective.id;
+}
+
+function createInitialBoardAndPlayers(input: InitGameInput, config: LabyrinthConfig, objectiveCatalog: string[]): {
+  board: Tile[][];
+  spareTile: Tile;
+  players: LabyrinthPlayerState[];
+} {
+  const rng = createRng(`${input.seed}:${input.sessionId}`);
+  const shapes: TileShape[] = [];
+  for (let i = 0; i < 13; i += 1) shapes.push("straight");
+  for (let i = 0; i < 15; i += 1) shapes.push("corner");
+  for (let i = 0; i < 22; i += 1) shapes.push("tee");
+
+  for (let i = shapes.length - 1; i > 0; i -= 1) {
+    const j = randomInt(rng, i + 1);
+    const tmp = shapes[i];
+    shapes[i] = shapes[j] as TileShape;
+    shapes[j] = tmp as TileShape;
+  }
+
+  const rotationOptions: Array<0 | 90 | 180 | 270> = [0, 90, 180, 270];
+  const allTiles: Tile[] = shapes.map((shape, index) => {
+    const rotationDeg = rotationOptions[randomInt(rng, rotationOptions.length)] ?? 0;
+    return createTile(`tile-${index}`, shape, rotationDeg, null);
+  });
+
+  const board: Tile[][] = [];
+  let cursor = 0;
+  for (let row = 0; row < config.rows; row += 1) {
+    const line: Tile[] = [];
+    for (let col = 0; col < config.cols; col += 1) {
+      line.push(allTiles[cursor] as Tile);
+      cursor += 1;
+    }
+    board.push(line);
+  }
+  const spareTile = allTiles[cursor] as Tile;
+
+  const objectiveSlots: Coord[] = [];
+  for (let row = 0; row < config.rows; row += 1) {
+    for (let col = 0; col < config.cols; col += 1) {
+      objectiveSlots.push({ row, col });
+    }
+  }
+
+  const homes = input.players.map((_, idx) => pickHome(idx, config));
+  const homeKeys = new Set(homes.map(coordKey));
+  const availableSlots = objectiveSlots.filter((slot) => !homeKeys.has(coordKey(slot)));
+  for (let i = availableSlots.length - 1; i > 0; i -= 1) {
+    const j = randomInt(rng, i + 1);
+    const tmp = availableSlots[i] as Coord;
+    availableSlots[i] = availableSlots[j] as Coord;
+    availableSlots[j] = tmp;
+  }
+
+  const players: LabyrinthPlayerState[] = input.players.map((playerId, index) => {
+    const home = homes[index] as Coord;
+    const objectives = Array.from({ length: config.objectivesPerPlayer }).map((_, objIndex) => {
+      const objectiveId = objectiveCatalog[(index * config.objectivesPerPlayer + objIndex) % objectiveCatalog.length] as string;
+      const slot = availableSlots.shift() as Coord;
+      board[slot.row][slot.col].objectiveId = objectiveId;
+      return { id: objectiveId, position: slot };
+    });
+
+    return {
+      playerId,
+      home,
+      position: { ...home },
+      remainingObjectives: objectives,
+      collectedObjectiveIds: []
+    };
+  });
+
+  return { board, spareTile, players };
+}
+
+export class LabyrinthModule implements GameModule<LabyrinthState> {
+  initGame(input: InitGameInput): InitResult<LabyrinthState> {
+    const parsed = parseConfig(input.definition as LabyrinthDefinition);
+    const { board, spareTile, players } = createInitialBoardAndPlayers(input, parsed.config, parsed.objectiveCatalog);
+
+    const state: LabyrinthState = {
+      phase: "play",
+      turnStage: "insert",
+      config: parsed.config,
+      board,
+      spareTile,
+      players,
+      currentPlayerId: input.players[0] ?? "",
+      winnerPlayerId: null,
+      lastInsertion: null
+    };
+
+    return {
+      initialState: state,
+      emittedEvents: [{ eventType: "game.initialized", payload: { players: input.players } }],
+      integrityHash: deterministicHash(state)
+    };
+  }
+
+  listLegalActions(state: LabyrinthState, playerId: string): LegalAction[] {
+    if (state.phase === "terminal") return [];
+    if (state.currentPlayerId !== playerId) return [];
+
+    if (state.turnStage === "insert") {
+      return [{ actionType: "insert_tile", description: "Insert spare tile from a legal edge slot" }];
+    }
+
+    return [{ actionType: "move_pawn", description: "Move pawn to any reachable cell" }];
+  }
+
+  applyAction(input: ApplyActionInput<LabyrinthState>): ApplyResult<LabyrinthState> {
+    const state = cloneState(input.state);
+
+    if (state.phase === "terminal") {
+      return {
+        accepted: false,
+        reason: "terminal_state",
+        nextState: state,
+        emittedEvents: [],
+        nextTurnInfo: { currentPlayerId: state.currentPlayerId, phase: state.phase },
+        integrityHash: deterministicHash(state)
+      };
+    }
+
+    if (input.actorPlayerId !== state.currentPlayerId) {
+      return {
+        accepted: false,
+        reason: "not_your_turn",
+        nextState: state,
+        emittedEvents: [],
+        nextTurnInfo: { currentPlayerId: state.currentPlayerId, phase: state.phase },
+        integrityHash: deterministicHash(state)
+      };
+    }
+
+    if (input.actionType === "insert_tile") {
+      if (state.turnStage !== "insert") {
+        return {
+          accepted: false,
+          reason: "unexpected_turn_stage",
+          nextState: state,
+          emittedEvents: [],
+          nextTurnInfo: { currentPlayerId: state.currentPlayerId, phase: state.phase },
+          integrityHash: deterministicHash(state)
+        };
+      }
+
+      const payload = input.payload as InsertTilePayload;
+      if (!isValidInsertionSlot(state, payload)) {
+        return {
+          accepted: false,
+          reason: "invalid_insertion_slot",
+          nextState: state,
+          emittedEvents: [],
+          nextTurnInfo: { currentPlayerId: state.currentPlayerId, phase: state.phase },
+          integrityHash: deterministicHash(state)
+        };
+      }
+
+      if (isReverseInsertion(state.lastInsertion, payload)) {
+        return {
+          accepted: false,
+          reason: "reverse_insertion_forbidden",
+          nextState: state,
+          emittedEvents: [],
+          nextTurnInfo: { currentPlayerId: state.currentPlayerId, phase: state.phase },
+          integrityHash: deterministicHash(state)
+        };
+      }
+
+      applyInsertionShift(state, payload);
+      state.lastInsertion = payload;
+      state.turnStage = "move";
+
+      return {
+        accepted: true,
+        nextState: state,
+        emittedEvents: [{ eventType: "tile.inserted", payload }],
+        nextTurnInfo: { currentPlayerId: state.currentPlayerId, phase: state.phase },
+        integrityHash: deterministicHash(state)
+      };
+    }
+
+    if (input.actionType === "move_pawn") {
+      if (state.turnStage !== "move") {
+        return {
+          accepted: false,
+          reason: "unexpected_turn_stage",
+          nextState: state,
+          emittedEvents: [],
+          nextTurnInfo: { currentPlayerId: state.currentPlayerId, phase: state.phase },
+          integrityHash: deterministicHash(state)
+        };
+      }
+
+      const payload = input.payload as MovePawnPayload;
+      if (!inBounds(payload, state.config)) {
+        return {
+          accepted: false,
+          reason: "move_out_of_bounds",
+          nextState: state,
+          emittedEvents: [],
+          nextTurnInfo: { currentPlayerId: state.currentPlayerId, phase: state.phase },
+          integrityHash: deterministicHash(state)
+        };
+      }
+
+      const player = getCurrentPlayer(state);
+      const reachable = findReachable(state, player.position);
+      if (!reachable.has(coordKey(payload))) {
+        return {
+          accepted: false,
+          reason: "unreachable_destination",
+          nextState: state,
+          emittedEvents: [],
+          nextTurnInfo: { currentPlayerId: state.currentPlayerId, phase: state.phase },
+          integrityHash: deterministicHash(state)
+        };
+      }
+
+      player.position = payload;
+      const events: DomainEvent[] = [{ eventType: "pawn.moved", payload }];
+
+      const collected = collectObjectiveIfPresent(player);
+      if (collected) {
+        events.push({ eventType: "objective.collected", payload: { playerId: player.playerId, objectiveId: collected } });
+      }
+
+      const completedAllObjectives = player.remainingObjectives.length === 0;
+      const atHome = sameCoord(player.position, player.home);
+      if (completedAllObjectives && atHome) {
+        state.phase = "terminal";
+        state.winnerPlayerId = player.playerId;
+        state.turnStage = "insert";
+        events.push({ eventType: "game.ended", payload: { winnerPlayerId: player.playerId } });
+      } else {
+        state.currentPlayerId = nextPlayerId(state);
+        state.turnStage = "insert";
+      }
+
+      return {
+        accepted: true,
+        nextState: state,
+        emittedEvents: events,
+        nextTurnInfo: { currentPlayerId: state.currentPlayerId, phase: state.phase },
+        integrityHash: deterministicHash(state)
+      };
+    }
+
+    return {
+      accepted: false,
+      reason: "unsupported_action",
+      nextState: state,
+      emittedEvents: [],
+      nextTurnInfo: { currentPlayerId: state.currentPlayerId, phase: state.phase },
+      integrityHash: deterministicHash(state)
+    };
+  }
+
+  getPlayerView(input: PlayerViewInput<LabyrinthState>): PlayerView {
+    const state = cloneState(input.state);
+    const me = state.players.find((player) => player.playerId === input.playerId);
+
+    if (!me) {
+      return { visibleState: state };
+    }
+
+    const reachable =
+      state.currentPlayerId === me.playerId && state.turnStage === "move"
+        ? Array.from(findReachable(state, me.position)).map((key) => {
+            const [row, col] = key.split(":").map((it) => Number(it));
+            return { row, col };
+          })
+        : [];
+
+    return {
+      visibleState: {
+        phase: state.phase,
+        turnStage: state.turnStage,
+        currentPlayerId: state.currentPlayerId,
+        winnerPlayerId: state.winnerPlayerId,
+        config: state.config,
+        board: state.board,
+        spareTile: state.spareTile,
+        lastInsertion: state.lastInsertion,
+        players: state.players.map((player) => ({
+          playerId: player.playerId,
+          position: player.position,
+          home: player.home,
+          objectivesRemainingCount: player.remainingObjectives.length,
+          collectedObjectiveIds: player.collectedObjectiveIds
+        })),
+        myState: {
+          playerId: me.playerId,
+          position: me.position,
+          home: me.home,
+          remainingObjectives: me.remainingObjectives,
+          collectedObjectiveIds: me.collectedObjectiveIds,
+          reachableCells: reachable
+        }
+      }
+    };
+  }
+
+  isTerminal(state: LabyrinthState): TerminalResult | null {
+    if (state.phase !== "terminal") {
+      return null;
+    }
+
+    return {
+      winnerPlayerId: state.winnerPlayerId,
+      reason: "objectives_collected_and_returned_home"
+    };
+  }
+}

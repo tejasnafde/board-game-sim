@@ -13,4 +13,7 @@
 - CI contract checks, deterministic replay checks.
 
 ## Phase 4: Next Game Readiness
-- Add Labyrinth scaffolding and board-transform abstractions.
+- Complete Labyrinth vertical slice with deterministic board-shift rules and client integration.
+
+## Phase 5: Additional Games
+- Generalize game-specific UI adapters and module onboarding for future titles (e.g. Catan).

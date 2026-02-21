@@ -1,0 +1,20 @@
+{
+  "gameId": "labyrinth",
+  "version": "0.1.0",
+  "board": {
+    "rows": 7,
+    "cols": 7,
+    "insertionIndexes": [1, 3, 5]
+  },
+  "objectiveCatalog": [
+    "helmet", "ring", "keys", "book", "owl", "bat", "crown", "coin",
+    "map", "scroll", "gem", "chalice", "lantern", "sword", "shield", "compass",
+    "hourglass", "mask", "anchor", "orb", "star", "flame", "moon", "sun"
+  ],
+  "objectivesPerPlayer": 3,
+  "playerCount": {
+    "min": 2,
+    "max": 4
+  },
+  "phases": ["play", "terminal"]
+}
