@@ -3,6 +3,7 @@ import { RealtimeClient, type SocketLike } from "./realtime-client";
 import { createWebClientRuntime, type WebClientRuntime } from "./runtime";
 import battleshipPresentation from "../../games/battleship/presentation.json";
 import battleshipDefinition from "../../games/battleship/definition.json";
+import labyrinthPresentation from "../../games/labyrinth/presentation.json";
 import { createDefaultPlacementsFromDefinition } from "./battleship-template";
 import { navigate, parseHashRoute, toHashRoute, type AppRoute, type GameId } from "./routes";
 
@@ -10,6 +11,20 @@ type ClientView = {
   phase?: "setup" | "play" | "terminal";
   currentPlayerId?: string;
   winnerPlayerId?: string | null;
+};
+
+type LabyrinthView = {
+  phase?: "play" | "terminal";
+  turnStage?: "insert" | "move";
+  currentPlayerId?: string;
+  winnerPlayerId?: string | null;
+  config?: { insertionIndexes?: number[] };
+  board?: Array<Array<{ openings: Record<"N" | "E" | "S" | "W", boolean>; objectiveId: string | null }>>;
+  players?: Array<{ playerId: string; position: Coord; objectivesRemainingCount: number }>;
+  myState?: {
+    remainingObjectives?: Array<{ id: string }>;
+    reachableCells?: Coord[];
+  };
 };
 
 type Orientation = "horizontal" | "vertical";
@@ -30,6 +45,7 @@ type HubCard = {
   name: string;
   subtitle: string;
   status: "live" | "coming-soon";
+  releaseTag: string;
   players: string;
   turnStyle: string;
 };
@@ -40,6 +56,7 @@ export const GAME_HUB_CARDS: HubCard[] = [
     name: "Battleship",
     subtitle: "Hidden fleet placement with tactical turn-based strikes.",
     status: "live",
+    releaseTag: "Playable now",
     players: "2 players",
     turnStyle: "Alternating turns"
   },
@@ -47,7 +64,8 @@ export const GAME_HUB_CARDS: HubCard[] = [
     gameId: "labyrinth",
     name: "Labyrinth",
     subtitle: "Shifting maze strategy with rotating board pathways.",
-    status: "coming-soon",
+    status: "live",
+    releaseTag: "Playable now",
     players: "2-4 players",
     turnStyle: "Board transform turns"
   },
@@ -56,17 +74,15 @@ export const GAME_HUB_CARDS: HubCard[] = [
     name: "Catan",
     subtitle: "Resource trading and settlement growth on a hex island.",
     status: "coming-soon",
+    releaseTag: "Coming soon: later milestone",
     players: "3-4 players",
     turnStyle: "Dice + trading rounds"
   }
 ];
 
 export function resolveGameHubNavigation(gameId: GameId): AppRoute | null {
-  if (gameId !== "battleship") {
-    return null;
-  }
-
-  return { name: "game", gameId: "battleship" };
+  if (gameId === "catan") return null;
+  return { name: "game", gameId };
 }
 
 function createRandomizedPlacements(): ShipPlacement[] {
@@ -267,6 +283,16 @@ function inferBattleshipScreen(joined: boolean, view: ClientView): "lobby" | "se
   return "gameplay";
 }
 
+function inferLabyrinthScreen(joined: boolean): "lobby" | "gameplay" {
+  return joined ? "gameplay" : "lobby";
+}
+
+const DEFAULT_SESSION_BY_GAME: Record<GameId, string> = {
+  battleship: "demo-battleship",
+  labyrinth: "demo-labyrinth",
+  catan: "demo-catan"
+};
+
 export function getGameplayPanelOrder(): Array<"debug" | "state"> {
   return ["debug", "state"];
 }
@@ -286,23 +312,31 @@ export function mountPlayableClient(
     subscribe: (listener: Parameters<RealtimeClient["onServerEvent"]>[0]) => realtimeClient.onServerEvent(listener)
   };
 
-  const runtime = createWebClientRuntime({
-    presentation: battleshipPresentation,
-    baseAssetPath: options.assetBasePath ?? "/",
-    transport
-  });
+  const runtimeByGame = {
+    battleship: createWebClientRuntime({
+      presentation: battleshipPresentation,
+      baseAssetPath: options.assetBasePath ?? "/",
+      transport
+    }),
+    labyrinth: createWebClientRuntime({
+      presentation: labyrinthPresentation,
+      baseAssetPath: options.assetBasePath ?? "/",
+      transport
+    })
+  } satisfies Record<"battleship" | "labyrinth", WebClientRuntime>;
 
-  const water = runtime.assetManager.resolveAssetUrl("tile-water");
+  const water = runtimeByGame.battleship.assetManager.resolveAssetUrl("tile-water");
   const shipPreview = {
-    carrier: runtime.assetManager.resolveAssetUrl("ship-carrier"),
-    battleship: runtime.assetManager.resolveAssetUrl("ship-battleship"),
-    cruiser: runtime.assetManager.resolveAssetUrl("ship-cruiser"),
-    submarine: runtime.assetManager.resolveAssetUrl("ship-submarine"),
-    destroyer: runtime.assetManager.resolveAssetUrl("ship-destroyer")
+    carrier: runtimeByGame.battleship.assetManager.resolveAssetUrl("ship-carrier"),
+    battleship: runtimeByGame.battleship.assetManager.resolveAssetUrl("ship-battleship"),
+    cruiser: runtimeByGame.battleship.assetManager.resolveAssetUrl("ship-cruiser"),
+    submarine: runtimeByGame.battleship.assetManager.resolveAssetUrl("ship-submarine"),
+    destroyer: runtimeByGame.battleship.assetManager.resolveAssetUrl("ship-destroyer")
   };
 
   let joined = false;
-  let sessionId = "demo-battleship";
+  let joinedGameId: GameId | null = null;
+  let sessionId = DEFAULT_SESSION_BY_GAME.battleship;
   let playerId = "player-1";
   const shipSpecs = battleshipDefinition.ships as ShipSpec[];
   let placementDraftMap = placementsToDraftMap(createDefaultPlacementsFromDefinition(battleshipDefinition));
@@ -320,7 +354,15 @@ export function mountPlayableClient(
 
   const getCurrentRoute = (): AppRoute => parseHashRoute(window.location.hash);
   const goHome = (): void => {
+    joined = false;
+    joinedGameId = null;
     navigate({ name: "landing" });
+  };
+  const getRuntimeForRoute = (route: AppRoute): WebClientRuntime => {
+    if (route.name === "game" && route.gameId === "labyrinth") {
+      return runtimeByGame.labyrinth;
+    }
+    return runtimeByGame.battleship;
   };
 
   realtimeClient.onLog((entry) => pushLog(entry));
@@ -338,6 +380,7 @@ export function mountPlayableClient(
             }</span>
           </div>
           <p class="game-subtitle">${card.subtitle}</p>
+          <p class="release-tag">${card.releaseTag}</p>
           <div class="meta-list">
             <span>${card.players}</span>
             <span>${card.turnStyle}</span>
@@ -430,7 +473,13 @@ export function mountPlayableClient(
     </section>
   `;
 
-  const renderBattleshipGameplay = (phase: string, view: ClientView, canFire: boolean, stateDump: string): string => `
+  const renderBattleshipGameplay = (
+    phase: string,
+    view: ClientView,
+    canFire: boolean,
+    stateDump: string,
+    boardMarkup: string
+  ): string => `
     <section class="screen battleship-screen">
       <header class="section-head">
         <h1>Live Battle</h1>
@@ -441,7 +490,7 @@ export function mountPlayableClient(
         <p>${canFire ? "Your turn: click a cell on Opponent Board." : "Waiting for opponent turn or setup completion."}</p>
       </header>
       <div class="gameplay-screen">
-        <div class="card panel board-panel" id="render-view">${runtime.renderer.render(view)}</div>
+        <div class="card panel board-panel" id="render-view">${boardMarkup}</div>
         <aside class="side-stack" aria-label="Debug and session diagnostics">
           <div class="card panel debug-panel">
             <h3>Debug Log</h3>
@@ -456,7 +505,114 @@ export function mountPlayableClient(
     </section>
   `;
 
-  const renderComingSoon = (gameId: Exclude<GameId, "battleship">): string => {
+  const renderLabyrinthLobby = (): string => `
+    <section class="screen labyrinth-screen">
+      <header class="section-head">
+        <h1>Labyrinth</h1>
+        <p>Join a session and navigate the shifting maze to recover objectives.</p>
+      </header>
+      <section class="card panel join-panel">
+        <h2>Maze Lobby</h2>
+        <label>Session ID <input id="session-id" value="${sessionId}" /></label>
+        <label>Player ID <input id="player-id" value="${playerId}" /></label>
+        <div class="row-actions">
+          <button class="btn btn-primary" id="join-btn">Join Maze</button>
+          <button class="btn btn-ghost" id="back-home-btn">Back to games</button>
+        </div>
+        <p class="hint">Use player IDs player-1 through player-4 for the demo session.</p>
+      </section>
+    </section>
+  `;
+
+  const renderLabyrinthBoardMarkup = (view: LabyrinthView): string => {
+    const board = view.board ?? [];
+    const reachable = new Set((view.myState?.reachableCells ?? []).map((cell) => `${cell.row},${cell.col}`));
+    const players = view.players ?? [];
+
+    const cells: string[] = [];
+    for (let row = 0; row < board.length; row += 1) {
+      for (let col = 0; col < (board[row]?.length ?? 0); col += 1) {
+        const tile = board[row]?.[col];
+        const openings = tile?.openings ?? { N: false, E: false, S: false, W: false };
+        const playerTokens = players
+          .filter((player) => player.position.row === row && player.position.col === col)
+          .map((player) => player.playerId)
+          .join(",");
+
+        const classes = ["labyrinth-cell"];
+        if (reachable.has(`${row},${col}`)) {
+          classes.push("reachable");
+        }
+
+        cells.push(
+          `<button class="${classes.join(" ")}" data-lab-cell="1" data-r="${row}" data-c="${col}" title="${row},${col} obj=${tile?.objectiveId ?? "-"} players=${playerTokens || "-"}">
+            <span class="tile-openings">${openings.N ? "N" : ""}${openings.E ? "E" : ""}${openings.S ? "S" : ""}${openings.W ? "W" : ""}</span>
+            <span class="tile-obj">${tile?.objectiveId ?? ""}</span>
+            <span class="tile-players">${playerTokens}</span>
+          </button>`
+        );
+      }
+    }
+    return `<div class="labyrinth-grid">${cells.join("")}</div>`;
+  };
+
+  const renderLabyrinthGameplay = (view: LabyrinthView, stateDump: string): string => {
+    const insertionIndexes = view.config?.insertionIndexes ?? [1, 3, 5];
+    const myObjectives = (view.myState?.remainingObjectives ?? []).map((objective) => objective.id).join(", ") || "none";
+    const isMyTurn = view.currentPlayerId === playerId;
+    const turnHint =
+      view.turnStage === "insert"
+        ? "Insert the spare tile from a highlighted edge slot."
+        : "Move to any reachable highlighted cell.";
+
+    const insertionButtons = insertionIndexes
+      .map(
+        (index) => `
+          <button class="btn btn-secondary labyrinth-insert-btn" data-edge="top" data-index="${index}">Top ${index}</button>
+          <button class="btn btn-secondary labyrinth-insert-btn" data-edge="bottom" data-index="${index}">Bottom ${index}</button>
+          <button class="btn btn-secondary labyrinth-insert-btn" data-edge="left" data-index="${index}">Left ${index}</button>
+          <button class="btn btn-secondary labyrinth-insert-btn" data-edge="right" data-index="${index}">Right ${index}</button>
+        `
+      )
+      .join("");
+
+    return `
+      <section class="screen labyrinth-screen">
+        <header class="section-head">
+          <h1>Labyrinth</h1>
+          <p>
+            Phase: <strong>${view.phase ?? "play"}</strong> · Stage: <strong>${view.turnStage ?? "insert"}</strong>
+            · Turn: <strong>${view.currentPlayerId ?? "-"}</strong>
+            ${view.winnerPlayerId ? `· Winner: <strong>${view.winnerPlayerId}</strong>` : ""}
+          </p>
+          <p>${isMyTurn ? turnHint : "Waiting for active player's turn."}</p>
+        </header>
+        <div class="gameplay-screen">
+          <div class="card panel board-panel">
+            <h3>Maze Board</h3>
+            <div class="row-actions labyrinth-insert-controls" id="labyrinth-insert-controls">${insertionButtons}</div>
+            <div id="labyrinth-board">${renderLabyrinthBoardMarkup(view)}</div>
+          </div>
+          <aside class="side-stack">
+            <div class="card panel">
+              <h3>Your Objectives</h3>
+              <p>${myObjectives}</p>
+            </div>
+            <div class="card panel debug-panel">
+              <h3>Debug Log</h3>
+              <pre>${logs.join("\n") || "no_logs_yet"}</pre>
+            </div>
+            <div class="card panel log-panel">
+              <h3>Session State</h3>
+              <pre>${stateDump}</pre>
+            </div>
+          </aside>
+        </div>
+      </section>
+    `;
+  };
+
+  const renderComingSoon = (gameId: Exclude<GameId, "battleship" | "labyrinth">): string => {
     const card = GAME_HUB_CARDS.find((item) => item.gameId === gameId);
     return `
       <section class="screen coming-soon" aria-label="Coming soon">
@@ -471,10 +627,11 @@ export function mountPlayableClient(
   };
 
   const render = (): void => {
+    const route = getCurrentRoute();
+    const runtime = getRuntimeForRoute(route);
     const state = runtime.controller.getState();
     const view = (state.view ?? {}) as ClientView;
     const phase = view.phase ?? "setup";
-    const route = getCurrentRoute();
 
     const topNav = `
       <nav class="top-nav" aria-label="Primary">
@@ -491,18 +648,35 @@ export function mountPlayableClient(
 
     if (route.name === "landing") {
       mainContent = renderHubLanding();
-    } else if (route.gameId !== "battleship") {
+    } else if (route.gameId === "catan") {
       mainContent = renderComingSoon(route.gameId);
     } else {
-      const battleshipScreen = inferBattleshipScreen(joined, view);
-      const canFire = phase === "play" && view.currentPlayerId === playerId;
+      const gameUiAdapters = {
+        battleship: () => {
+          const battleshipScreen = inferBattleshipScreen(joined && joinedGameId === "battleship", view);
+          const canFire = phase === "play" && view.currentPlayerId === playerId;
+          if (battleshipScreen === "lobby") return renderBattleshipLobby();
+          if (battleshipScreen === "setup") return renderBattleshipSetup(phase, state.lastError);
+          return renderBattleshipGameplay(
+            phase,
+            view,
+            canFire,
+            JSON.stringify(state, null, 2),
+            runtime.renderer.render(view)
+          );
+        },
+        labyrinth: () => {
+          const labyrinthView = (state.view ?? {}) as LabyrinthView;
+          const labyrinthScreen = inferLabyrinthScreen(joined && joinedGameId === "labyrinth");
+          if (labyrinthScreen === "lobby") return renderLabyrinthLobby();
+          return renderLabyrinthGameplay(labyrinthView, JSON.stringify(state, null, 2));
+        }
+      } as const;
 
-      if (battleshipScreen === "lobby") {
-        mainContent = renderBattleshipLobby();
-      } else if (battleshipScreen === "setup") {
-        mainContent = renderBattleshipSetup(phase, state.lastError);
-      } else {
-        mainContent = renderBattleshipGameplay(phase, view, canFire, JSON.stringify(state, null, 2));
+      if (route.gameId === "battleship") {
+        mainContent = gameUiAdapters.battleship();
+      } else if (route.gameId === "labyrinth") {
+        mainContent = gameUiAdapters.labyrinth();
       }
     }
 
@@ -525,6 +699,8 @@ export function mountPlayableClient(
     const submitSetupBtn = root.querySelector<HTMLButtonElement>("#submit-setup-btn");
     const rejoinBtn = root.querySelector<HTMLButtonElement>("#rejoin-btn");
     const renderView = root.querySelector<HTMLElement>("#render-view");
+    const labyrinthInsertControls = root.querySelector<HTMLElement>("#labyrinth-insert-controls");
+    const labyrinthBoard = root.querySelector<HTMLElement>("#labyrinth-board");
     const placementBoard = root.querySelector<HTMLElement>("#placement-board");
     const fleetPanel = root.querySelector<HTMLElement>(".fleet-panel");
     const navBackBtn = root.querySelector<HTMLButtonElement>("#nav-back-btn");
@@ -542,6 +718,9 @@ export function mountPlayableClient(
       const gameId = button.dataset.gameId as GameId;
       const nextRoute = resolveGameHubNavigation(gameId);
       if (nextRoute) {
+        joined = false;
+        joinedGameId = null;
+        sessionId = DEFAULT_SESSION_BY_GAME[gameId];
         navigate(nextRoute);
       }
     });
@@ -556,6 +735,7 @@ export function mountPlayableClient(
 
     joinBtn?.addEventListener("click", () => {
       joined = true;
+      joinedGameId = route.name === "game" ? route.gameId : null;
       runtime.controller.join(sessionId, playerId);
       render();
     });
@@ -654,6 +834,52 @@ export function mountPlayableClient(
       render();
     });
 
+    labyrinthInsertControls?.addEventListener("click", (event) => {
+      const target = event.target as HTMLElement;
+      const button = target.closest<HTMLButtonElement>(".labyrinth-insert-btn");
+      if (!button) {
+        return;
+      }
+      const stateForAction = runtime.controller.getState();
+      const labyrinthView = (stateForAction.view ?? {}) as LabyrinthView;
+      if (labyrinthView.currentPlayerId !== playerId || labyrinthView.turnStage !== "insert") {
+        pushLog("click_ignored labyrinth_insert_not_allowed");
+        return;
+      }
+
+      const edge = button.dataset.edge as "top" | "bottom" | "left" | "right";
+      const index = Number(button.dataset.index ?? "-1");
+      if (index < 0) {
+        return;
+      }
+
+      runtime.controller.submitAction("insert_tile", { edge, index });
+      render();
+    });
+
+    labyrinthBoard?.addEventListener("click", (event) => {
+      const target = event.target as HTMLElement;
+      const cell = target.closest<HTMLButtonElement>("[data-lab-cell='1']");
+      if (!cell) {
+        return;
+      }
+      const stateForAction = runtime.controller.getState();
+      const labyrinthView = (stateForAction.view ?? {}) as LabyrinthView;
+      if (labyrinthView.currentPlayerId !== playerId || labyrinthView.turnStage !== "move") {
+        pushLog("click_ignored labyrinth_move_not_allowed");
+        return;
+      }
+
+      const row = Number(cell.dataset.r ?? "-1");
+      const col = Number(cell.dataset.c ?? "-1");
+      if (row < 0 || col < 0) {
+        return;
+      }
+
+      runtime.controller.submitAction("move_pawn", { row, col });
+      render();
+    });
+
     renderView?.addEventListener("click", (event) => {
       const target = event.target as HTMLElement;
       if (!target.classList.contains("opponent-cell")) {
@@ -698,7 +924,7 @@ export function mountPlayableClient(
   render();
 
   return {
-    runtime,
+    runtime: runtimeByGame.battleship,
     dispose: () => {
       disposeTransportSubscription();
       window.removeEventListener("hashchange", onHashChange);

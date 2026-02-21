@@ -13,6 +13,7 @@
 
 4. Game Registry
 - Resolves `gameId@version` to definition + module.
+- Built-in registration now includes `battleship@0.1.0` and `labyrinth@0.1.0`.
 - Presentation metadata (`presentation.json`) is loaded by the web client for render mappings and assets.
 
 5. Persistence
@@ -25,7 +26,8 @@
 - `AssetManager` resolves per-game asset IDs to URLs.
 - `RendererRegistry` maps board type (`grid`/`hex`/`graph`) to concrete renderer implementation.
 - `RealtimeClient` transports websocket protocol events.
-- `ClientController` maps UI interactions to intent submissions using sequence-safe envelopes.
+- `ClientController` maps UI interactions to intent submissions using sequence-safe envelopes and generic `submitAction(actionType, payload)` support.
+- `browser-app.ts` uses a lightweight per-game UI adapter map (`battleship`, `labyrinth`) for route-specific interactions.
 - `ClientState` reducer applies `state_sync`, `action_accepted/rejected`, `state_patch`, and `terminal` events.
 
 ## Runtime Flow

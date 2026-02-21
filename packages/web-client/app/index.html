@@ -142,9 +142,16 @@
       .hero p,
       .section-head p,
       .game-subtitle,
+      .release-tag,
       .hint,
       .status {
         color: var(--ink-soft);
+      }
+
+      .release-tag {
+        margin: -4px 0 0;
+        font-size: 12px;
+        font-weight: 700;
       }
 
       .game-hub {
@@ -480,6 +487,42 @@
         overflow: auto;
         font-family: "Manrope", monospace;
         white-space: pre-wrap;
+      }
+
+      .labyrinth-grid {
+        margin-top: 10px;
+        display: grid;
+        grid-template-columns: repeat(7, minmax(0, 1fr));
+        gap: 4px;
+      }
+
+      .labyrinth-cell {
+        min-height: 72px;
+        border-radius: 8px;
+        border: 1px solid #7d654a;
+        background: #f7edd8;
+        color: #3d2e1d;
+        display: grid;
+        gap: 4px;
+        align-content: center;
+        font-size: 10px;
+        padding: 4px;
+      }
+
+      .labyrinth-cell.reachable {
+        outline: 2px solid #2f8f62;
+      }
+
+      .tile-openings {
+        font-weight: 800;
+        letter-spacing: 0.08em;
+      }
+
+      .tile-obj,
+      .tile-players {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
       }
 
       .coming-soon {

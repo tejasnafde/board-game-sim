@@ -11,7 +11,9 @@ export default defineConfig({
       "@board-game-sim/server": fileURLToPath(new URL("./packages/server/src/index.ts", import.meta.url)),
       "@board-game-sim/server/": fileURLToPath(new URL("./packages/server/src/", import.meta.url)),
       "@board-game-sim/battleship": fileURLToPath(new URL("./packages/games/battleship/src/index.ts", import.meta.url)),
-      "@board-game-sim/battleship/": fileURLToPath(new URL("./packages/games/battleship/src/", import.meta.url))
+      "@board-game-sim/battleship/": fileURLToPath(new URL("./packages/games/battleship/src/", import.meta.url)),
+      "@board-game-sim/labyrinth": fileURLToPath(new URL("./packages/games/labyrinth/src/index.ts", import.meta.url)),
+      "@board-game-sim/labyrinth/": fileURLToPath(new URL("./packages/games/labyrinth/src/", import.meta.url))
     }
   },
   test: {
