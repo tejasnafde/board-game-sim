@@ -1,15 +1,15 @@
 import { createServer } from "node:http";
 import { InMemoryEventRepository, InMemoryGameRegistry, InMemorySessionRepository, InMemorySnapshotRepository } from "@board-game-sim/engine";
-import { BattleshipModule } from "@board-game-sim/battleship";
-import definition from "../../games/battleship/definition.json";
 import { RealtimeGateway } from "./realtime-gateway";
 import { SessionService } from "./session-service";
 import { createWsRealtimeServer } from "./ws-server";
+import { registerBuiltInGames } from "./game-registration";
 
 export type StartServerOptions = {
   port?: number;
   host?: string;
   demoSessionId?: string;
+  labyrinthDemoSessionId?: string | null;
 };
 
 export async function startServer(options: StartServerOptions = {}): Promise<{
@@ -18,14 +18,10 @@ export async function startServer(options: StartServerOptions = {}): Promise<{
   const host = options.host ?? "0.0.0.0";
   const port = options.port ?? 8080;
   const demoSessionId = options.demoSessionId ?? "demo-battleship";
+  const labyrinthDemoSessionId = options.labyrinthDemoSessionId ?? null;
 
   const registry = new InMemoryGameRegistry();
-  registry.register({
-    gameId: "battleship",
-    version: "0.1.0",
-    definition,
-    module: new BattleshipModule()
-  });
+  registerBuiltInGames(registry);
 
   const service = new SessionService(
     registry,
@@ -41,6 +37,16 @@ export async function startServer(options: StartServerOptions = {}): Promise<{
     seed: "demo-seed",
     players: ["player-1", "player-2"]
   });
+
+  if (labyrinthDemoSessionId) {
+    await service.createSession({
+      sessionId: labyrinthDemoSessionId,
+      gameId: "labyrinth",
+      gameVersion: "0.1.0",
+      seed: "labyrinth-demo-seed",
+      players: ["player-1", "player-2", "player-3", "player-4"]
+    });
+  }
 
   const gateway = new RealtimeGateway(service);
   const httpServer = createServer((req, res) => {

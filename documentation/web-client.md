@@ -1,28 +1,28 @@
 # Web Client
 
-`packages/web-client` now contains a playable browser-oriented Battleship client skeleton.
+`packages/web-client` now contains playable browser flows for Battleship and Labyrinth.
 
 ## Modules
 
 - `realtime-client.ts`: websocket transport abstraction.
 - `realtime-state.ts`: client-side event reducer and action envelope builder.
-- `client-controller.ts`: join/rejoin/setup/fire intent API.
+- `client-controller.ts`: join/rejoin plus generic `submitAction` API (with Battleship helpers preserved).
 - `runtime.ts`: binds presentation definition, asset manager, renderer, and controller.
-- `browser-app.ts`: minimal interactive UI mount function.
+- `browser-app.ts`: route-aware app shell with game-hub and per-game UI adapters.
 - `grid-renderer.ts`: default renderer for grid board games.
 
 ## Screens
 
-- Landing: session/player entry with a clear join CTA.
-- Setup: fleet manifest with ship art preview, template loaders, and setup submit action.
-- Gameplay: clickable opponent board for firing and live own/opponent grid state.
+- Landing: game hub with playable entries.
+- Battleship: session lobby, fleet setup, and turn-based firing board.
+- Labyrinth: session lobby, spare-tile insertion controls, and reachable-cell pawn movement.
 
 ## Runtime Flow
 
 1. UI joins a session with `session.join`.
 2. Server sends `session.state_sync` and subsequent realtime events.
 3. Reducer updates local client state from server events.
-4. Controller submits intents with `expectedSeq` from local state.
+4. Controller submits intents with `expectedSeq` from local state (`submitAction` or game-specific wrappers).
 5. UI reflects `action_rejected` and terminal events.
 
 ## Integrating in Browser

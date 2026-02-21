@@ -1,0 +1,30 @@
+{
+  "gameId": "labyrinth",
+  "version": "0.1.0",
+  "presentationVersion": "0.1.0",
+  "board": {
+    "boardType": "grid",
+    "rows": 7,
+    "cols": 7,
+    "cellSize": 64
+  },
+  "theme": {
+    "name": "maze-vault",
+    "colors": {
+      "bg": "#f8f5eb",
+      "grid": "#5e4b37",
+      "path": "#d9c7a7",
+      "pawn": "#7f1d1d"
+    }
+  },
+  "assets": [
+    { "id": "tile-path", "kind": "image", "path": "assets/tiles/path.svg" },
+    { "id": "tile-wall", "kind": "image", "path": "assets/tiles/wall.svg" }
+  ],
+  "pieceSprites": {
+    "pawn": "tile-path"
+  },
+  "effects": {
+    "objective.collected": "tile-path"
+  }
+}
