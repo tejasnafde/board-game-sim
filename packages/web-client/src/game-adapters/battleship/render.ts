@@ -58,9 +58,8 @@ export function renderPlacementBoardMarkup(
       const widthCells = orientation === "horizontal" ? spec.size : 1;
       const heightCells = orientation === "vertical" ? spec.size : 1;
       const spriteClass = `placement-ship ${selectedShipId === spec.id ? "selected" : ""}`;
-      return `<div class="${spriteClass}" style="--ship-row:${draft.row};--ship-col:${draft.col};--ship-width:${widthCells};--ship-height:${heightCells};--ship-rotation:${
-        draft.rotationDeg
-      }deg;" title="${spec.id}"><img src="${shipPreview[spec.id] ?? ""}" alt="${spec.id}" /></div>`;
+      const assetRotation = (360 - draft.rotationDeg + 90) % 360;
+      return `<div class="${spriteClass}" style="--ship-row:${draft.row};--ship-col:${draft.col};--ship-width:${widthCells};--ship-height:${heightCells};--ship-rotation:${assetRotation}deg;" title="${spec.id}"><img src="${shipPreview[spec.id] ?? ""}" alt="${spec.id}" /></div>`;
     })
     .join("");
 
@@ -128,8 +127,7 @@ export function renderBattleshipSetup(
           <h3>Interactive Placement</h3>
           <p class="hint">Select ship, rotate if needed, then click starting cell.</p>
           <div class="row-actions">
-            <button class="btn btn-ghost" id="rotate-left-btn">Rotate -90°</button>
-            <button class="btn btn-ghost" id="rotate-right-btn">Rotate +90°</button>
+            <button class="btn btn-ghost" id="rotate-btn">Rotate 90°</button>
             <button class="btn btn-ghost" id="clear-ship-btn">Clear Selected</button>
           </div>
           <div class="placement-board" id="placement-board">

@@ -3,12 +3,18 @@ import { createDefaultPlacementsFromDefinition } from "../../battleship-template
 import type { BattleshipDefinition, Orientation, PlacementDraft, ShipSpec } from "./types";
 
 export function buildCellsFromAnchor(anchor: PlacementDraft, size: number): Coord[] {
-  const orientation = anchor.rotationDeg % 180 === 0 ? "horizontal" : "vertical";
-  return Array.from({ length: size }).map((_, offset) =>
-    orientation === "horizontal"
-      ? { row: anchor.row, col: anchor.col + offset }
-      : { row: anchor.row + offset, col: anchor.col }
-  );
+  switch (anchor.rotationDeg) {
+    case 0:
+      return Array.from({ length: size }, (_, i) => ({ row: anchor.row, col: anchor.col + i }));
+    case 90:
+      return Array.from({ length: size }, (_, i) => ({ row: anchor.row + i, col: anchor.col }));
+    case 180:
+      return Array.from({ length: size }, (_, i) => ({ row: anchor.row, col: anchor.col - i }));
+    case 270:
+      return Array.from({ length: size }, (_, i) => ({ row: anchor.row - i, col: anchor.col }));
+    default:
+      return Array.from({ length: size }, (_, i) => ({ row: anchor.row, col: anchor.col + i }));
+  }
 }
 
 export function isInBounds(cells: Coord[], definition: BattleshipDefinition): boolean {
@@ -45,13 +51,43 @@ export function clampDraftToBoard(
   shipSize: number,
   definition: BattleshipDefinition
 ): PlacementDraft {
-  const isHorizontal = draft.rotationDeg % 180 === 0;
-  const maxRow = isHorizontal ? definition.board.rows - 1 : definition.board.rows - shipSize;
-  const maxCol = isHorizontal ? definition.board.cols - shipSize : definition.board.cols - 1;
+  const { rows, cols } = definition.board;
+  let minRow: number, maxRow: number, minCol: number, maxCol: number;
+  switch (draft.rotationDeg) {
+    case 0:
+      minRow = 0;
+      maxRow = rows - 1;
+      minCol = 0;
+      maxCol = cols - shipSize;
+      break;
+    case 90:
+      minRow = 0;
+      maxRow = rows - shipSize;
+      minCol = 0;
+      maxCol = cols - 1;
+      break;
+    case 180:
+      minRow = 0;
+      maxRow = rows - 1;
+      minCol = shipSize - 1;
+      maxCol = cols - 1;
+      break;
+    case 270:
+      minRow = shipSize - 1;
+      maxRow = rows - 1;
+      minCol = 0;
+      maxCol = cols - 1;
+      break;
+    default:
+      minRow = 0;
+      maxRow = rows - 1;
+      minCol = 0;
+      maxCol = cols - shipSize;
+  }
   return {
     ...draft,
-    row: Math.min(Math.max(draft.row, 0), Math.max(maxRow, 0)),
-    col: Math.min(Math.max(draft.col, 0), Math.max(maxCol, 0))
+    row: Math.min(Math.max(draft.row, minRow), maxRow),
+    col: Math.min(Math.max(draft.col, minCol), maxCol)
   };
 }
 

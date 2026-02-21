@@ -31,7 +31,7 @@ export type BattleshipBindContext = {
 export function bindBattleshipEvents(root: HTMLElement, ctx: BattleshipBindContext): void {
   const loadTemplateBtn = root.querySelector<HTMLButtonElement>("#load-template-btn");
   const randomTemplateBtn = root.querySelector<HTMLButtonElement>("#random-template-btn");
-  const rotateRightBtn = root.querySelector<HTMLButtonElement>("#rotate-right-btn");
+  const rotateBtn = root.querySelector<HTMLButtonElement>("#rotate-btn");
   const clearShipBtn = root.querySelector<HTMLButtonElement>("#clear-ship-btn");
   const submitSetupBtn = root.querySelector<HTMLButtonElement>("#submit-setup-btn");
   const rejoinBtn = root.querySelector<HTMLButtonElement>("#rejoin-btn");
@@ -82,7 +82,7 @@ export function bindBattleshipEvents(root: HTMLElement, ctx: BattleshipBindConte
     ctx.render();
   };
 
-  rotateRightBtn?.addEventListener("click", () => applyRotation());
+  rotateBtn?.addEventListener("click", () => applyRotation());
 
   clearShipBtn?.addEventListener("click", () => {
     const { [ctx.selectedShipId]: _ignored, ...rest } = ctx.placementDraftMap;
