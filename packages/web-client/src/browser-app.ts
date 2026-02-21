@@ -4,6 +4,7 @@ import { createWebClientRuntime, type WebClientRuntime } from "./runtime";
 import battleshipPresentation from "../../games/battleship/presentation.json";
 import battleshipDefinition from "../../games/battleship/definition.json";
 import { createDefaultPlacementsFromDefinition } from "./battleship-template";
+import { navigate, parseHashRoute, toHashRoute, type AppRoute, type GameId } from "./routes";
 
 type ClientView = {
   phase?: "setup" | "play" | "terminal";
@@ -23,6 +24,50 @@ type ShipSpec = {
   id: string;
   size: number;
 };
+
+type HubCard = {
+  gameId: GameId;
+  name: string;
+  subtitle: string;
+  status: "live" | "coming-soon";
+  players: string;
+  turnStyle: string;
+};
+
+export const GAME_HUB_CARDS: HubCard[] = [
+  {
+    gameId: "battleship",
+    name: "Battleship",
+    subtitle: "Hidden fleet placement with tactical turn-based strikes.",
+    status: "live",
+    players: "2 players",
+    turnStyle: "Alternating turns"
+  },
+  {
+    gameId: "labyrinth",
+    name: "Labyrinth",
+    subtitle: "Shifting maze strategy with rotating board pathways.",
+    status: "coming-soon",
+    players: "2-4 players",
+    turnStyle: "Board transform turns"
+  },
+  {
+    gameId: "catan",
+    name: "Catan",
+    subtitle: "Resource trading and settlement growth on a hex island.",
+    status: "coming-soon",
+    players: "3-4 players",
+    turnStyle: "Dice + trading rounds"
+  }
+];
+
+export function resolveGameHubNavigation(gameId: GameId): AppRoute | null {
+  if (gameId !== "battleship") {
+    return null;
+  }
+
+  return { name: "game", gameId: "battleship" };
+}
 
 function createRandomizedPlacements(): ShipPlacement[] {
   const shipSpecs = [...(battleshipDefinition.ships as ShipSpec[])].sort((a, b) => b.size - a.size);
@@ -216,8 +261,8 @@ function createPlacementsFromDrafts(specs: ShipSpec[], draftMap: Record<string, 
   });
 }
 
-function inferScreen(joined: boolean, view: ClientView): "landing" | "setup" | "gameplay" {
-  if (!joined) return "landing";
+function inferBattleshipScreen(joined: boolean, view: ClientView): "lobby" | "setup" | "gameplay" {
+  if (!joined) return "lobby";
   if ((view.phase ?? "setup") === "setup") return "setup";
   return "gameplay";
 }
@@ -226,17 +271,19 @@ export function getGameplayPanelOrder(): Array<"debug" | "state"> {
   return ["debug", "state"];
 }
 
-export function mountPlayableClient(root: HTMLElement, options: {
-  websocketFactory: () => SocketLike;
-  assetBasePath?: string;
-}): { runtime: WebClientRuntime; dispose: () => void } {
+export function mountPlayableClient(
+  root: HTMLElement,
+  options: {
+    websocketFactory: () => SocketLike;
+    assetBasePath?: string;
+  }
+): { runtime: WebClientRuntime; dispose: () => void } {
   const realtimeClient = new RealtimeClient(options.websocketFactory);
   realtimeClient.connect();
 
   const transport = {
     send: (event: Parameters<RealtimeClient["send"]>[0]) => realtimeClient.send(event),
-    subscribe: (listener: Parameters<RealtimeClient["onServerEvent"]>[0]) =>
-      realtimeClient.onServerEvent(listener)
+    subscribe: (listener: Parameters<RealtimeClient["onServerEvent"]>[0]) => realtimeClient.onServerEvent(listener)
   };
 
   const runtime = createWebClientRuntime({
@@ -271,119 +318,202 @@ export function mountPlayableClient(root: HTMLElement, options: {
     console.info(`[web-client] ${entry}`);
   };
 
+  const getCurrentRoute = (): AppRoute => parseHashRoute(window.location.hash);
+  const goHome = (): void => {
+    navigate({ name: "landing" });
+  };
+
   realtimeClient.onLog((entry) => pushLog(entry));
+
+  const renderHubLanding = (): string => {
+    const cards = GAME_HUB_CARDS.map((card) => {
+      const isLive = card.status === "live";
+      const actionLabel = isLive ? "Play now" : "Coming soon";
+      return `
+        <article class="card game-card ${isLive ? "" : "is-disabled"}" aria-disabled="${isLive ? "false" : "true"}">
+          <div class="game-card-head">
+            <h2>${card.name}</h2>
+            <span class="status-pill ${isLive ? "status-live" : "status-soon"}">${
+              isLive ? "Live" : "Coming soon"
+            }</span>
+          </div>
+          <p class="game-subtitle">${card.subtitle}</p>
+          <div class="meta-list">
+            <span>${card.players}</span>
+            <span>${card.turnStyle}</span>
+          </div>
+          <button class="btn ${isLive ? "btn-primary" : "btn-ghost"}" data-game-id="${card.gameId}" ${
+            isLive ? "" : 'disabled aria-disabled="true"'
+          }>${actionLabel}</button>
+        </article>
+      `;
+    }).join("");
+
+    return `
+      <section class="screen game-hub" aria-label="Game hub">
+        <header class="hero card">
+          <p class="eyebrow">Board Game Sim</p>
+          <h1>Choose Your Table</h1>
+          <p>Play turn-based games with friends across cities from one shared command center.</p>
+        </header>
+        <section class="game-grid" id="game-hub-grid" aria-label="Available games">
+          ${cards}
+        </section>
+      </section>
+    `;
+  };
+
+  const renderBattleshipLobby = (): string => `
+    <section class="screen battleship-screen">
+      <header class="section-head">
+        <h1>Battleship</h1>
+        <p>Start a session and join as a player identity.</p>
+      </header>
+      <section class="card panel join-panel">
+        <h2>Mission Lobby</h2>
+        <label>Session ID <input id="session-id" value="${sessionId}" /></label>
+        <label>Player ID <input id="player-id" value="${playerId}" /></label>
+        <div class="row-actions">
+          <button class="btn btn-primary" id="join-btn">Join Mission</button>
+          <button class="btn btn-ghost" id="back-home-btn">Back to games</button>
+        </div>
+        <p class="hint">Use two windows with different player IDs to test locally.</p>
+      </section>
+    </section>
+  `;
+
+  const renderBattleshipSetup = (phase: string, stateLastError: string | null | undefined): string => `
+    <section class="screen battleship-screen">
+      <header class="section-head">
+        <h1>Battleship Setup</h1>
+        <p>Submit all ships before battle starts. Current phase: <strong>${phase}</strong></p>
+      </header>
+      <div class="setup-layout">
+        <aside class="card panel fleet-panel">
+          <h3>Fleet Manifest</h3>
+          ${battleshipDefinition.ships
+            .map(
+              (ship) => `
+                <button class="fleet-row fleet-button ${selectedShipId === ship.id ? "active" : ""}" data-ship-id="${
+                ship.id
+              }">
+                  <img src="${shipPreview[ship.id as keyof typeof shipPreview]}" alt="${ship.id}" />
+                  <span>${ship.id} (${ship.size})</span>
+                  <strong>${placementDraftMap[ship.id] ? "Placed" : "Unplaced"}</strong>
+                </button>
+              `
+            )
+            .join("")}
+          <div class="fleet-actions">
+            <button class="btn btn-secondary" id="load-template-btn">Load Valid Fleet</button>
+            <button class="btn btn-secondary" id="random-template-btn">Randomize Fleet</button>
+          </div>
+        </aside>
+        <section class="card panel setup-editor">
+          <h3>Interactive Placement</h3>
+          <p class="hint">Select ship, rotate if needed, then click starting cell.</p>
+          <div class="row-actions">
+            <button class="btn btn-ghost" id="rotate-left-btn">Rotate -90°</button>
+            <button class="btn btn-ghost" id="rotate-right-btn">Rotate +90°</button>
+            <button class="btn btn-ghost" id="clear-ship-btn">Clear Selected</button>
+          </div>
+          <div class="placement-board" id="placement-board">
+            ${renderPlacementBoardMarkup(shipSpecs, placementDraftMap, selectedShipId, shipPreview)}
+          </div>
+          <div class="row-actions">
+            <button class="btn btn-primary" id="submit-setup-btn">Submit Setup</button>
+            <button class="btn btn-secondary" id="rejoin-btn">Rejoin</button>
+          </div>
+          <p class="status">Last error: <strong>${localError ?? stateLastError ?? "none"}</strong></p>
+        </section>
+      </div>
+    </section>
+  `;
+
+  const renderBattleshipGameplay = (phase: string, view: ClientView, canFire: boolean, stateDump: string): string => `
+    <section class="screen battleship-screen">
+      <header class="section-head">
+        <h1>Live Battle</h1>
+        <p>
+          Phase: <strong>${phase}</strong> · Turn: <strong>${view.currentPlayerId ?? "-"}</strong>
+          ${view.winnerPlayerId ? `· Winner: <strong>${view.winnerPlayerId}</strong>` : ""}
+        </p>
+        <p>${canFire ? "Your turn: click a cell on Opponent Board." : "Waiting for opponent turn or setup completion."}</p>
+      </header>
+      <div class="gameplay-screen">
+        <div class="card panel board-panel" id="render-view">${runtime.renderer.render(view)}</div>
+        <aside class="side-stack" aria-label="Debug and session diagnostics">
+          <div class="card panel debug-panel">
+            <h3>Debug Log</h3>
+            <pre id="debug-view">${logs.join("\n") || "no_logs_yet"}</pre>
+          </div>
+          <div class="card panel log-panel">
+            <h3>Session State</h3>
+            <pre id="state-view">${stateDump}</pre>
+          </div>
+        </aside>
+      </div>
+    </section>
+  `;
+
+  const renderComingSoon = (gameId: Exclude<GameId, "battleship">): string => {
+    const card = GAME_HUB_CARDS.find((item) => item.gameId === gameId);
+    return `
+      <section class="screen coming-soon" aria-label="Coming soon">
+        <article class="card panel">
+          <p class="eyebrow">Roadmap</p>
+          <h1>${card?.name ?? gameId} is coming soon</h1>
+          <p>${card?.subtitle ?? "This module is planned for a future release."}</p>
+          <button class="btn btn-primary" id="back-home-btn">Back to games</button>
+        </article>
+      </section>
+    `;
+  };
 
   const render = (): void => {
     const state = runtime.controller.getState();
     const view = (state.view ?? {}) as ClientView;
-    const screen = inferScreen(joined, view);
     const phase = view.phase ?? "setup";
-    const canFire = phase === "play" && view.currentPlayerId === playerId;
+    const route = getCurrentRoute();
 
-    const landing = `
-      <section class="screen landing-screen">
-        <header class="hero">
-          <p class="eyebrow">Remote tabletop nights</p>
-          <h1>Battleship Command Deck</h1>
-          <p>Join your friends, lock fleet positions, and launch turns live from browser.</p>
-        </header>
-        <div class="panel join-panel">
-          <h2>Start Session</h2>
-          <label>Session ID <input id="session-id" value="${sessionId}" /></label>
-          <label>Player ID <input id="player-id" value="${playerId}" /></label>
-          <button id="join-btn">Join Mission</button>
-          <p class="hint">Use two windows with different player IDs to test locally.</p>
+    const topNav = `
+      <nav class="top-nav" aria-label="Primary">
+        <a class="brand" href="#/">Board Game Sim</a>
+        <div class="top-nav-right">
+          <span class="top-chip">Session: ${sessionId}</span>
+          <span class="top-chip">Player: ${playerId}</span>
+          ${route.name === "game" ? `<button class="btn btn-ghost" id="nav-back-btn">Back to games</button>` : ""}
         </div>
-      </section>
+      </nav>
     `;
 
-    const setup = `
-      <section class="screen setup-screen">
-        <header class="screen-header">
-          <h2>Fleet Setup</h2>
-          <p>Submit all ships before battle starts. Current phase: <strong>${phase}</strong></p>
-        </header>
-        <div class="setup-layout">
-          <aside class="panel fleet-panel">
-            <h3>Fleet Manifest</h3>
-            ${battleshipDefinition.ships
-              .map(
-                (ship) => `
-                  <button class="fleet-row fleet-button ${
-                    selectedShipId === ship.id ? "active" : ""
-                  }" data-ship-id="${ship.id}">
-                    <img src="${shipPreview[ship.id as keyof typeof shipPreview]}" alt="${ship.id}" />
-                    <span>${ship.id} (${ship.size})</span>
-                    <strong>${placementDraftMap[ship.id] ? "Placed" : "Unplaced"}</strong>
-                  </button>
-                `
-              )
-              .join("")}
-            <div class="fleet-actions">
-              <button id="load-template-btn">Load Valid Fleet</button>
-              <button id="random-template-btn">Randomize Fleet</button>
-            </div>
-          </aside>
-          <section class="panel setup-editor">
-            <h3>Interactive Placement</h3>
-            <p class="hint">
-              Select a ship on the left, use rotate if needed, then click a cell to place its starting point.
-            </p>
-            <div class="row-actions">
-              <button id="rotate-left-btn">Rotate -90°</button>
-              <button id="rotate-right-btn">Rotate +90°</button>
-              <button id="clear-ship-btn">Clear Selected</button>
-            </div>
-            <div class="placement-board" id="placement-board">
-              ${renderPlacementBoardMarkup(shipSpecs, placementDraftMap, selectedShipId, shipPreview)}
-            </div>
-            <div class="row-actions">
-              <button id="submit-setup-btn">Submit Setup</button>
-              <button id="rejoin-btn">Rejoin</button>
-            </div>
-            <p class="status">Last error: <strong>${localError ?? state.lastError ?? "none"}</strong></p>
-          </section>
-        </div>
-      </section>
-    `;
+    let mainContent = "";
 
-    const gameplay = `
-      <section class="screen gameplay-screen">
-        <header class="screen-header">
-          <h2>Live Battle</h2>
-          <p>
-            Phase: <strong>${phase}</strong> · Turn: <strong>${view.currentPlayerId ?? "-"}</strong>
-            ${view.winnerPlayerId ? `· Winner: <strong>${view.winnerPlayerId}</strong>` : ""}
-          </p>
-          <p>${canFire ? "Your turn: click a cell on Opponent Board." : "Waiting for opponent turn or setup completion."}</p>
-        </header>
-        <div class="panel board-panel" id="render-view">${runtime.renderer.render(state.view ?? {})}</div>
-        <aside class="side-stack">
-          <div class="panel debug-panel">
-            <h3>Debug Log</h3>
-            <pre id="debug-view">${logs.join("\n") || "no_logs_yet"}</pre>
-          </div>
-          <div class="panel log-panel">
-            <h3>Session State</h3>
-            <pre id="state-view">${JSON.stringify(state, null, 2)}</pre>
-          </div>
-        </aside>
-      </section>
-    `;
+    if (route.name === "landing") {
+      mainContent = renderHubLanding();
+    } else if (route.gameId !== "battleship") {
+      mainContent = renderComingSoon(route.gameId);
+    } else {
+      const battleshipScreen = inferBattleshipScreen(joined, view);
+      const canFire = phase === "play" && view.currentPlayerId === playerId;
+
+      if (battleshipScreen === "lobby") {
+        mainContent = renderBattleshipLobby();
+      } else if (battleshipScreen === "setup") {
+        mainContent = renderBattleshipSetup(phase, state.lastError);
+      } else {
+        mainContent = renderBattleshipGameplay(phase, view, canFire, JSON.stringify(state, null, 2));
+      }
+    }
 
     root.innerHTML = `
       <section class="app-shell" style="--water-url:url('${water}')">
-        <nav class="topbar">
-          <span>Session: ${sessionId}</span>
-          <span>Player: ${playerId}</span>
-          <span>Screen: ${screen}</span>
-        </nav>
-        ${screen === "landing" ? landing : ""}
-        ${screen === "setup" ? setup : ""}
-        ${screen === "gameplay" ? gameplay : ""}
+        ${topNav}
+        <main>${mainContent}</main>
       </section>
     `;
 
+    const gameHubGrid = root.querySelector<HTMLElement>("#game-hub-grid");
     const sessionInput = root.querySelector<HTMLInputElement>("#session-id");
     const playerInput = root.querySelector<HTMLInputElement>("#player-id");
     const joinBtn = root.querySelector<HTMLButtonElement>("#join-btn");
@@ -397,6 +527,24 @@ export function mountPlayableClient(root: HTMLElement, options: {
     const renderView = root.querySelector<HTMLElement>("#render-view");
     const placementBoard = root.querySelector<HTMLElement>("#placement-board");
     const fleetPanel = root.querySelector<HTMLElement>(".fleet-panel");
+    const navBackBtn = root.querySelector<HTMLButtonElement>("#nav-back-btn");
+    const backHomeBtn = root.querySelector<HTMLButtonElement>("#back-home-btn");
+
+    navBackBtn?.addEventListener("click", () => goHome());
+    backHomeBtn?.addEventListener("click", () => goHome());
+
+    gameHubGrid?.addEventListener("click", (event) => {
+      const target = event.target as HTMLElement;
+      const button = target.closest<HTMLButtonElement>("button[data-game-id]");
+      if (!button) {
+        return;
+      }
+      const gameId = button.dataset.gameId as GameId;
+      const nextRoute = resolveGameHubNavigation(gameId);
+      if (nextRoute) {
+        navigate(nextRoute);
+      }
+    });
 
     sessionInput?.addEventListener("input", () => {
       sessionId = sessionInput.value;
@@ -511,10 +659,18 @@ export function mountPlayableClient(root: HTMLElement, options: {
       if (!target.classList.contains("opponent-cell")) {
         return;
       }
+
+      const stateForAction = runtime.controller.getState();
+      const latestView = (stateForAction.view ?? {}) as ClientView;
+      const latestPhase = latestView.phase ?? "setup";
+      const canFire = latestPhase === "play" && latestView.currentPlayerId === playerId;
       if (!canFire) {
-        pushLog(`click_ignored not_your_turn_or_not_play phase=${phase} current=${view.currentPlayerId ?? "-"}`);
+        pushLog(
+          `click_ignored not_your_turn_or_not_play phase=${latestPhase} current=${latestView.currentPlayerId ?? "-"}`
+        );
         return;
       }
+
       const row = Number(target.dataset.r ?? "-1");
       const col = Number(target.dataset.c ?? "-1");
       if (row >= 0 && col >= 0) {
@@ -525,15 +681,27 @@ export function mountPlayableClient(root: HTMLElement, options: {
     });
   };
 
-  transport.subscribe(() => {
+  const disposeTransportSubscription = transport.subscribe(() => {
     render();
   });
+
+  const onHashChange = (): void => {
+    render();
+  };
+
+  window.addEventListener("hashchange", onHashChange);
+
+  if (!window.location.hash) {
+    window.location.hash = toHashRoute({ name: "landing" });
+  }
 
   render();
 
   return {
     runtime,
     dispose: () => {
+      disposeTransportSubscription();
+      window.removeEventListener("hashchange", onHashChange);
       realtimeClient.disconnect();
       root.innerHTML = "";
     }
