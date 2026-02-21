@@ -171,8 +171,15 @@ function rotateClockwise(current: PlacementDraft["rotationDeg"]): PlacementDraft
   return ((current + 90) % 360) as PlacementDraft["rotationDeg"];
 }
 
-function rotateCounterClockwise(current: PlacementDraft["rotationDeg"]): PlacementDraft["rotationDeg"] {
-  return ((current + 270) % 360) as PlacementDraft["rotationDeg"];
+function clampDraftToBoard(draft: PlacementDraft, shipSize: number): PlacementDraft {
+  const isHorizontal = draft.rotationDeg % 180 === 0;
+  const maxRow = isHorizontal ? battleshipDefinition.board.rows - 1 : battleshipDefinition.board.rows - shipSize;
+  const maxCol = isHorizontal ? battleshipDefinition.board.cols - shipSize : battleshipDefinition.board.cols - 1;
+  return {
+    ...draft,
+    row: Math.min(Math.max(draft.row, 0), Math.max(maxRow, 0)),
+    col: Math.min(Math.max(draft.col, 0), Math.max(maxCol, 0))
+  };
 }
 
 function renderPlacementBoardMarkup(
@@ -681,7 +688,7 @@ export function mountPlayableClient(
     }
 
     root.innerHTML = `
-      <section class="app-shell" style="--water-url:url('${water}')">
+      <section class="app-shell">
         ${topNav}
         <main>${mainContent}</main>
       </section>
@@ -693,8 +700,7 @@ export function mountPlayableClient(
     const joinBtn = root.querySelector<HTMLButtonElement>("#join-btn");
     const loadTemplateBtn = root.querySelector<HTMLButtonElement>("#load-template-btn");
     const randomTemplateBtn = root.querySelector<HTMLButtonElement>("#random-template-btn");
-    const rotateLeftBtn = root.querySelector<HTMLButtonElement>("#rotate-left-btn");
-    const rotateRightBtn = root.querySelector<HTMLButtonElement>("#rotate-right-btn");
+    const rotateShipBtn = root.querySelector<HTMLButtonElement>("#rotate-ship-btn");
     const clearShipBtn = root.querySelector<HTMLButtonElement>("#clear-ship-btn");
     const submitSetupBtn = root.querySelector<HTMLButtonElement>("#submit-setup-btn");
     const rejoinBtn = root.querySelector<HTMLButtonElement>("#rejoin-btn");
@@ -750,16 +756,16 @@ export function mountPlayableClient(
       render();
     });
 
-    const applyRotation = (direction: "left" | "right"): void => {
+    const applyRotation = (): void => {
       const active = placementDraftMap[selectedShipId] ?? { row: 0, col: 0, rotationDeg: 0 as const };
-      const rotated: PlacementDraft = {
-        ...active,
-        rotationDeg:
-          direction === "right" ? rotateClockwise(active.rotationDeg) : rotateCounterClockwise(active.rotationDeg)
-      };
       const spec = shipSpecs.find((ship) => ship.id === selectedShipId);
       if (!spec) return;
-      const candidateCells = buildCellsFromAnchor(rotated, spec.size);
+      const rotated: PlacementDraft = {
+        ...active,
+        rotationDeg: rotateClockwise(active.rotationDeg)
+      };
+      const normalizedRotated = clampDraftToBoard(rotated, spec.size);
+      const candidateCells = buildCellsFromAnchor(normalizedRotated, spec.size);
       if (!isInBounds(candidateCells)) {
         localError = "rotation_out_of_bounds";
       } else if (!canPlaceWithoutCollision(shipSpecs, placementDraftMap, selectedShipId, candidateCells)) {
@@ -767,15 +773,14 @@ export function mountPlayableClient(
       } else {
         placementDraftMap = {
           ...placementDraftMap,
-          [selectedShipId]: rotated
+          [selectedShipId]: normalizedRotated
         };
         localError = null;
       }
       render();
     };
 
-    rotateLeftBtn?.addEventListener("click", () => applyRotation("left"));
-    rotateRightBtn?.addEventListener("click", () => applyRotation("right"));
+    rotateShipBtn?.addEventListener("click", () => applyRotation());
 
     clearShipBtn?.addEventListener("click", () => {
       const { [selectedShipId]: _ignored, ...rest } = placementDraftMap;

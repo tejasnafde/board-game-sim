@@ -394,7 +394,7 @@
       .placement-ship img {
         width: 100%;
         height: 100%;
-        object-fit: contain;
+        object-fit: fill;
         transform: rotate(var(--ship-rotation));
         transform-origin: center center;
         display: block;
@@ -454,9 +454,7 @@
       }
 
       .cell.water {
-        background-image: var(--water-url);
-        background-size: cover;
-        background-position: center;
+        background: #a9d9f6;
       }
 
       .cell.ship {
