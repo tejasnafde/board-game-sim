@@ -7,6 +7,7 @@ export * from "./presentation";
 export * from "./realtime-client";
 export * from "./realtime-state";
 export * from "./renderer-registry";
+export * from "./routes";
 export * from "./runtime";
 
 import type { SocketLike } from "./realtime-client";
