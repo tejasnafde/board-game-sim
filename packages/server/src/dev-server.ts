@@ -7,7 +7,8 @@ async function run(): Promise<void> {
   const instance = await startServer({
     port,
     host,
-    demoSessionId: process.env.DEMO_SESSION_ID ?? "demo-battleship"
+    demoSessionId: process.env.DEMO_SESSION_ID ?? "demo-battleship",
+    labyrinthDemoSessionId: process.env.LABYRINTH_DEMO_SESSION_ID ?? null
   });
 
   process.stdout.write(`server_started http://${host}:${port}\n`);

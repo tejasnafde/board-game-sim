@@ -10,7 +10,9 @@
       "@board-game-sim/server": ["packages/server/src/index.ts"],
       "@board-game-sim/server/*": ["packages/server/src/*"],
       "@board-game-sim/battleship": ["packages/games/battleship/src/index.ts"],
-      "@board-game-sim/battleship/*": ["packages/games/battleship/src/*"]
+      "@board-game-sim/battleship/*": ["packages/games/battleship/src/*"],
+      "@board-game-sim/labyrinth": ["packages/games/labyrinth/src/index.ts"],
+      "@board-game-sim/labyrinth/*": ["packages/games/labyrinth/src/*"]
     }
   },
   "include": [
