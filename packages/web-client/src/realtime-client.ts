@@ -31,10 +31,16 @@ export class RealtimeClient {
   private readonly serverListeners = new Set<(event: ServerEvent) => void>();
   private readonly clientListeners = new Set<(event: ClientEvent) => void>();
   private readonly logListeners = new Set<(entry: string) => void>();
+  private readonly pendingEvents: ClientEvent[] = [];
+  private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+  private shouldReconnect = true;
 
   constructor(private readonly socketFactory: SocketFactory) {}
 
   connect(): void {
+    if (this.socket && this.socket.readyState === 0) {
+      return;
+    }
     this.socket = this.socketFactory();
     this.emitLog("connect");
     this.socket.onmessage = (event) => {
@@ -45,20 +51,42 @@ export class RealtimeClient {
       }
     };
     this.socket.onopen = () => {
-      if (this.lastJoinEvent) {
-        this.send(this.lastJoinEvent);
+      this.emitLog("open");
+      this.flushPending();
+    };
+    this.socket.onclose = () => {
+      this.emitLog("close");
+      this.socket = null;
+      if (this.shouldReconnect && !this.reconnectTimer) {
+        this.reconnectTimer = setTimeout(() => {
+          this.reconnectTimer = null;
+          this.connect();
+        }, 1000);
       }
+    };
+    this.socket.onerror = () => {
+      this.emitLog("error");
     };
   }
 
   disconnect(): void {
+    this.shouldReconnect = false;
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
     this.emitLog("disconnect");
     this.socket?.close();
     this.socket = null;
   }
 
   reconnect(): void {
-    this.disconnect();
+    this.shouldReconnect = true;
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
+    this.socket?.close();
     this.connect();
   }
 
@@ -73,7 +101,13 @@ export class RealtimeClient {
     if (this.socket.readyState === 1) {
       this.socket.send(JSON.stringify(event));
     } else {
-      this.emitLog(`send_deferred readyState=${this.socket.readyState}`);
+      if (event.type === "session.join") {
+        const filtered = this.pendingEvents.filter((item) => item.type !== "session.join");
+        this.pendingEvents.splice(0, this.pendingEvents.length, ...filtered, event);
+      } else {
+        this.pendingEvents.push(event);
+      }
+      this.emitLog(`send_queued readyState=${this.socket.readyState}`);
     }
     for (const listener of this.clientListeners) {
       listener(event);
@@ -98,6 +132,21 @@ export class RealtimeClient {
   private emitLog(entry: string): void {
     for (const listener of this.logListeners) {
       listener(entry);
+    }
+  }
+
+  private flushPending(): void {
+    if (!this.socket || this.socket.readyState !== 1) {
+      return;
+    }
+    if (this.lastJoinEvent && !this.pendingEvents.some((event) => event.type === "session.join")) {
+      this.pendingEvents.unshift(this.lastJoinEvent);
+    }
+    while (this.pendingEvents.length > 0) {
+      const event = this.pendingEvents.shift();
+      if (!event) break;
+      this.socket.send(JSON.stringify(event));
+      this.emitLog(`send_flushed ${event.type}`);
     }
   }
 }
