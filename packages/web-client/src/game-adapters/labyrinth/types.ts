@@ -7,6 +7,8 @@ export type LabyrinthView = {
   winnerPlayerId?: string | null;
   config?: { insertionIndexes?: number[] };
   board?: Array<Array<{ openings: Record<"N" | "E" | "S" | "W", boolean>; objectiveId: string | null }>>;
+  spareTile?: { openings?: Record<"N" | "E" | "S" | "W", boolean>; objectiveId?: string | null };
+  lastInsertion?: { edge: string; index: number } | null;
   players?: Array<{ playerId: string; position: Coord; objectivesRemainingCount: number }>;
   myState?: {
     remainingObjectives?: Array<{ id: string }>;
