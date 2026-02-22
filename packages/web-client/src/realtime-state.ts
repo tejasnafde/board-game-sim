@@ -38,6 +38,15 @@ export function applyServerEvent(state: ClientState, event: ServerEvent): Client
     return state;
   }
 
+  if (event.type === "session.created") {
+    // Session was created on demand; a state_sync will follow with the actual seq.
+    return {
+      ...state,
+      sessionId: event.sessionId,
+      lastError: null
+    };
+  }
+
   if (event.type === "session.state_sync") {
     return {
       ...state,

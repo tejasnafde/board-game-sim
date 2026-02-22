@@ -1,6 +1,7 @@
 import type { EngineActionEnvelope, JsonValue } from "@board-game-sim/shared";
 
 export type ClientEvent =
+  | { type: "session.create"; sessionId: string; gameId: string; playerId: string }
   | { type: "session.join"; sessionId: string; playerId: string }
   | { type: "action.submit"; envelope: EngineActionEnvelope }
   | { type: "session.leave"; sessionId: string; playerId: string }
@@ -8,6 +9,7 @@ export type ClientEvent =
 
 export type ServerEvent =
   | { type: "session.state_sync"; sessionId: string; seq: number; view: JsonValue }
+  | { type: "session.created"; sessionId: string; gameId: string; players: string[] }
   | { type: "session.action_accepted"; sessionId: string; seq: number; events: JsonValue[] }
   | { type: "session.action_rejected"; sessionId: string; reason: string }
   | { type: "session.state_patch"; sessionId: string; seq: number; patch: JsonValue }
@@ -27,7 +29,8 @@ export type SocketFactory = () => SocketLike;
 
 export class RealtimeClient {
   private socket: SocketLike | null = null;
-  private lastJoinEvent: Extract<ClientEvent, { type: "session.join" }> | null = null;
+  // Track both the last join and last create so we can replay on reconnect
+  private lastJoinEvent: Extract<ClientEvent, { type: "session.join" }> | Extract<ClientEvent, { type: "session.create" }> | null = null;
   private readonly serverListeners = new Set<(event: ServerEvent) => void>();
   private readonly clientListeners = new Set<(event: ClientEvent) => void>();
   private readonly logListeners = new Set<(entry: string) => void>();
@@ -35,7 +38,7 @@ export class RealtimeClient {
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private shouldReconnect = true;
 
-  constructor(private readonly socketFactory: SocketFactory) {}
+  constructor(private readonly socketFactory: SocketFactory) { }
 
   connect(): void {
     if (this.socket && this.socket.readyState === 0) {
@@ -94,15 +97,17 @@ export class RealtimeClient {
     if (!this.socket) {
       throw new Error("socket_not_connected");
     }
-    if (event.type === "session.join") {
+    if (event.type === "session.join" || event.type === "session.create") {
       this.lastJoinEvent = event;
     }
     this.emitLog(`send ${event.type}`);
     if (this.socket.readyState === 1) {
       this.socket.send(JSON.stringify(event));
     } else {
-      if (event.type === "session.join") {
-        const filtered = this.pendingEvents.filter((item) => item.type !== "session.join");
+      if (event.type === "session.join" || event.type === "session.create") {
+        const filtered = this.pendingEvents.filter(
+          (item) => item.type !== "session.join" && item.type !== "session.create"
+        );
         this.pendingEvents.splice(0, this.pendingEvents.length, ...filtered, event);
       } else {
         this.pendingEvents.push(event);
@@ -139,7 +144,12 @@ export class RealtimeClient {
     if (!this.socket || this.socket.readyState !== 1) {
       return;
     }
-    if (this.lastJoinEvent && !this.pendingEvents.some((event) => event.type === "session.join")) {
+    if (
+      this.lastJoinEvent &&
+      !this.pendingEvents.some(
+        (event) => event.type === "session.join" || event.type === "session.create"
+      )
+    ) {
       this.pendingEvents.unshift(this.lastJoinEvent);
     }
     while (this.pendingEvents.length > 0) {

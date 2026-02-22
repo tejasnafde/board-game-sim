@@ -1,7 +1,6 @@
 import { RealtimeClient, type SocketLike } from "./realtime-client";
 import { createWebClientRuntime, type WebClientRuntime } from "./runtime";
 import { battleshipManifest, getManifest, labyrinthManifest } from "./game-manifests";
-import { createDefaultPlacementsFromDefinition } from "./battleship-template";
 import { renderAppShell, renderComingSoon, renderHubLanding } from "./app-shell";
 import {
   bindBattleshipEvents,
@@ -25,10 +24,38 @@ import { navigate, parseHashRoute, toHashRoute, type AppRoute, type GameId } fro
 
 export { GAME_HUB_CARDS, resolveGameHubNavigation };
 
+// ─────────────────────────────────────────────────────────────
+// Persist session + player IDs across page reloads per game,
+// so each browser tab can have its own identity.
+// ─────────────────────────────────────────────────────────────
+const STORAGE_PREFIX = "bgs:";
+
+function loadStored(key: string, fallback: string): string {
+  try {
+    return localStorage.getItem(`${STORAGE_PREFIX}${key}`) ?? fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function saveStored(key: string, value: string): void {
+  try {
+    localStorage.setItem(`${STORAGE_PREFIX}${key}`, value);
+  } catch {
+    // ignore
+  }
+}
+
+function generateSessionId(): string {
+  return `game-${Math.random().toString(36).slice(2, 8)}`;
+}
+
 function getDefaultSessionForGame(gameId: GameId): string {
-  const manifest = getManifest(gameId);
-  if (manifest) return manifest.defaultSessionId;
-  return "demo-catan";
+  return loadStored(`sessionId:${gameId}`, generateSessionId());
+}
+
+function getDefaultPlayerId(): string {
+  return loadStored("playerId", "player-1");
 }
 
 export function getGameplayPanelOrder(): Array<"debug" | "state"> {
@@ -74,10 +101,11 @@ export function mountPlayableClient(
   let joined = false;
   let joinedGameId: GameId | null = null;
   let sessionId = getDefaultSessionForGame("battleship");
-  let playerId = "player-1";
+  let playerId = getDefaultPlayerId();
   const battleshipDefinition = battleshipManifest.definition as { board: { rows: number; cols: number }; ships: ShipSpec[] };
   const shipSpecs = battleshipDefinition.ships;
-  let placementDraftMap = placementsToDraftMap(createDefaultPlacementsFromDefinition(battleshipDefinition));
+  // Start with an EMPTY draft map — don't pre-place ships, let the user do it
+  let placementDraftMap: Record<string, import("./game-adapters/battleship").PlacementDraft> = {};
   let selectedShipId = shipSpecs[0]?.id ?? "";
   let localError: string | null = null;
   const logs: string[] = [];
@@ -183,23 +211,48 @@ export function mountPlayableClient(
       if (nextRoute) {
         joined = false;
         joinedGameId = null;
+        // When entering a game from the hub, load the stored session for that game
+        // (or generate a fresh one if never visited before)
         sessionId = getDefaultSessionForGame(gameId);
+        playerId = getDefaultPlayerId();
         navigate(nextRoute);
       }
     });
 
+    const newSessionBtn = root.querySelector<HTMLButtonElement>("#new-session-btn");
+
     sessionInput?.addEventListener("input", () => {
       sessionId = sessionInput.value;
+      // Persist the session ID the user types for this game
+      const route = getCurrentRoute();
+      if (route.name === "game") {
+        saveStored(`sessionId:${route.gameId}`, sessionId);
+      }
+    });
+
+    newSessionBtn?.addEventListener("click", () => {
+      sessionId = generateSessionId();
+      if (sessionInput) sessionInput.value = sessionId;
+      const route = getCurrentRoute();
+      if (route.name === "game") {
+        saveStored(`sessionId:${route.gameId}`, sessionId);
+      }
     });
 
     playerInput?.addEventListener("input", () => {
       playerId = playerInput.value;
+      saveStored("playerId", playerId);
     });
 
     joinBtn?.addEventListener("click", () => {
       joined = true;
       joinedGameId = route.name === "game" ? route.gameId : null;
-      runtime.controller.join(sessionId, playerId);
+      // Reset placement state when joining a fresh session
+      placementDraftMap = {};
+      selectedShipId = shipSpecs[0]?.id ?? "";
+      localError = null;
+      // Pass gameId so server creates session on demand
+      runtime.controller.join(sessionId, playerId, joinedGameId ?? undefined);
       render();
     });
 

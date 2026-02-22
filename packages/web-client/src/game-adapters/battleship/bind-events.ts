@@ -91,6 +91,7 @@ export function bindBattleshipEvents(root: HTMLElement, ctx: BattleshipBindConte
     ctx.render();
   });
 
+  // Click ship in fleet list → select it
   fleetPanel?.addEventListener("click", (event) => {
     const target = event.target as HTMLElement;
     const shipButton = target.closest<HTMLElement>("[data-ship-id]");
@@ -99,14 +100,29 @@ export function bindBattleshipEvents(root: HTMLElement, ctx: BattleshipBindConte
     ctx.render();
   });
 
+  // Handle clicks on the placement board — both on cells and on ship sprites
   placementBoard?.addEventListener("click", (event) => {
     const target = event.target as HTMLElement;
-    if (!target.classList.contains("placement-cell")) {
-      return;
+
+    // Clicking directly on a placed ship sprite → select that ship
+    const shipSprite = target.closest<HTMLElement>(".placement-ship");
+    if (shipSprite) {
+      const shipId = shipSprite.dataset.shipId;
+      if (shipId) {
+        ctx.setSelectedShipId(shipId);
+        ctx.setLocalError(null);
+        ctx.render();
+        return;
+      }
     }
-    const row = Number(target.dataset.r ?? "-1");
-    const col = Number(target.dataset.c ?? "-1");
+
+    // Otherwise clicking a grid cell → place the selected ship there
+    const cell = target.closest<HTMLElement>(".placement-cell");
+    if (!cell) return;
+    const row = Number(cell.dataset.r ?? "-1");
+    const col = Number(cell.dataset.c ?? "-1");
     if (row < 0 || col < 0) return;
+
     const ship = ctx.shipSpecs.find((spec) => spec.id === ctx.selectedShipId);
     if (!ship) return;
     const currentRotation = ctx.placementDraftMap[ctx.selectedShipId]?.rotationDeg ?? 0;
@@ -129,8 +145,25 @@ export function bindBattleshipEvents(root: HTMLElement, ctx: BattleshipBindConte
         [ctx.selectedShipId]: candidateDraft
       });
       ctx.setLocalError(null);
+
+      // Auto-advance to next unplaced ship
+      const nextUnplaced = ctx.shipSpecs.find(
+        (s) => s.id !== ctx.selectedShipId && !({
+          ...ctx.placementDraftMap,
+          [ctx.selectedShipId]: candidateDraft
+        })[s.id]
+      );
+      if (nextUnplaced) {
+        ctx.setSelectedShipId(nextUnplaced.id);
+      }
     }
     ctx.render();
+  });
+
+  // Right-click on placement board → rotate selected ship
+  placementBoard?.addEventListener("contextmenu", (event) => {
+    event.preventDefault();
+    applyRotation();
   });
 
   submitSetupBtn?.addEventListener("click", () => {
@@ -152,9 +185,8 @@ export function bindBattleshipEvents(root: HTMLElement, ctx: BattleshipBindConte
 
   renderView?.addEventListener("click", (event) => {
     const target = event.target as HTMLElement;
-    if (!target.classList.contains("opponent-cell")) {
-      return;
-    }
+    const opponentCell = target.closest<HTMLElement>(".opponent-cell");
+    if (!opponentCell) return;
 
     const stateForAction = ctx.runtime.controller.getState();
     const latestView = (stateForAction.view ?? {}) as ClientView;
@@ -167,8 +199,8 @@ export function bindBattleshipEvents(root: HTMLElement, ctx: BattleshipBindConte
       return;
     }
 
-    const row = Number(target.dataset.r ?? "-1");
-    const col = Number(target.dataset.c ?? "-1");
+    const row = Number(opponentCell.dataset.r ?? "-1");
+    const col = Number(opponentCell.dataset.c ?? "-1");
     if (row >= 0 && col >= 0) {
       ctx.pushLog(`click_fire row=${row} col=${col}`);
       ctx.runtime.controller.submitFire({ row, col });

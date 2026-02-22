@@ -14,7 +14,7 @@ export interface ControllerTransport {
 }
 
 export type ClientController = {
-  join(sessionId: string, playerId: string): void;
+  join(sessionId: string, playerId: string, gameId?: string): void;
   rejoin(): void;
   submitAction(actionType: string, payload: JsonValue): void;
   submitPlaceShips(placements: ShipPlacement[]): void;
@@ -25,6 +25,7 @@ export type ClientController = {
 export function createClientController(transport: ControllerTransport): ClientController {
   let state: ClientState = createInitialClientState();
   let actionCounter = 0;
+  let lastGameId: string | null = null;
 
   transport.subscribe((event) => {
     state = applyServerEvent(state, event);
@@ -35,20 +36,35 @@ export function createClientController(transport: ControllerTransport): ClientCo
     return `client-action-${actionCounter}`;
   }
 
-  function join(sessionId: string, playerId: string): void {
+  /**
+   * Join or create a session.
+   * If gameId is provided, we attempt to CREATE the session first (server handles idempotency:
+   * if it already exists, the server falls back to a join).
+   * If no gameId, just join (for backward compatibility with demo sessions).
+   */
+  function join(sessionId: string, playerId: string, gameId?: string): void {
     state = {
       ...state,
       sessionId,
       playerId
     };
-    transport.send({ type: "session.join", sessionId, playerId });
+    if (gameId) {
+      lastGameId = gameId;
+      transport.send({ type: "session.create", sessionId, gameId, playerId });
+    } else {
+      transport.send({ type: "session.join", sessionId, playerId });
+    }
   }
 
   function rejoin(): void {
     if (!state.sessionId || !state.playerId) {
       throw new Error("session_or_player_missing");
     }
-    transport.send({ type: "session.join", sessionId: state.sessionId, playerId: state.playerId });
+    if (lastGameId) {
+      transport.send({ type: "session.create", sessionId: state.sessionId, gameId: lastGameId, playerId: state.playerId });
+    } else {
+      transport.send({ type: "session.join", sessionId: state.sessionId, playerId: state.playerId });
+    }
   }
 
   function submitAction(actionType: string, payload: JsonValue): void {
