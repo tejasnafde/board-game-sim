@@ -203,7 +203,7 @@ export function renderLabyrinthGameplay(
     const disabled = !isSlot || !isMyTurn || !isInsertStage ? "disabled" : "";
     return isSlot
       ? `<button class="insert-btn labyrinth-insert-btn" data-edge="top" data-index="${col}" ${disabled} title="Insert top column ${col}">▼</button>`
-      : `<div style="width:32px"></div>`;
+      : `<div></div>`;
   }).join("");
 
   const bottomBtns = Array.from({ length: cols }, (_, col) => {
@@ -211,7 +211,7 @@ export function renderLabyrinthGameplay(
     const disabled = !isSlot || !isMyTurn || !isInsertStage ? "disabled" : "";
     return isSlot
       ? `<button class="insert-btn labyrinth-insert-btn" data-edge="bottom" data-index="${col}" ${disabled} title="Insert bottom column ${col}">▲</button>`
-      : `<div style="width:32px"></div>`;
+      : `<div></div>`;
   }).join("");
 
   const leftBtns = Array.from({ length: rows }, (_, row) => {
@@ -219,7 +219,7 @@ export function renderLabyrinthGameplay(
     const disabled = !isSlot || !isMyTurn || !isInsertStage ? "disabled" : "";
     return isSlot
       ? `<button class="insert-btn labyrinth-insert-btn" data-edge="left" data-index="${row}" ${disabled} title="Insert left row ${row}">▶</button>`
-      : `<div style="height:32px"></div>`;
+      : `<div></div>`;
   }).join("");
 
   const rightBtns = Array.from({ length: rows }, (_, row) => {
@@ -227,7 +227,7 @@ export function renderLabyrinthGameplay(
     const disabled = !isSlot || !isMyTurn || !isInsertStage ? "disabled" : "";
     return isSlot
       ? `<button class="insert-btn labyrinth-insert-btn" data-edge="right" data-index="${row}" ${disabled} title="Insert right row ${row}">◀</button>`
-      : `<div style="height:32px"></div>`;
+      : `<div></div>`;
   }).join("");
 
   // Players sidebar
