@@ -45,7 +45,9 @@ export class RealtimeGateway {
 
       // Players: the creator is always player-1; a second player will join as player-2
       // We register both player-1 and player-2 upfront so the second player can join freely.
-      const players = ["player-1", "player-2", "player-3", "player-4"];
+      const players = event.gameId === "battleship"
+        ? ["player-1", "player-2"]
+        : ["player-1", "player-2", "player-3", "player-4"];
 
       try {
         await this.sessions.createSession({

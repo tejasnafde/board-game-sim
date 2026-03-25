@@ -94,7 +94,7 @@ export function createWsRealtimeServer(options: WsServerOptions) {
         return;
       }
 
-      if (incoming.type === "session.join") {
+      if (incoming.type === "session.join" || incoming.type === "session.create") {
         joinRoom(socket, incoming.sessionId, incoming.playerId);
       }
 
@@ -105,7 +105,7 @@ export function createWsRealtimeServer(options: WsServerOptions) {
 
       const outbound = await options.gateway.handleClientEvent(incoming);
 
-      if (incoming.type === "session.join") {
+      if (incoming.type === "session.join" || incoming.type === "session.create") {
         for (const event of outbound) {
           send(socket, event);
         }

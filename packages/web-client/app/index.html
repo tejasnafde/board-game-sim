@@ -1252,32 +1252,38 @@
 
     .insert-row-top {
       grid-area: top;
-      display: flex;
-      justify-content: center;
+      display: grid;
+      grid-template-columns: repeat(7, minmax(0, 1fr));
       gap: 3px;
+      padding: 0 4px;
+      place-items: center;
     }
 
     .insert-row-bottom {
       grid-area: bottom;
-      display: flex;
-      justify-content: center;
+      display: grid;
+      grid-template-columns: repeat(7, minmax(0, 1fr));
       gap: 3px;
+      padding: 0 4px;
+      place-items: center;
     }
 
     .insert-col-left {
       grid-area: left;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
+      display: grid;
+      grid-template-rows: repeat(7, minmax(0, 1fr));
       gap: 3px;
+      padding: 4px 0;
+      place-items: center;
     }
 
     .insert-col-right {
       grid-area: right;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
+      display: grid;
+      grid-template-rows: repeat(7, minmax(0, 1fr));
       gap: 3px;
+      padding: 4px 0;
+      place-items: center;
     }
 
     .labyrinth-board-center {

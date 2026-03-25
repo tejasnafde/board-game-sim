@@ -47,7 +47,7 @@ function saveStored(key: string, value: string): void {
 }
 
 function generateSessionId(): string {
-  return `game-${Math.random().toString(36).slice(2, 8)}`;
+  return Math.random().toString(16).slice(2, 8).toUpperCase();
 }
 
 function getDefaultSessionForGame(gameId: GameId): string {
@@ -196,9 +196,20 @@ export function mountPlayableClient(
     const joinBtn = root.querySelector<HTMLButtonElement>("#join-btn");
     const navBackBtn = root.querySelector<HTMLButtonElement>("#nav-back-btn");
     const backHomeBtn = root.querySelector<HTMLButtonElement>("#back-home-btn");
+    const copySessionBtn = root.querySelector<HTMLElement>("#copy-session-btn");
 
     navBackBtn?.addEventListener("click", () => goHome());
     backHomeBtn?.addEventListener("click", () => goHome());
+
+    copySessionBtn?.addEventListener("click", () => {
+      navigator.clipboard.writeText(sessionId).then(() => {
+        const originalText = copySessionBtn.innerText;
+        copySessionBtn.innerText = "✓ Copied!";
+        setTimeout(() => {
+          copySessionBtn.innerText = originalText;
+        }, 1500);
+      });
+    });
 
     gameHubGrid?.addEventListener("click", (event) => {
       const target = event.target as HTMLElement;
