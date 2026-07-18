@@ -1,4 +1,4 @@
-import type { EngineActionEnvelope, SessionMetadata } from "@board-game-sim/shared";
+import { createLogger, type EngineActionEnvelope, type SessionMetadata } from "@board-game-sim/shared";
 import {
   SessionRuntime,
   type GameRegistry,
@@ -11,6 +11,8 @@ type SessionRuntimeEntry = {
   runtime: SessionRuntime<unknown>;
   meta: SessionMetadata;
 };
+
+const log = createLogger("session");
 
 export class SessionService {
   private readonly sessions = new Map<string, SessionRuntimeEntry>();
@@ -42,6 +44,7 @@ export class SessionService {
     await runtime.initSession(meta, resolved.definition);
     await this.sessionRepo.put(meta);
     this.sessions.set(meta.sessionId, { runtime: runtime as SessionRuntime<unknown>, meta });
+    log.info(`${meta.sessionId} created (${meta.gameId}@${meta.gameVersion}, ${meta.players.length} seats)`);
   }
 
   async recoverSession(sessionId: string): Promise<void> {
@@ -66,6 +69,7 @@ export class SessionService {
       this.snapshotEvery
     );
     const latestSnapshot = await this.snapshotRepo.getLatest(sessionId);
+    log.info(`${sessionId} recovering (snapshot=${latestSnapshot ? `seq ${latestSnapshot.seq}` : "none"})`);
 
     if (!latestSnapshot) {
       await runtime.initSession(meta, resolved.definition);

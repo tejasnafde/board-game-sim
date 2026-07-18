@@ -1,12 +1,28 @@
-import type { JsonValue } from "@board-game-sim/shared";
+import { createLogger, createSeededRng, type GameBot, type JsonValue } from "@board-game-sim/shared";
+import { battleshipBot } from "@board-game-sim/battleship";
+import { labyrinthBot } from "@board-game-sim/labyrinth";
+import { connect4Bot } from "@board-game-sim/connect4";
+import battleshipDefinition from "../../games/battleship/definition.json";
+import labyrinthDefinition from "../../games/labyrinth/definition.json";
+import connect4Definition from "../../games/connect4/definition.json";
 import type { ClientEvent, ServerEvent } from "./protocol";
 import { SessionService } from "./session-service";
 
-// Supported games for on-demand session creation
-const GAME_VERSIONS: Record<string, string> = {
-  battleship: "0.1.0",
-  labyrinth: "0.1.0"
+// Supported games for on-demand session creation. New game? Add a row.
+const GAMES: Record<
+  string,
+  { version: string; minSeats: number; maxSeats: number; bot: GameBot; definition: JsonValue }
+> = {
+  battleship: { version: "0.1.0", minSeats: 2, maxSeats: 2, bot: battleshipBot, definition: battleshipDefinition as JsonValue },
+  labyrinth: { version: "0.1.0", minSeats: 2, maxSeats: 4, bot: labyrinthBot, definition: labyrinthDefinition as JsonValue },
+  connect4: { version: "0.1.0", minSeats: 2, maxSeats: 2, bot: connect4Bot, definition: connect4Definition as JsonValue }
 };
+
+// Safety cap on consecutive bot moves per trigger (multi-bot rounds are legal;
+// an infinitely-looping module bug is not).
+const MAX_BOT_MOVES = 50;
+
+const log = createLogger("gateway");
 
 function extractReason(error: unknown): string {
   if (!(error instanceof Error)) {
@@ -17,23 +33,113 @@ function extractReason(error: unknown): string {
 }
 
 export class RealtimeGateway {
+  // Auto-claim seats: engine playerIds are fixed at init (turn order), but
+  // humans type their own names. First join claims the first free seat; the
+  // same name always maps back to its seat (reconnect-safe).
+  // ponytail: names are trusted (friends-scale); auth if strangers ever join.
+  private readonly claimsBySession = new Map<string, Map<string, string>>();
+
+  // Seats played by the server (vs-computer mode), per session.
+  private readonly botSeatsBySession = new Map<string, { gameId: string; seats: Set<string> }>();
+
   constructor(private readonly sessions: SessionService) { }
 
-  async createStateSyncEvent(sessionId: string, playerId: string): Promise<ServerEvent> {
+  /** Let bot seats act until it's a human's turn (or terminal / nothing to do). */
+  private async playBotSeats(sessionId: string): Promise<void> {
+    const entry = this.botSeatsBySession.get(sessionId);
+    const game = entry ? GAMES[entry.gameId] : undefined;
+    if (!entry || !game) return;
+
+    for (let move = 0; move < MAX_BOT_MOVES; move += 1) {
+      if (this.sessions.getTerminalResult(sessionId)) return;
+
+      let acted = false;
+      for (const seat of entry.seats) {
+        const view = this.sessions.getPlayerView(sessionId, seat) as JsonValue;
+        const seq = this.sessions.getSessionSeq(sessionId);
+        const action = game.bot({
+          view,
+          definition: game.definition,
+          playerId: seat,
+          rng: createSeededRng(`${sessionId}:${seat}:${seq}`)
+        });
+        if (!action) continue;
+
+        const result = await this.sessions.submitAction({
+          sessionId,
+          expectedSeq: seq,
+          actorPlayerId: seat,
+          actionType: action.actionType,
+          payload: action.payload,
+          clientActionId: `bot-${seat}-${seq}`
+        });
+        // A bot proposing an illegal move is a game bug; stop rather than spin.
+        if (!result.accepted) {
+          log.error(`${sessionId} 🤖 ${seat} move REJECTED (${result.reason}) — game bug, bot stopping`);
+          return;
+        }
+        log.info(`${sessionId} 🤖 ${seat} → ${action.actionType} ${JSON.stringify(action.payload)}`);
+        acted = true;
+        break;
+      }
+      if (!acted) return;
+    }
+  }
+
+  private resolveSeat(sessionId: string, name: string): string | null {
+    let claims = this.claimsBySession.get(sessionId);
+    if (claims?.has(name)) return claims.get(name)!;
+
+    const meta = this.sessions.getSessionMeta(sessionId);
+    if (!meta) return null;
+    if (!claims) {
+      claims = new Map();
+      this.claimsBySession.set(sessionId, claims);
+    }
+
+    const taken = new Set(claims.values());
+    // Prefer identity: a name that IS a roster seat gets that exact seat
+    // (explicit rosters and bots address seats by name).
+    const seat = meta.players.includes(name) && !taken.has(name)
+      ? name
+      : meta.players.find((s) => !taken.has(s));
+    if (!seat) {
+      log.warn(`${sessionId} seat claim failed for "${name}" — session full`);
+      return null;
+    }
+    claims.set(name, seat);
+    log.info(`${sessionId} "${name}" claimed seat ${seat}`);
+    return seat;
+  }
+
+  private seatNames(sessionId: string): Record<string, string> {
+    const claims = this.claimsBySession.get(sessionId);
+    const seats: Record<string, string> = {};
+    for (const [name, seat] of claims ?? []) seats[seat] = name;
+    return seats;
+  }
+
+  async createStateSyncEvent(sessionId: string, playerName: string): Promise<ServerEvent> {
     await this.sessions.recoverSession(sessionId);
+    const seat = this.resolveSeat(sessionId, playerName);
+    if (!seat) {
+      return { type: "session.action_rejected", sessionId, reason: "session_full" };
+    }
     return {
       type: "session.state_sync",
       sessionId,
       seq: this.sessions.getSessionSeq(sessionId),
-      view: this.sessions.getPlayerView(sessionId, playerId) as JsonValue
+      view: this.sessions.getPlayerView(sessionId, seat) as JsonValue,
+      youAre: seat,
+      seats: this.seatNames(sessionId)
     };
   }
 
   async handleClientEvent(event: ClientEvent): Promise<ServerEvent[]> {
     // ── Create session on demand ──────────────────────────────────────────────
     if (event.type === "session.create") {
-      const gameVersion = GAME_VERSIONS[event.gameId];
-      if (!gameVersion) {
+      const game = GAMES[event.gameId];
+      if (!game) {
         return [
           {
             type: "session.action_rejected",
@@ -43,17 +149,23 @@ export class RealtimeGateway {
         ];
       }
 
-      // Players: the creator is always player-1; a second player will join as player-2
-      // We register both player-1 and player-2 upfront so the second player can join freely.
-      const players = event.gameId === "battleship"
-        ? ["player-1", "player-2"]
-        : ["player-1", "player-2", "player-3", "player-4"];
+      // Roster: the turn loop cycles through this exact list, so it must match
+      // the humans who will actually play — empty seats deadlock the game.
+      // Explicit `players` wins (tests/bots); otherwise generic seats sized by
+      // seatCount, claimed by name as people join.
+      const seatCount = Math.min(
+        game.maxSeats,
+        Math.max(game.minSeats, event.seatCount ?? game.minSeats)
+      );
+      const players = event.players && event.players.length >= 2
+        ? event.players
+        : Array.from({ length: seatCount }, (_, i) => `player-${i + 1}`);
 
       try {
         await this.sessions.createSession({
           sessionId: event.sessionId,
           gameId: event.gameId,
-          gameVersion,
+          gameVersion: game.version,
           seed: `${event.sessionId}-seed`,
           players
         });
@@ -70,6 +182,21 @@ export class RealtimeGateway {
             reason
           }
         ];
+      }
+
+      // Creator claims seat 1 before any bots claim theirs.
+      this.resolveSeat(event.sessionId, event.playerId);
+
+      const botCount = Math.min(event.bots ?? 0, players.length - 1);
+      if (botCount > 0) {
+        const seats = new Set<string>();
+        for (let i = 0; i < botCount; i += 1) {
+          const name = botCount === 1 ? "Computer" : `Computer ${i + 1}`;
+          const seat = this.resolveSeat(event.sessionId, name);
+          if (seat) seats.add(seat);
+        }
+        this.botSeatsBySession.set(event.sessionId, { gameId: event.gameId, seats });
+        await this.playBotSeats(event.sessionId);
       }
 
       // Return created confirmation + initial state sync for creator
@@ -98,23 +225,22 @@ export class RealtimeGateway {
         ];
       }
 
-      const meta = this.sessions.getSessionMeta(event.sessionId);
-      if (!meta || !meta.players.includes(event.playerId)) {
-        return [
-          {
-            type: "session.action_rejected",
-            sessionId: event.sessionId,
-            reason: "actor_not_in_session"
-          }
-        ];
-      }
-
       return [await this.createStateSyncEvent(event.sessionId, event.playerId)];
     }
 
     // ── Submit game action ────────────────────────────────────────────────────
     if (event.type === "action.submit") {
-      const result = await this.sessions.submitAction(event.envelope);
+      const seat = this.resolveSeat(event.envelope.sessionId, event.envelope.actorPlayerId);
+      if (!seat) {
+        return [
+          {
+            type: "session.action_rejected",
+            sessionId: event.envelope.sessionId,
+            reason: "actor_not_in_session"
+          }
+        ];
+      }
+      const result = await this.sessions.submitAction({ ...event.envelope, actorPlayerId: seat });
       if (!result.accepted) {
         return [
           {
@@ -124,6 +250,10 @@ export class RealtimeGateway {
           }
         ];
       }
+
+      // Computer opponents respond before we report back, so the peer sync
+      // that follows already contains their moves.
+      await this.playBotSeats(event.envelope.sessionId);
 
       const outbound: ServerEvent[] = [
         {

@@ -1,8 +1,10 @@
 import { InMemoryGameRegistry, type RegisteredGame } from "@board-game-sim/engine";
 import { BattleshipModule } from "@board-game-sim/battleship";
 import { LabyrinthModule } from "@board-game-sim/labyrinth";
+import { Connect4Module } from "@board-game-sim/connect4";
 import battleshipDefinition from "../../games/battleship/definition.json";
 import labyrinthDefinition from "../../games/labyrinth/definition.json";
+import connect4Definition from "../../games/connect4/definition.json";
 
 export type DemoSessionSeed = {
   sessionId: string;
@@ -25,6 +27,12 @@ export function registerBuiltInGames(registry: InMemoryGameRegistry): Registered
       version: "0.1.0",
       definition: labyrinthDefinition,
       module: new LabyrinthModule()
+    },
+    {
+      gameId: "connect4",
+      version: "0.1.0",
+      definition: connect4Definition,
+      module: new Connect4Module()
     }
   ];
 
