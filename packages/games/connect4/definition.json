@@ -1,0 +1,14 @@
+{
+  "gameId": "connect4",
+  "version": "0.1.0",
+  "board": {
+    "rows": 6,
+    "cols": 7
+  },
+  "connect": 4,
+  "playerCount": {
+    "min": 2,
+    "max": 2
+  },
+  "phases": ["play", "terminal"]
+}

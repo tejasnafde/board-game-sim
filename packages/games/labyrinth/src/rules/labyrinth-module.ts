@@ -24,6 +24,7 @@ import type {
   Tile,
   TileShape
 } from "./types";
+import { findReachable as findReachableOnBoard, shiftBoard, shiftPosition } from "./board";
 
 type LabyrinthDefinition = {
   board?: {
@@ -39,8 +40,6 @@ type LabyrinthDefinition = {
   };
 };
 
-const DIRS: Direction[] = ["N", "E", "S", "W"];
-const OPPOSITE: Record<Direction, Direction> = { N: "S", S: "N", E: "W", W: "E" };
 
 function cloneState(state: LabyrinthState): LabyrinthState {
   return JSON.parse(JSON.stringify(state)) as LabyrinthState;
@@ -195,97 +194,23 @@ function isReverseInsertion(last: Insertion | null, next: InsertTilePayload): bo
   return oppositeEdge(last.edge) === next.edge && last.index === next.index;
 }
 
-function shiftPosition(position: Coord, insertion: Insertion, config: LabyrinthConfig): Coord {
-  if (insertion.edge === "top" && position.col === insertion.index) {
-    return { row: (position.row + 1) % config.rows, col: position.col };
-  }
-  if (insertion.edge === "bottom" && position.col === insertion.index) {
-    return { row: (position.row - 1 + config.rows) % config.rows, col: position.col };
-  }
-  if (insertion.edge === "left" && position.row === insertion.index) {
-    return { row: position.row, col: (position.col + 1) % config.cols };
-  }
-  if (insertion.edge === "right" && position.row === insertion.index) {
-    return { row: position.row, col: (position.col - 1 + config.cols) % config.cols };
-  }
-  return position;
-}
-
 function applyInsertionShift(state: LabyrinthState, insertion: Insertion): void {
-  const { board, config, spareTile } = state;
-
-  let ejected: Tile;
-  if (insertion.edge === "top") {
-    ejected = board[config.rows - 1][insertion.index] as Tile;
-    for (let row = config.rows - 1; row > 0; row -= 1) {
-      board[row][insertion.index] = board[row - 1][insertion.index] as Tile;
-    }
-    board[0][insertion.index] = spareTile;
-  } else if (insertion.edge === "bottom") {
-    ejected = board[0][insertion.index] as Tile;
-    for (let row = 0; row < config.rows - 1; row += 1) {
-      board[row][insertion.index] = board[row + 1][insertion.index] as Tile;
-    }
-    board[config.rows - 1][insertion.index] = spareTile;
-  } else if (insertion.edge === "left") {
-    ejected = board[insertion.index][config.cols - 1] as Tile;
-    for (let col = config.cols - 1; col > 0; col -= 1) {
-      board[insertion.index][col] = board[insertion.index][col - 1] as Tile;
-    }
-    board[insertion.index][0] = spareTile;
-  } else {
-    ejected = board[insertion.index][0] as Tile;
-    for (let col = 0; col < config.cols - 1; col += 1) {
-      board[insertion.index][col] = board[insertion.index][col + 1] as Tile;
-    }
-    board[insertion.index][config.cols - 1] = spareTile;
-  }
-
-  state.spareTile = ejected;
+  const shifted = shiftBoard(state.board, state.spareTile, insertion, state.config);
+  state.board = shifted.board;
+  state.spareTile = shifted.spare;
 
   for (const player of state.players) {
-    player.position = shiftPosition(player.position, insertion, config);
-    player.home = shiftPosition(player.home, insertion, config);
+    player.position = shiftPosition(player.position, insertion, state.config);
+    player.home = shiftPosition(player.home, insertion, state.config);
     player.remainingObjectives = player.remainingObjectives.map((objective) => ({
       ...objective,
-      position: shiftPosition(objective.position, insertion, config)
+      position: shiftPosition(objective.position, insertion, state.config)
     }));
   }
 }
 
-function neighbors(state: LabyrinthState, origin: Coord): Coord[] {
-  const tile = state.board[origin.row]?.[origin.col];
-  if (!tile) return [];
-
-  const result: Coord[] = [];
-  for (const dir of DIRS) {
-    if (!tile.openings[dir]) continue;
-    const dest = nextCoord(origin, dir);
-    if (!inBounds(dest, state.config)) continue;
-    const nextTile = state.board[dest.row]?.[dest.col];
-    if (!nextTile?.openings[OPPOSITE[dir]]) continue;
-    result.push(dest);
-  }
-  return result;
-}
-
 function findReachable(state: LabyrinthState, from: Coord): Set<string> {
-  const visited = new Set<string>();
-  const queue: Coord[] = [from];
-  visited.add(coordKey(from));
-
-  while (queue.length > 0) {
-    const current = queue.shift();
-    if (!current) break;
-    for (const n of neighbors(state, current)) {
-      const key = coordKey(n);
-      if (visited.has(key)) continue;
-      visited.add(key);
-      queue.push(n);
-    }
-  }
-
-  return visited;
+  return findReachableOnBoard(state.board, state.config, from);
 }
 
 function collectObjectiveIfPresent(player: LabyrinthPlayerState): string | null {

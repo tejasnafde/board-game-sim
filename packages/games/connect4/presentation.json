@@ -1,0 +1,21 @@
+{
+  "gameId": "connect4",
+  "version": "0.1.0",
+  "presentationVersion": "0.1.0",
+  "board": {
+    "boardType": "grid",
+    "rows": 6,
+    "cols": 7,
+    "cellSize": 56
+  },
+  "theme": {
+    "name": "arcade-drop",
+    "colors": {
+      "bg": "#0b1a2e",
+      "grid": "#1d3a5f",
+      "p1": "#ef4444",
+      "p2": "#facc15"
+    }
+  },
+  "assets": []
+}
