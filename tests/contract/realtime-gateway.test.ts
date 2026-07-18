@@ -6,7 +6,7 @@ import {
   InMemorySnapshotRepository
 } from "@board-game-sim/engine";
 import { BattleshipModule } from "@board-game-sim/battleship";
-import { RealtimeGateway, SessionService } from "@board-game-sim/server";
+import { RealtimeGateway, SessionService, registerBuiltInGames } from "@board-game-sim/server";
 import definition from "../../packages/games/battleship/definition.json";
 
 const miniDefinition = {
@@ -132,5 +132,123 @@ describe("realtime gateway", () => {
       expect(sync.sessionId).toBe("gw-4");
       expect(sync.seq).toBe(0);
     }
+  });
+});
+
+describe("seat auto-claim", () => {
+  test("names claim distinct seats, reconnect keeps seat, full session rejects", async () => {
+    const { gateway } = build();
+    await gateway.handleClientEvent({
+      type: "session.create",
+      sessionId: "gw-seats",
+      gameId: "battleship",
+      playerId: "tejas"
+    });
+
+    const [tejasSync] = await gateway.handleClientEvent({
+      type: "session.join",
+      sessionId: "gw-seats",
+      playerId: "tejas"
+    });
+    const [akshayaSync] = await gateway.handleClientEvent({
+      type: "session.join",
+      sessionId: "gw-seats",
+      playerId: "akshaya"
+    });
+
+    expect(tejasSync).toMatchObject({ type: "session.state_sync", youAre: "player-1" });
+    expect(akshayaSync).toMatchObject({
+      type: "session.state_sync",
+      youAre: "player-2",
+      seats: { "player-1": "tejas", "player-2": "akshaya" }
+    });
+
+    const [rejoin] = await gateway.handleClientEvent({
+      type: "session.join",
+      sessionId: "gw-seats",
+      playerId: "tejas"
+    });
+    expect(rejoin).toMatchObject({ youAre: "player-1" });
+
+    const [full] = await gateway.handleClientEvent({
+      type: "session.join",
+      sessionId: "gw-seats",
+      playerId: "intruder"
+    });
+    expect(full).toMatchObject({ type: "session.action_rejected", reason: "session_full" });
+  });
+
+  test("actions submitted under a claimed name act as the mapped seat", async () => {
+    const { service, gateway } = build();
+    await gateway.handleClientEvent({
+      type: "session.create",
+      sessionId: "gw-act",
+      gameId: "battleship",
+      playerId: "tejas"
+    });
+
+    const outbound = await gateway.handleClientEvent({
+      type: "action.submit",
+      envelope: {
+        sessionId: "gw-act",
+        expectedSeq: service.getSessionSeq("gw-act"),
+        actorPlayerId: "tejas",
+        actionType: "place_ships",
+        payload: { placements: [{ shipId: "destroyer", cells: [{ row: 0, col: 0 }, { row: 0, col: 1 }] }] },
+        clientActionId: "a1"
+      }
+    });
+
+    expect(outbound[0]).toMatchObject({ type: "session.action_accepted" });
+  });
+});
+
+describe("vs-computer seats", () => {
+  test("human plays a full connect4 game against the server bot", async () => {
+    const registry = new InMemoryGameRegistry();
+    registerBuiltInGames(registry);
+    const service = new SessionService(
+      registry,
+      new InMemoryEventRepository(),
+      new InMemorySessionRepository(),
+      new InMemorySnapshotRepository()
+    );
+    const gateway = new RealtimeGateway(service);
+
+    const created = await gateway.handleClientEvent({
+      type: "session.create",
+      sessionId: "gw-bot",
+      gameId: "connect4",
+      playerId: "tejas",
+      bots: 1
+    });
+    expect(created[0]).toMatchObject({ type: "session.created" });
+    const sync = created[1] as { seats: Record<string, string> };
+    expect(Object.values(sync.seats)).toContain("Computer");
+
+    // Human drops col 0 repeatedly; the bot answers each move. The game must
+    // reach a terminal state without the human ever waiting on a stuck turn.
+    for (let i = 0; i < 21 && !service.getTerminalResult("gw-bot"); i += 1) {
+      const view = service.getPlayerView("gw-bot", "tejas") as {
+        currentPlayerId: string;
+        grid: (string | null)[][];
+      };
+      expect(view.currentPlayerId).toBe("player-1"); // bot never leaves it hanging
+      const col = view.grid[0].findIndex((cell) => cell === null);
+      const outbound = await gateway.handleClientEvent({
+        type: "action.submit",
+        envelope: {
+          sessionId: "gw-bot",
+          expectedSeq: service.getSessionSeq("gw-bot"),
+          actorPlayerId: "tejas",
+          actionType: "drop",
+          payload: { col },
+          clientActionId: `h${i}`
+        }
+      });
+      expect(outbound[0]).toMatchObject({ type: "session.action_accepted" });
+    }
+
+    expect(service.getTerminalResult("gw-bot")).not.toBeNull();
   });
 });
