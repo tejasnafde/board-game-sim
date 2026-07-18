@@ -22,9 +22,15 @@ This file defines non-negotiable standards for human and AI collaborators.
 - New game modules must include contract and behavior tests.
 - Illegal actions must be tested for safe rejection.
 - Determinism checks are required for merge readiness.
+- Every game ships a `GameBot` and an entry in `tests/e2e/self-play.test.ts`.
+  Bots play from the player view only. A game whose self-play run cannot reach
+  a terminal state is not mergeable — playability is the gate, not UI polish.
 
 ## Change Management
 
+- NEVER commit without a `/deslop` pass first: strip essay-like comments,
+  narration comments that restate the code, defensive checks nothing needs,
+  and dead scaffolding. Comments explain WHY, only where the code can't.
 - Prefer small PRs with explicit architectural intent.
 - Keep docs in `documentation/` in sync with code changes.
 - Do not merge breaking interface changes without versioning strategy updates.

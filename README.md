@@ -42,3 +42,10 @@ UI flow:
 1. Landing: set `session` + `player`, click `Join Mission`.
 2. Setup: click `Load Valid Fleet` (or `Randomize Fleet`), then `Submit Setup`.
 3. Gameplay: click cells on `Opponent Board` when it is your turn.
+
+## Credits
+
+Game and UI icons by the [game-icons.net](https://game-icons.net) contributors
+(Lorc, Delapouite, Caro Asercion, Cathelineau and others), licensed
+[CC BY 3.0](https://creativecommons.org/licenses/by/3.0/). Battleship ship
+sprites from the bundled sea-warfare asset set (see `assets/external/`).
