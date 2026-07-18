@@ -75,3 +75,18 @@ export interface GameModule<State = JsonValue> {
   getPlayerView(input: PlayerViewInput<State>): PlayerView;
   isTerminal(state: State): TerminalResult | null;
 }
+
+// Self-play bot contract: every game ships one so the e2e harness can play the
+// game to completion using ONLY what a real client sees (player view + static
+// definition). If a bot can't act from the view, the view is broken for humans too.
+export type BotInput = {
+  view: JsonValue; // getPlayerView(...).visibleState for this player
+  definition: JsonValue; // the game's static definition.json
+  playerId: string;
+  rng: () => number; // seeded [0,1) — bots must be deterministic given rng
+};
+
+export type BotAction = { actionType: string; payload: JsonValue };
+
+// Return null when this player has nothing to do (not their turn / already acted).
+export type GameBot = (input: BotInput) => BotAction | null;
