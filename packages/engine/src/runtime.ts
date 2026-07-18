@@ -7,7 +7,7 @@ import type {
   SessionSnapshot,
   TerminalResult
 } from "@board-game-sim/shared";
-import { deterministicHash } from "@board-game-sim/shared";
+import { createLogger, deterministicHash } from "@board-game-sim/shared";
 import type { EventRepository, SnapshotRepository } from "./store";
 
 type RuntimeSession<State> = {
@@ -31,6 +31,8 @@ type AcceptedActionPayload = {
   actionType: string;
   payload: JsonValue;
 };
+
+const log = createLogger("engine");
 
 export class SessionRuntime<State> {
   private readonly sessions = new Map<string, RuntimeSession<State>>();
@@ -65,6 +67,7 @@ export class SessionRuntime<State> {
     };
 
     this.sessions.set(meta.sessionId, session);
+    log.info(`${meta.sessionId} init ${meta.gameId}@${meta.gameVersion} players=[${meta.players.join(",")}] seed=${meta.seed} hash=${session.integrityHash}`);
 
     for (const event of initialized.emittedEvents) {
       await this.eventRepo.append({
@@ -166,6 +169,17 @@ export class SessionRuntime<State> {
   }
 
   async submitAction(envelope: EngineActionEnvelope): Promise<RuntimeResult<State>> {
+    const result = await this.submitActionInner(envelope);
+    if (result.accepted) {
+      log.info(`${envelope.sessionId} #${result.seq} ${envelope.actorPlayerId} ${envelope.actionType} accepted hash=${result.integrityHash}`);
+      log.debug(`${envelope.sessionId} #${result.seq} payload=${JSON.stringify(envelope.payload)} events=[${result.events.map((e) => e.eventType).join(",")}]`);
+    } else {
+      log.warn(`${envelope.sessionId} expectedSeq=${envelope.expectedSeq} ${envelope.actorPlayerId} ${envelope.actionType} REJECTED: ${result.reason}`);
+    }
+    return result;
+  }
+
+  private async submitActionInner(envelope: EngineActionEnvelope): Promise<RuntimeResult<State>> {
     const session = this.sessions.get(envelope.sessionId);
     if (!session) {
       return {
@@ -287,6 +301,7 @@ export class SessionRuntime<State> {
         createdAt: new Date().toISOString()
       };
       await this.snapshotRepo.put(snapshot);
+      log.debug(`${envelope.sessionId} snapshot written at seq=${session.seq}`);
     }
 
     return {
