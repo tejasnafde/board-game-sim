@@ -72,10 +72,14 @@ function renderOpponentBoard(board: BoardView): string {
     for (let c = 0; c < board.cols; c += 1) {
       const coord = `${r}:${c}`;
       let cls = "cell water";
-      if (fired.has(coord) && knownHits.has(coord)) cls = "cell attack-hit";
+      let style = "";
+      if (sunkCells.has(coord)) {
+        cls = "cell attack-hit sunk-cell";
+        style = ' style="background:#dc2626;box-shadow:0 0 6px #dc2626,inset 0 0 4px #7f1d1d"';
+      } else if (fired.has(coord) && knownHits.has(coord)) cls = "cell attack-hit";
       else if (fired.has(coord)) cls = "cell attack-miss";
       const extra = !fired.has(coord) ? " opponent-cell" : "";
-      cells.push(`<button class="${cls}${extra}" data-board="opponent" data-r="${r}" data-c="${c}" type="button" aria-label="Fire ${r},${c}"></button>`);
+      cells.push(`<button class="${cls}${extra}"${style} data-board="opponent" data-r="${r}" data-c="${c}" type="button" aria-label="Fire ${r},${c}"></button>`);
     }
     const rowLabel = `<div style="font-size:10px;font-weight:600;color:var(--text-muted);display:flex;align-items:center;justify-content:center;user-select:none;">${r + 1}</div>`;
     rows.push(`<div style="display:grid;grid-template-columns:20px repeat(${board.cols},1fr);gap:2px;">${rowLabel}${cells.join("")}</div>`);

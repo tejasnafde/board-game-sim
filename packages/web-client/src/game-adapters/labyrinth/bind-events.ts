@@ -20,7 +20,8 @@ export function bindLabyrinthEvents(root: HTMLElement, ctx: LabyrinthBindContext
     }
     const stateForAction = ctx.runtime.controller.getState();
     const labyrinthView = (stateForAction.view ?? {}) as LabyrinthView;
-    if (labyrinthView.currentPlayerId !== ctx.playerId || labyrinthView.turnStage !== "insert") {
+    const mySeat = stateForAction.seatId ?? ctx.playerId;
+    if (labyrinthView.currentPlayerId !== mySeat || labyrinthView.turnStage !== "insert") {
       ctx.pushLog("click_ignored labyrinth_insert_not_allowed");
       return;
     }
@@ -43,7 +44,8 @@ export function bindLabyrinthEvents(root: HTMLElement, ctx: LabyrinthBindContext
     }
     const stateForAction = ctx.runtime.controller.getState();
     const labyrinthView = (stateForAction.view ?? {}) as LabyrinthView;
-    if (labyrinthView.currentPlayerId !== ctx.playerId || labyrinthView.turnStage !== "move") {
+    const mySeat = stateForAction.seatId ?? ctx.playerId;
+    if (labyrinthView.currentPlayerId !== mySeat || labyrinthView.turnStage !== "move") {
       ctx.pushLog("click_ignored labyrinth_move_not_allowed");
       return;
     }

@@ -394,11 +394,16 @@
     .game-card {
       padding: var(--sp-5);
       display: grid;
+      grid-template-rows: auto auto auto 1fr;
       gap: var(--sp-3);
       transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
       cursor: pointer;
       position: relative;
       overflow: hidden;
+    }
+
+    .game-card .btn {
+      align-self: end;
     }
 
     .game-card::before {
@@ -841,7 +846,19 @@
       overflow: hidden;
       cursor: pointer;
       pointer-events: auto;
-      background: rgba(0, 20, 40, 0.4);
+      background: linear-gradient(135deg, #4a5568 0%, #2d3748 100%);
+    }
+
+    .placement-ship-label {
+      font-size: 9px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: rgba(255, 255, 255, 0.85);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      pointer-events: none;
     }
 
     .placement-ship:hover {
@@ -1294,6 +1311,8 @@
       display: flex;
       align-items: center;
       justify-content: center;
+      justify-self: center;
+      align-self: center;
       width: 32px;
       height: 32px;
       border-radius: var(--r-sm);
@@ -1361,20 +1380,10 @@
       color: var(--text-secondary);
     }
 
-    .objective-item::before {
-      content: '◈';
-      color: var(--accent-gold);
-      font-size: 14px;
-    }
-
     .objective-item:first-child {
       background: rgba(251, 191, 36, 0.12);
       border-color: rgba(251, 191, 36, 0.4);
       color: var(--accent-gold);
-    }
-
-    .objective-item:first-child::before {
-      font-size: 16px;
     }
 
     /* ============================================================
@@ -1532,6 +1541,172 @@
       .screen {
         padding: var(--sp-4);
       }
+    }
+
+    /* ============================================================
+         CONNECT FOUR
+      ============================================================ */
+    .c4-seats {
+      display: flex;
+      gap: var(--sp-3);
+      margin-bottom: var(--sp-3);
+      flex-wrap: wrap;
+    }
+
+    .c4-seat {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      padding: 4px 10px;
+      border-radius: 999px;
+      border: 1px solid var(--border-subtle);
+    }
+
+    .c4-seat.current {
+      border-color: rgba(0, 212, 255, 0.4);
+      background: rgba(0, 212, 255, 0.06);
+      color: var(--text-primary);
+    }
+
+    .c4-disc-mini {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+
+    .c4-drop-row {
+      display: grid;
+      gap: 4px;
+      margin-bottom: 4px;
+    }
+
+    .c4-drop-btn {
+      padding: 6px 0;
+      border-radius: var(--r-sm, 6px);
+      border: 1px solid var(--border-subtle);
+      background: rgba(0, 212, 255, 0.06);
+      color: var(--accent-cyan);
+      font-size: 14px;
+      cursor: pointer;
+      transition: background 0.1s, transform 0.1s;
+    }
+
+    .c4-drop-btn:not([disabled]):hover {
+      background: rgba(0, 212, 255, 0.18);
+      transform: translateY(2px);
+    }
+
+    .c4-drop-btn[disabled] {
+      opacity: 0.25;
+      cursor: default;
+    }
+
+    .c4-board {
+      background: linear-gradient(135deg, #14335c 0%, #1d3a5f 100%);
+      border: 1px solid var(--border-medium);
+      border-radius: var(--r-md);
+      padding: 6px;
+      display: grid;
+      gap: 4px;
+    }
+
+    .c4-board-small {
+      max-width: 320px;
+      margin: var(--sp-3) auto 0;
+    }
+
+    .c4-row {
+      display: grid;
+      gap: 4px;
+    }
+
+    .c4-cell {
+      aspect-ratio: 1;
+      border-radius: 50%;
+      background: rgba(4, 12, 24, 0.85);
+      box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.6);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+    }
+
+    .c4-cell.winning {
+      box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.6), 0 0 10px rgba(251, 191, 36, 0.9);
+      outline: 2px solid var(--accent-gold);
+    }
+
+    .c4-disc {
+      width: 86%;
+      height: 86%;
+      border-radius: 50%;
+      box-shadow: inset 0 -3px 6px rgba(0, 0, 0, 0.35), inset 0 3px 6px rgba(255, 255, 255, 0.18);
+    }
+
+    .c4-disc.last-drop {
+      animation: c4-drop-in 0.25s ease-out;
+    }
+
+    @keyframes c4-drop-in {
+      from {
+        transform: translateY(-220%);
+      }
+
+      to {
+        transform: translateY(0);
+      }
+    }
+
+    .c4-p1 {
+      background: radial-gradient(circle at 35% 30%, #f87171, #dc2626 70%);
+    }
+
+    .c4-p2 {
+      background: radial-gradient(circle at 35% 30%, #fde047, #eab308 70%);
+    }
+
+    /* Inline SVG icons (game-icons.net) */
+    .icon {
+      vertical-align: -0.15em;
+      flex-shrink: 0;
+    }
+
+    /* Labyrinth objective/home markers overlaid on tiles */
+    .objective-marker {
+      position: absolute;
+      top: 3px;
+      right: 3px;
+      color: #d9b64e;
+      opacity: 0.9;
+      pointer-events: none;
+      line-height: 0;
+      filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.8));
+    }
+
+    .objective-marker.next {
+      color: #fbbf24;
+      filter: drop-shadow(0 0 4px rgba(251, 191, 36, 0.95));
+      transform: scale(1.25);
+      transform-origin: top right;
+    }
+
+    .home-marker {
+      position: absolute;
+      top: 3px;
+      left: 3px;
+      color: #7dd3fc;
+      pointer-events: none;
+      line-height: 0;
+      filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.8));
+    }
+
+    .objective-item .icon {
+      color: #fbbf24;
+      margin-right: 4px;
     }
   </style>
 </head>

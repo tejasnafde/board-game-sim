@@ -191,7 +191,8 @@ export function bindBattleshipEvents(root: HTMLElement, ctx: BattleshipBindConte
     const stateForAction = ctx.runtime.controller.getState();
     const latestView = (stateForAction.view ?? {}) as ClientView;
     const latestPhase = latestView.phase ?? "setup";
-    const canFire = latestPhase === "play" && latestView.currentPlayerId === ctx.playerId;
+    const mySeat = stateForAction.seatId ?? ctx.playerId;
+    const canFire = latestPhase === "play" && latestView.currentPlayerId === mySeat;
     if (!canFire) {
       ctx.pushLog(
         `click_ignored not_your_turn_or_not_play phase=${latestPhase} current=${latestView.currentPlayerId ?? "-"}`

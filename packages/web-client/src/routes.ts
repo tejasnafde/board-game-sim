@@ -1,4 +1,4 @@
-export type GameId = "battleship" | "labyrinth" | "catan";
+export type GameId = "battleship" | "labyrinth" | "connect4" | "catan";
 
 export type AppRoute = { name: "landing" } | { name: "game"; gameId: GameId };
 
@@ -9,6 +9,7 @@ type LocationLike = {
 const gameRouteByPath: Record<string, GameId> = {
   "/games/battleship": "battleship",
   "/games/labyrinth": "labyrinth",
+  "/games/connect4": "connect4",
   "/games/catan": "catan"
 };
 

@@ -1,5 +1,5 @@
 import type { ServerEvent, ClientEvent } from "./realtime-client";
-import type { JsonValue } from "@board-game-sim/shared";
+import { createLogger, type JsonValue } from "@board-game-sim/shared";
 import {
   applyServerEvent,
   createActionEnvelope,
@@ -8,13 +8,15 @@ import {
 } from "./realtime-state";
 import type { ShipPlacement, Coord } from "@board-game-sim/battleship";
 
+const log = createLogger("controller");
+
 export interface ControllerTransport {
   send(event: ClientEvent): void;
   subscribe(listener: (event: ServerEvent) => void): () => void;
 }
 
 export type ClientController = {
-  join(sessionId: string, playerId: string, gameId?: string): void;
+  join(sessionId: string, playerId: string, gameId?: string, seatCount?: number, bots?: number): void;
   rejoin(): void;
   submitAction(actionType: string, payload: JsonValue): void;
   submitPlaceShips(placements: ShipPlacement[]): void;
@@ -26,6 +28,8 @@ export function createClientController(transport: ControllerTransport): ClientCo
   let state: ClientState = createInitialClientState();
   let actionCounter = 0;
   let lastGameId: string | null = null;
+  let lastSeatCount: number | undefined;
+  let lastBots: number | undefined;
 
   transport.subscribe((event) => {
     state = applyServerEvent(state, event);
@@ -40,18 +44,32 @@ export function createClientController(transport: ControllerTransport): ClientCo
    * Join or create a session.
    * If gameId is provided, we attempt to CREATE the session first (server handles idempotency:
    * if it already exists, the server falls back to a join).
-   * If no gameId, just join (for backward compatibility with demo sessions).
+   * If no gameId, just join — a typo'd code surfaces session_not_found instead of
+   * silently creating a private empty game.
    */
-  function join(sessionId: string, playerId: string, gameId?: string): void {
+  function join(sessionId: string, playerId: string, gameId?: string, seatCount?: number, bots?: number): void {
+    // Reset per-session evidence: the game screen only shows again once the
+    // server confirms this join with a state_sync.
     state = {
       ...state,
       sessionId,
-      playerId
+      playerId,
+      seatId: null,
+      synced: false,
+      view: null,
+      terminal: null,
+      lastError: null,
+      lastEvents: []
     };
     if (gameId) {
       lastGameId = gameId;
-      transport.send({ type: "session.create", sessionId, gameId, playerId });
+      lastSeatCount = seatCount;
+      lastBots = bots;
+      log.info(`create ${sessionId} (${gameId}) as "${playerId}" seats=${seatCount ?? "default"} bots=${bots ?? 0}`);
+      transport.send({ type: "session.create", sessionId, gameId, playerId, seatCount, bots });
     } else {
+      lastGameId = null;
+      log.info(`join ${sessionId} as "${playerId}"`);
       transport.send({ type: "session.join", sessionId, playerId });
     }
   }
@@ -61,13 +79,14 @@ export function createClientController(transport: ControllerTransport): ClientCo
       throw new Error("session_or_player_missing");
     }
     if (lastGameId) {
-      transport.send({ type: "session.create", sessionId: state.sessionId, gameId: lastGameId, playerId: state.playerId });
+      transport.send({ type: "session.create", sessionId: state.sessionId, gameId: lastGameId, playerId: state.playerId, seatCount: lastSeatCount, bots: lastBots });
     } else {
       transport.send({ type: "session.join", sessionId: state.sessionId, playerId: state.playerId });
     }
   }
 
   function submitAction(actionType: string, payload: JsonValue): void {
+    log.debug(`submit ${actionType}`, payload);
     const actionId = nextActionId();
     state = { ...state, pendingActionId: actionId };
     transport.send({

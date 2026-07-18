@@ -30,6 +30,15 @@ export const GAME_HUB_CARDS: HubCard[] = [
     turnStyle: "Board transform turns"
   },
   {
+    gameId: "connect4",
+    name: "Connect Four",
+    subtitle: "Drop discs and connect four — beat a friend or the computer.",
+    status: "live",
+    releaseTag: "Playable now",
+    players: "2 players (or vs AI)",
+    turnStyle: "Alternating drops"
+  },
+  {
     gameId: "catan",
     name: "Catan",
     subtitle: "Resource trading and settlement growth on a hex island.",

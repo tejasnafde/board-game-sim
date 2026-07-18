@@ -1,14 +1,16 @@
-import type { EngineActionEnvelope, JsonValue } from "@board-game-sim/shared";
+import { createLogger, type EngineActionEnvelope, type JsonValue } from "@board-game-sim/shared";
+
+const log = createLogger("client");
 
 export type ClientEvent =
-  | { type: "session.create"; sessionId: string; gameId: string; playerId: string }
+  | { type: "session.create"; sessionId: string; gameId: string; playerId: string; players?: string[]; seatCount?: number; bots?: number }
   | { type: "session.join"; sessionId: string; playerId: string }
   | { type: "action.submit"; envelope: EngineActionEnvelope }
   | { type: "session.leave"; sessionId: string; playerId: string }
   | { type: "chat.send"; sessionId: string; playerId: string; message: string };
 
 export type ServerEvent =
-  | { type: "session.state_sync"; sessionId: string; seq: number; view: JsonValue }
+  | { type: "session.state_sync"; sessionId: string; seq: number; view: JsonValue; youAre?: string; seats?: Record<string, string> }
   | { type: "session.created"; sessionId: string; gameId: string; players: string[] }
   | { type: "session.action_accepted"; sessionId: string; seq: number; events: JsonValue[] }
   | { type: "session.action_rejected"; sessionId: string; reason: string }
@@ -135,6 +137,7 @@ export class RealtimeClient {
   }
 
   private emitLog(entry: string): void {
+    log.debug(entry);
     for (const listener of this.logListeners) {
       listener(entry);
     }

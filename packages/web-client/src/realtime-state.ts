@@ -5,11 +5,19 @@ export type { ServerEvent } from "./realtime-client";
 export type ClientState = {
   sessionId: string | null;
   playerId: string | null;
+  /** Engine seat id ("player-1"…) assigned by the server for this player's name. */
+  seatId: string | null;
+  /** seatId → display name, from the latest state_sync. */
+  seatNames: Record<string, string>;
+  /** True once a state_sync for the current sessionId has arrived (join confirmed). */
+  synced: boolean;
   seq: number;
   view: JsonValue | null;
   patch: JsonValue | null;
   pendingActionId: string | null;
   lastError: string | null;
+  /** Domain events from the most recent action_accepted (hit/miss/sunk feedback). */
+  lastEvents: JsonValue[];
   terminal: { winnerPlayerId: string | null; reason: string } | null;
 };
 
@@ -17,11 +25,15 @@ export function createInitialClientState(): ClientState {
   return {
     sessionId: null,
     playerId: null,
+    seatId: null,
+    seatNames: {},
+    synced: false,
     seq: 0,
     view: null,
     patch: null,
     pendingActionId: null,
     lastError: null,
+    lastEvents: [],
     terminal: null
   };
 }
@@ -51,6 +63,9 @@ export function applyServerEvent(state: ClientState, event: ServerEvent): Client
     return {
       ...state,
       sessionId: event.sessionId,
+      seatId: event.youAre ?? state.seatId,
+      seatNames: event.seats ?? state.seatNames,
+      synced: true,
       seq: event.seq,
       view: event.view,
       patch: null,
@@ -63,7 +78,8 @@ export function applyServerEvent(state: ClientState, event: ServerEvent): Client
       ...state,
       seq: event.seq,
       pendingActionId: null,
-      lastError: null
+      lastError: null,
+      lastEvents: event.events
     };
   }
 
