@@ -1,6 +1,7 @@
 import type { IncomingMessage, Server as HttpServer } from "node:http";
 import type { Duplex } from "node:stream";
 import { WebSocketServer, WebSocket } from "ws";
+import { createLogger } from "@board-game-sim/shared";
 import type { ClientEvent, ServerEvent } from "./protocol";
 import { RealtimeGateway } from "./realtime-gateway";
 
@@ -27,6 +28,22 @@ function send(socket: WebSocket, event: ServerEvent): void {
     return;
   }
   socket.send(JSON.stringify(event));
+}
+
+const log = createLogger("ws");
+
+// One line per meaningful event so `npm run dev:server` is tail-able.
+function logTraffic(event: ClientEvent | ServerEvent): void {
+  if (event.type === "action.submit") {
+    const e = event.envelope;
+    log.info(`${e.sessionId} ${e.actorPlayerId} → ${e.actionType} ${JSON.stringify(e.payload)}`);
+  } else if (event.type === "session.action_rejected") {
+    log.warn(`${event.sessionId} ✗ rejected: ${event.reason}`);
+  } else if (event.type === "session.terminal") {
+    log.info(`${event.sessionId} ▣ game over — winner: ${event.winnerPlayerId ?? "draw"}`);
+  } else if ("sessionId" in event && "playerId" in event) {
+    log.info(`${event.sessionId} ${event.playerId} → ${event.type}`);
+  }
 }
 
 export function createWsRealtimeServer(options: WsServerOptions) {
@@ -81,11 +98,13 @@ export function createWsRealtimeServer(options: WsServerOptions) {
   });
 
   wss.on("connection", (socket: WebSocket) => {
+    log.info(`connection opened (${wss.clients.size} total)`);
     contexts.set(socket, { playerBySession: new Map<string, string>() });
 
     socket.on("message", async (data: WebSocket.RawData) => {
       const incoming = safeParseClientEvent(data.toString());
       if (!incoming) {
+        log.warn("dropped frame: invalid json");
         send(socket, {
           type: "session.action_rejected",
           sessionId: "unknown",
@@ -93,6 +112,8 @@ export function createWsRealtimeServer(options: WsServerOptions) {
         });
         return;
       }
+
+      logTraffic(incoming);
 
       if (incoming.type === "session.join" || incoming.type === "session.create") {
         joinRoom(socket, incoming.sessionId, incoming.playerId);
@@ -104,6 +125,11 @@ export function createWsRealtimeServer(options: WsServerOptions) {
       }
 
       const outbound = await options.gateway.handleClientEvent(incoming);
+      for (const event of outbound) {
+        if (event.type === "session.action_rejected" || event.type === "session.terminal") {
+          logTraffic(event);
+        }
+      }
 
       if (incoming.type === "session.join" || incoming.type === "session.create") {
         for (const event of outbound) {
@@ -134,6 +160,7 @@ export function createWsRealtimeServer(options: WsServerOptions) {
     });
 
     socket.on("close", () => {
+      log.info(`connection closed (${Math.max(0, wss.clients.size - 1)} remaining)`);
       cleanupSocket(socket);
     });
 
