@@ -1311,8 +1311,6 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      justify-self: center;
-      align-self: center;
       width: 32px;
       height: 32px;
       border-radius: var(--r-sm);
@@ -1380,10 +1378,20 @@
       color: var(--text-secondary);
     }
 
+    .objective-item::before {
+      content: '◈';
+      color: var(--accent-gold);
+      font-size: 14px;
+    }
+
     .objective-item:first-child {
       background: rgba(251, 191, 36, 0.12);
       border-color: rgba(251, 191, 36, 0.4);
       color: var(--accent-gold);
+    }
+
+    .objective-item:first-child::before {
+      font-size: 16px;
     }
 
     /* ============================================================
@@ -1668,52 +1676,12 @@
     .c4-p2 {
       background: radial-gradient(circle at 35% 30%, #fde047, #eab308 70%);
     }
-
-    /* Inline SVG icons (game-icons.net) */
-    .icon {
-      vertical-align: -0.15em;
-      flex-shrink: 0;
-    }
-
-    /* Labyrinth objective/home markers overlaid on tiles */
-    .objective-marker {
-      position: absolute;
-      top: 3px;
-      right: 3px;
-      color: #d9b64e;
-      opacity: 0.9;
-      pointer-events: none;
-      line-height: 0;
-      filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.8));
-    }
-
-    .objective-marker.next {
-      color: #fbbf24;
-      filter: drop-shadow(0 0 4px rgba(251, 191, 36, 0.95));
-      transform: scale(1.25);
-      transform-origin: top right;
-    }
-
-    .home-marker {
-      position: absolute;
-      top: 3px;
-      left: 3px;
-      color: #7dd3fc;
-      pointer-events: none;
-      line-height: 0;
-      filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.8));
-    }
-
-    .objective-item .icon {
-      color: #fbbf24;
-      margin-right: 4px;
-    }
   </style>
+  <script type="module" crossorigin src="/assets/index-BarPBn3t.js"></script>
 </head>
 
 <body>
   <div id="app"></div>
-  <script type="module" src="/main.ts"></script>
 </body>
 
 </html>

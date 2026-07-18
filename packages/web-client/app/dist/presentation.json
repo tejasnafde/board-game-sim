@@ -1,0 +1,41 @@
+{
+  "gameId": "battleship",
+  "version": "0.1.0",
+  "presentationVersion": "0.2.0",
+  "board": {
+    "boardType": "grid",
+    "rows": 10,
+    "cols": 10,
+    "cellSize": 40
+  },
+  "theme": {
+    "name": "sea-command",
+    "colors": {
+      "bg": "#ecf8ff",
+      "grid": "#12517a",
+      "hit": "#d62828",
+      "miss": "#6b7f93"
+    }
+  },
+  "assets": [
+    { "id": "tile-water", "kind": "image", "path": "assets/external/sea-warfare-set/effects/water.png" },
+    { "id": "tile-hit", "kind": "image", "path": "assets/external/sea-warfare-set/effects/hit.png" },
+    { "id": "tile-miss", "kind": "image", "path": "assets/external/sea-warfare-set/effects/miss.png" },
+    { "id": "ship-carrier", "kind": "image", "path": "assets/external/sea-warfare-set/ships/carrier.png" },
+    { "id": "ship-battleship", "kind": "image", "path": "assets/external/sea-warfare-set/ships/battleship.png" },
+    { "id": "ship-cruiser", "kind": "image", "path": "assets/external/sea-warfare-set/ships/cruiser.png" },
+    { "id": "ship-submarine", "kind": "image", "path": "assets/external/sea-warfare-set/ships/submarine.png" },
+    { "id": "ship-destroyer", "kind": "image", "path": "assets/external/sea-warfare-set/ships/destroyer.png" }
+  ],
+  "pieceSprites": {
+    "carrier": "ship-carrier",
+    "battleship": "ship-battleship",
+    "cruiser": "ship-cruiser",
+    "submarine": "ship-submarine",
+    "destroyer": "ship-destroyer"
+  },
+  "effects": {
+    "shot.hit": "tile-hit",
+    "shot.miss": "tile-miss"
+  }
+}

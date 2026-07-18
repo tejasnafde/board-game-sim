@@ -4,6 +4,7 @@ export type ClientView = {
   phase?: "setup" | "play" | "terminal";
   currentPlayerId?: string;
   winnerPlayerId?: string | null;
+  ownBoard?: { ships?: unknown[] };
 };
 
 export type Orientation = "horizontal" | "vertical";

@@ -1,6 +1,7 @@
 import type { BattleshipDefinition, ClientView, PlacementDraft, ShipSpec } from "./types";
 import { buildCellsFromAnchor } from "./placement-utils";
-import { lobbyPanelMarkup } from "../../templates/lobby";
+import { humanizeError, lobbyPanelMarkup } from "../../templates/lobby";
+import { icon } from "../../icons";
 
 export function renderPlacementBoardMarkup(
   definition: BattleshipDefinition,
@@ -43,8 +44,6 @@ export function renderPlacementBoardMarkup(
     }
   }
 
-  // Ship sprites using actual images with correct rotation
-  // Images are portrait (vertical, tall). Horizontal ships need the image rotated.
   const shipSprites = specs
     .map((spec) => {
       const draft = draftMap[spec.id];
@@ -53,54 +52,17 @@ export function renderPlacementBoardMarkup(
       const widthCells = isHorizontal ? spec.size : 1;
       const heightCells = isHorizontal ? 1 : spec.size;
       const isSelected = selectedShipId === spec.id;
-      const imgSrc = shipPreview[spec.id] ?? "";
 
-      // Images are portrait (ship faces "up" / north).
-      // rotationDeg=0 (horizontal, rightward): rotate image 90deg CW → ship points right
-      // rotationDeg=90 (vertical, downward): rotate 0deg → image already points down
-      // rotationDeg=180 (horizontal, leftward): rotate -90deg → ship points left
-      // rotationDeg=270 (vertical, upward): rotate 180deg → ship points up
-      let imgRotation = "90deg";
-      if (draft.rotationDeg === 0) imgRotation = "90deg";
-      else if (draft.rotationDeg === 90) imgRotation = "0deg";
-      else if (draft.rotationDeg === 180) imgRotation = "-90deg";
-      else if (draft.rotationDeg === 270) imgRotation = "180deg";
-
-      // For a rotated portrait image to fill a wide/short container:
-      // We place a square <img> inside the ship div, sized to the short dimension × long dimension,
-      // then rotate it. The ship div itself clips the overflow.
-      // For horizontal (wide, short): inner div is portrait, rotated 90deg → becomes landscape filling slot
-      // For vertical (narrow, tall): inner div is portrait, no rotation needed
-
-      let wrapperStyle: string;
-      if (isHorizontal) {
-        // Container is "spec.size cells wide × 1 cell tall"
-        // We need the portrait image rotated 90deg to fill it.
-        // After rotating 90deg, a "height:100%; width:auto" portrait image
-        // has its width become the container height and height become container width.
-        // Trick: set wrapper to height=100%, width=100%, rotate(90deg), and use object-fit:fill on img
-        wrapperStyle = `
-          position:absolute;inset:0;
-          display:flex;align-items:center;justify-content:center;
-        `;
-      } else {
-        wrapperStyle = `position:absolute;inset:0;display:flex;align-items:center;justify-content:center;`;
-      }
-
-      const imgStyle = isHorizontal
-        ? `height:${widthCells * 100}%;width:auto;max-width:none;transform:rotate(${imgRotation});image-rendering:pixelated;`
-        : `height:100%;width:auto;max-width:none;transform:rotate(${imgRotation});image-rendering:pixelated;`;
-
-
+      // The div spans its exact footprint via the CSS grid vars below, so a
+      // solid block always fits the cells. (Sprite art was overflowing its
+      // slot; a labelled block is correct and legible — polish later.)
       return `<div
         class="placement-ship ${isSelected ? "selected" : ""}"
         data-ship-id="${spec.id}"
-        style="--ship-row:${draft.row};--ship-col:${draft.col};--ship-width:${widthCells};--ship-height:${heightCells};position:relative;overflow:hidden;"
+        style="--ship-row:${draft.row};--ship-col:${draft.col};--ship-width:${widthCells};--ship-height:${heightCells};"
         title="${spec.id} — click to select, right-click board to rotate"
       >
-        <div style="${wrapperStyle}">
-          <img src="${imgSrc}" alt="${spec.id}" style="${imgStyle}" draggable="false" />
-        </div>
+        <span class="placement-ship-label" style="${isHorizontal ? "" : "writing-mode:vertical-rl;"}">${spec.id}</span>
         ${isSelected ? `<div class="ship-selected-ring"></div>` : ""}
       </div>`;
     })
@@ -112,17 +74,19 @@ export function renderPlacementBoardMarkup(
   `;
 }
 
-export function renderBattleshipLobby(sessionId: string, playerId: string): string {
+export function renderBattleshipLobby(sessionId: string, playerId: string, error?: string | null): string {
   return `
     <section class="screen battleship-screen">
       <div class="section-head">
-        <h1>⚓ Battleship</h1>
+        <h1>${icon("anchor", 22)} Battleship</h1>
         <p>Join a session with your fleet commander identity to start the battle.</p>
       </div>
       ${lobbyPanelMarkup(sessionId, playerId, {
     title: "Mission Lobby",
     joinLabel: "Join Mission",
-    hint: "Open two browser windows with the same Session ID but different Player IDs (e.g. player-1 and player-2) to play locally."
+    error,
+    vsBot: true,
+    hint: "Open two browser windows with the same Game Code but different names to play locally."
   })}
     </section>
   `;
@@ -139,7 +103,7 @@ function fleetIconBlocks(size: number, isSelected: boolean, imgSrc: string): str
 
 export function renderBattleshipSetup(
   definition: BattleshipDefinition,
-  phase: string,
+  fleetSubmitted: boolean,
   sessionId: string,
   playerId: string,
   placementDraftMap: Record<string, PlacementDraft>,
@@ -149,25 +113,25 @@ export function renderBattleshipSetup(
   stateLastError: string | null | undefined
 ): string {
   const allPlaced = definition.ships.every((ship) => !!placementDraftMap[ship.id]);
-  const waitingForOpponent = phase !== "setup";
+  const waitingForOpponent = fleetSubmitted;
 
   const ERROR_MESSAGES: Record<string, string> = {
-    illegal_action: "⚠️ Action not allowed — the game may already be in progress. Try rejoining.",
-    ship_out_of_bounds: "⚠️ Ship extends outside the board. Try a different position.",
-    ship_overlap_collision: "⚠️ Ships can't overlap. Choose a clear area.",
-    rotation_out_of_bounds: "⚠️ Not enough space to rotate here.",
-    rotation_collision: "⚠️ Rotating would cause a collision.",
-    setup_incomplete_or_invalid: "⚠️ All ships must be placed before submitting.",
-    session_not_found: "⚠️ Session not found. Check the session ID and try rejoining.",
+    illegal_action: "Action not allowed — the game may already be in progress. Try rejoining.",
+    ship_out_of_bounds: "Ship extends outside the board. Try a different position.",
+    ship_overlap_collision: "Ships can't overlap. Choose a clear area.",
+    rotation_out_of_bounds: "Not enough space to rotate here.",
+    rotation_collision: "Rotating would cause a collision.",
+    setup_incomplete_or_invalid: "All ships must be placed before submitting.",
+    session_not_found: "Session not found. Check the session ID and try rejoining.",
   };
   const rawError = localError ?? stateLastError ?? "";
-  const errorText = rawError ? (ERROR_MESSAGES[rawError] ?? `⚠️ ${rawError}`) : "";
+  const errorText = rawError ? (ERROR_MESSAGES[rawError] ?? rawError) : "";
 
   if (waitingForOpponent) {
     return `
       <section class="screen battleship-screen">
         <div class="section-head">
-          <h1>⚓ Battleship Setup</h1>
+          <h1>${icon("anchor", 22)} Battleship Setup</h1>
         </div>
         <div class="waiting-banner">
           <div class="waiting-dot"></div>
@@ -180,7 +144,7 @@ export function renderBattleshipSetup(
   return `
     <section class="screen battleship-screen">
       <div class="section-head">
-        <h1>⚓ Fleet Deployment</h1>
+        <h1>${icon("anchor", 22)} Fleet Deployment</h1>
         <p>Position your fleet before the battle begins. <strong>Click a ship to select it</strong>, then click a cell to place it. Right-click to rotate.</p>
       </div>
       <div class="setup-layout">
@@ -221,7 +185,7 @@ export function renderBattleshipSetup(
           </div>
           <div class="row-actions" style="margin-top:12px">
             <button class="btn btn-primary" id="submit-setup-btn" ${allPlaced ? "" : 'disabled aria-disabled="true"'}>
-              ${allPlaced ? "⚡ Submit Fleet" : "Place all ships to continue"}
+              ${allPlaced ? "Submit Fleet" : "Place all ships to continue"}
             </button>
             <button class="btn btn-ghost" id="rejoin-btn">⟲ Rejoin</button>
           </div>
@@ -231,26 +195,40 @@ export function renderBattleshipSetup(
   `;
 }
 
+function lastShotText(events: unknown[]): string {
+  let text = "";
+  for (const raw of events) {
+    const event = raw as { eventType?: string; payload?: { shipId?: string } };
+    if (event.eventType === "ship.sunk") return `Sunk their ${event.payload?.shipId ?? "ship"}!`;
+    if (event.eventType === "shot.hit") text = "Hit!";
+    else if (event.eventType === "shot.miss" && !text) text = "Miss";
+  }
+  return text;
+}
+
 export function renderBattleshipGameplay(
   phase: string,
   view: ClientView,
   canFire: boolean,
   boardMarkup: string,
   logs: string[],
-  _stateDump: string
+  _stateDump: string,
+  status: { seatNames?: Record<string, string>; lastError?: string | null; lastEvents?: unknown[] } = {}
 ): string {
   const isTerminal = phase === "terminal";
   const winner = view.winnerPlayerId;
+  const nameOf = (id: string | null | undefined): string =>
+    id ? status.seatNames?.[id] ?? id : "";
 
   if (isTerminal) {
     return `
       <section class="screen battleship-screen">
         <div class="winner-overlay">
-          <div class="winner-trophy">🏆</div>
+          <div class="winner-trophy">${icon("trophy", 46)}</div>
           <h2>Game Over!</h2>
-          <p>${winner ? `<strong>${winner}</strong> wins the battle!` : "It's a draw!"}</p>
+          <p>${winner ? `<strong>${nameOf(winner)}</strong> wins the battle!` : "It's a draw!"}</p>
           <div class="row-actions" style="justify-content:center">
-            <button class="btn btn-primary" id="rejoin-btn">⟲ Play Again</button>
+            <button class="btn btn-primary" id="rematch-btn">⟲ Play Again</button>
             <a class="btn btn-ghost" href="#/">← Back to Hub</a>
           </div>
         </div>
@@ -260,16 +238,20 @@ export function renderBattleshipGameplay(
 
   const statusClass = canFire ? "your-turn" : "their-turn";
   const statusText = canFire
-    ? "🎯 Your turn — click on the <strong>Opponent Board</strong> to fire"
-    : `⏳ Waiting for <strong>${view.currentPlayerId ?? "opponent"}</strong>`;
+    ? "Your turn — click on the <strong>Opponent Board</strong> to fire"
+    : `${icon("hourglass", 13)} Waiting for <strong>${nameOf(view.currentPlayerId) || "opponent"}</strong>`;
+  const errorText = humanizeError(status.lastError);
+  const resultText = lastShotText(status.lastEvents ?? []);
 
   return `
     <section class="screen battleship-screen">
       <div class="section-head">
-        <h1>⚓ Live Battle</h1>
+        <h1>${icon("anchor", 22)} Live Battle</h1>
         <div class="status-banner ${statusClass}">
           <span>${statusText}</span>
         </div>
+        ${resultText ? `<div class="status-banner last-result"><span>${resultText}</span></div>` : ""}
+        ${errorText ? `<div class="error-text" role="alert">${errorText}</div>` : ""}
       </div>
       <div class="gameplay-screen">
         <div class="card board-panel" id="render-view">

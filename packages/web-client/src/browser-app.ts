@@ -1,6 +1,6 @@
 import { RealtimeClient, type SocketLike } from "./realtime-client";
 import { createWebClientRuntime, type WebClientRuntime } from "./runtime";
-import { battleshipManifest, getManifest, labyrinthManifest } from "./game-manifests";
+import { battleshipManifest, connect4Manifest, getManifest, labyrinthManifest } from "./game-manifests";
 import { renderAppShell, renderComingSoon, renderHubLanding } from "./app-shell";
 import {
   bindBattleshipEvents,
@@ -19,7 +19,15 @@ import {
   renderLabyrinthLobby,
   type LabyrinthView
 } from "./game-adapters/labyrinth";
+import {
+  bindConnect4Events,
+  inferConnect4Screen,
+  renderConnect4Gameplay,
+  renderConnect4Lobby,
+  type Connect4View
+} from "./game-adapters/connect4";
 import { GAME_HUB_CARDS, resolveGameHubNavigation } from "./game-hub";
+import { nextSessionId } from "./templates/lobby";
 import { navigate, parseHashRoute, toHashRoute, type AppRoute, type GameId } from "./routes";
 
 export { GAME_HUB_CARDS, resolveGameHubNavigation };
@@ -87,8 +95,13 @@ export function mountPlayableClient(
       presentation: labyrinthManifest.presentation,
       baseAssetPath: options.assetBasePath ?? "/",
       transport
+    }),
+    connect4: createWebClientRuntime({
+      presentation: connect4Manifest.presentation,
+      baseAssetPath: options.assetBasePath ?? "/",
+      transport
     })
-  } satisfies Record<"battleship" | "labyrinth", WebClientRuntime>;
+  } satisfies Record<"battleship" | "labyrinth" | "connect4", WebClientRuntime>;
 
   const shipPreview = {
     carrier: runtimeByGame.battleship.assetManager.resolveAssetUrl("ship-carrier"),
@@ -102,6 +115,7 @@ export function mountPlayableClient(
   let joinedGameId: GameId | null = null;
   let sessionId = getDefaultSessionForGame("battleship");
   let playerId = getDefaultPlayerId();
+  let labSeatCount = 2;
   const battleshipDefinition = battleshipManifest.definition as { board: { rows: number; cols: number }; ships: ShipSpec[] };
   const shipSpecs = battleshipDefinition.ships;
   // Start with an EMPTY draft map — don't pre-place ships, let the user do it
@@ -120,6 +134,9 @@ export function mountPlayableClient(
 
   const getCurrentRoute = (): AppRoute => parseHashRoute(window.location.hash);
   const goHome = (): void => {
+    if (joined && sessionId && playerId) {
+      realtimeClient.send({ type: "session.leave", sessionId, playerId });
+    }
     joined = false;
     joinedGameId = null;
     navigate({ name: "landing" });
@@ -127,6 +144,9 @@ export function mountPlayableClient(
   const getRuntimeForRoute = (route: AppRoute): WebClientRuntime => {
     if (route.name === "game" && route.gameId === "labyrinth") {
       return runtimeByGame.labyrinth;
+    }
+    if (route.name === "game" && route.gameId === "connect4") {
+      return runtimeByGame.connect4;
     }
     return runtimeByGame.battleship;
   };
@@ -147,15 +167,20 @@ export function mountPlayableClient(
     } else if (route.name === "game" && route.gameId === "catan") {
       mainContent = renderComingSoon(route.gameId);
     } else {
+      // Only server evidence moves us off the lobby: a state_sync for the
+      // session we asked for. The local `joined` flag alone is just intent.
+      const confirmed = joined && state.synced && state.sessionId === sessionId;
+      const mySeat = state.seatId ?? playerId;
+
       const gameUiAdapters = {
         battleship: () => {
-          const battleshipScreen = inferBattleshipScreen(joined && joinedGameId === "battleship", view);
-          const canFire = phase === "play" && view.currentPlayerId === playerId;
-          if (battleshipScreen === "lobby") return renderBattleshipLobby(sessionId, playerId);
+          const battleshipScreen = inferBattleshipScreen(confirmed && joinedGameId === "battleship", view);
+          const canFire = phase === "play" && view.currentPlayerId === mySeat;
+          if (battleshipScreen === "lobby") return renderBattleshipLobby(sessionId, playerId, state.lastError);
           if (battleshipScreen === "setup")
             return renderBattleshipSetup(
               battleshipDefinition,
-              phase,
+              (view.ownBoard?.ships?.length ?? 0) > 0,
               sessionId,
               playerId,
               placementDraftMap,
@@ -170,14 +195,27 @@ export function mountPlayableClient(
             canFire,
             runtime.renderer.render(view),
             logs,
-            JSON.stringify(state, null, 2)
+            JSON.stringify(state, null, 2),
+            { seatNames: state.seatNames, lastError: state.lastError, lastEvents: state.lastEvents }
           );
         },
         labyrinth: () => {
           const labyrinthView = (state.view ?? {}) as LabyrinthView;
-          const labyrinthScreen = inferLabyrinthScreen(joined && joinedGameId === "labyrinth");
-          if (labyrinthScreen === "lobby") return renderLabyrinthLobby(sessionId, playerId);
-          return renderLabyrinthGameplay(labyrinthView, playerId, logs, JSON.stringify(state, null, 2));
+          const labyrinthScreen = inferLabyrinthScreen(confirmed && joinedGameId === "labyrinth");
+          if (labyrinthScreen === "lobby") return renderLabyrinthLobby(sessionId, playerId, state.lastError, labSeatCount);
+          return renderLabyrinthGameplay(labyrinthView, mySeat, logs, JSON.stringify(state, null, 2), {
+            seatNames: state.seatNames,
+            lastError: state.lastError
+          });
+        },
+        connect4: () => {
+          const connect4View = (state.view ?? {}) as Connect4View;
+          const connect4Screen = inferConnect4Screen(confirmed && joinedGameId === "connect4");
+          if (connect4Screen === "lobby") return renderConnect4Lobby(sessionId, playerId, state.lastError);
+          return renderConnect4Gameplay(connect4View, mySeat, {
+            seatNames: state.seatNames,
+            lastError: state.lastError
+          });
         }
       } as const;
 
@@ -185,6 +223,8 @@ export function mountPlayableClient(
         mainContent = gameUiAdapters.battleship();
       } else if (route.gameId === "labyrinth") {
         mainContent = gameUiAdapters.labyrinth();
+      } else if (route.gameId === "connect4") {
+        mainContent = gameUiAdapters.connect4();
       }
     }
 
@@ -255,16 +295,59 @@ export function mountPlayableClient(
       saveStored("playerId", playerId);
     });
 
-    joinBtn?.addEventListener("click", () => {
+    const seatCountSelect = root.querySelector<HTMLSelectElement>("#seat-count");
+    seatCountSelect?.addEventListener("change", () => {
+      labSeatCount = Number(seatCountSelect.value) || 2;
+    });
+
+    const startSession = (id: string, options: { create: boolean; seatCount?: number; bots?: number }): void => {
+      sessionId = id;
+      if (route.name === "game") {
+        saveStored(`sessionId:${route.gameId}`, sessionId);
+      }
       joined = true;
       joinedGameId = route.name === "game" ? route.gameId : null;
       // Reset placement state when joining a fresh session
       placementDraftMap = {};
       selectedShipId = shipSpecs[0]?.id ?? "";
       localError = null;
-      // Pass gameId so server creates session on demand
-      runtime.controller.join(sessionId, playerId, joinedGameId ?? undefined);
+      if (options.create && joinedGameId) {
+        runtime.controller.join(sessionId, playerId, joinedGameId, options.seatCount, options.bots);
+      } else {
+        // No gameId: a typo'd code errors with session_not_found instead of
+        // silently creating a fresh game.
+        runtime.controller.join(sessionId, playerId);
+      }
       render();
+    };
+
+    const createBtn = root.querySelector<HTMLButtonElement>("#create-btn");
+    createBtn?.addEventListener("click", () => {
+      const vsBot = root.querySelector<HTMLInputElement>("#vs-bot")?.checked ?? false;
+      const seatCount = seatCountSelect ? labSeatCount : undefined;
+      startSession(generateSessionId(), {
+        create: true,
+        seatCount,
+        // vs computer: every seat except the creator's is played by the server
+        bots: vsBot ? (seatCount ?? 2) - 1 : undefined
+      });
+    });
+
+    joinBtn?.addEventListener("click", () => {
+      startSession(sessionId, { create: false });
+    });
+
+    const rematchBtn = root.querySelector<HTMLButtonElement>("#rematch-btn");
+    rematchBtn?.addEventListener("click", () => {
+      // Everyone derives the same next code from the finished session, so all
+      // players clicking "Play Again" land in the same fresh game.
+      const seats = Object.keys(state.seatNames).length;
+      const bots = Object.values(state.seatNames).filter((n) => n.startsWith("Computer")).length;
+      startSession(nextSessionId(sessionId), {
+        create: true,
+        seatCount: seats > 0 ? seats : undefined,
+        bots: bots > 0 ? bots : undefined
+      });
     });
 
     if (route.name === "game" && route.gameId === "battleship") {
@@ -298,9 +381,32 @@ export function mountPlayableClient(
         pushLog
       });
     }
+
+    if (route.name === "game" && route.gameId === "connect4") {
+      bindConnect4Events(root, {
+        runtime,
+        playerId,
+        render,
+        pushLog
+      });
+    }
   };
 
   const disposeTransportSubscription = transport.subscribe(() => {
+    // Don't clobber lobby typing: skip re-render while an input/select in the
+    // app has focus, unless the broadcast just confirmed our current session
+    // (that render transitions off the lobby and matters more than focus).
+    const active = document.activeElement;
+    if (
+      active &&
+      root.contains(active) &&
+      (active.tagName === "INPUT" || active.tagName === "SELECT")
+    ) {
+      const routeState = getRuntimeForRoute(getCurrentRoute()).controller.getState();
+      if (!(routeState.synced && routeState.sessionId === sessionId)) {
+        return;
+      }
+    }
     render();
   });
 

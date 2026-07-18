@@ -1,4 +1,5 @@
-import { lobbyPanelMarkup } from "../../templates/lobby";
+import { humanizeError, lobbyPanelMarkup } from "../../templates/lobby";
+import { icon, objectiveIcon } from "../../icons";
 import type { LabyrinthView } from "./types";
 
 type Openings = Record<"N" | "E" | "S" | "W", boolean>;
@@ -45,15 +46,9 @@ function tileCorridorSvg(openings: Openings, objectiveId: string | null): string
     paths += `<rect x="${half}" y="${half - cw / 2}" width="${half}" height="${cw}" fill="${PATH_COLOR}"/>`;
   }
 
-  // Gem marker for objective
-  const gem = objectiveId
-    ? `<circle cx="${size - 10}" cy="10" r="6" fill="#fbbf24" opacity="0.9"/>`
-    : "";
-
   return `<svg class="tile-svg" viewBox="0 0 ${size} ${size}" xmlns="http://www.w3.org/2000/svg">
     <rect width="${size}" height="${size}" fill="${BG}"/>
     ${paths}
-    ${gem}
   </svg>`;
 }
 
@@ -63,6 +58,8 @@ function renderBoardMarkup(view: LabyrinthView, playerId: string): string {
     (view.myState?.reachableCells ?? []).map((cell) => `${cell.row},${cell.col}`)
   );
   const players = view.players ?? [];
+  const nextObjectiveId = view.myState?.remainingObjectives?.[0]?.id ?? null;
+  const home = view.myState?.home ?? null;
   // Map each player to their index for color
   const playerIndexMap = new Map(players.map((p, i) => [p.playerId, i]));
 
@@ -78,8 +75,11 @@ function renderBoardMarkup(view: LabyrinthView, playerId: string): string {
       );
 
       const isReachable = reachable.has(`${row},${col}`);
+      const isNextObjective = objectiveId !== null && objectiveId === nextObjectiveId;
+      const isHome = home !== null && home.row === row && home.col === col;
       const classes = ["labyrinth-cell"];
       if (isReachable) classes.push("reachable");
+      if (isNextObjective) classes.push("next-objective");
 
       const playerTokens = playersHere
         .map((p) => {
@@ -89,9 +89,21 @@ function renderBoardMarkup(view: LabyrinthView, playerId: string): string {
         })
         .join("");
 
+      const glow = isNextObjective
+        ? ' style="outline:2px solid #fbbf24;outline-offset:-2px;box-shadow:0 0 10px rgba(251,191,36,0.8);z-index:1;"'
+        : "";
+      const objectiveMarker = objectiveId
+        ? `<div class="objective-marker ${isNextObjective ? "next" : ""}" title="${objectiveId}">${objectiveIcon(objectiveId, 15)}</div>`
+        : "";
+      const homeMarker = isHome
+        ? `<div class="home-marker" title="your home">${icon("home", 13)}</div>`
+        : "";
+
       cells.push(
-        `<button class="${classes.join(" ")}" data-lab-cell="1" data-r="${row}" data-c="${col}" title="${objectiveId ? `🏆 ${objectiveId}` : ""}">
+        `<button class="${classes.join(" ")}"${glow} data-lab-cell="1" data-r="${row}" data-c="${col}" title="${objectiveId ?? ""}">
           ${tileCorridorSvg(openings, objectiveId)}
+          ${objectiveMarker}
+          ${homeMarker}
           ${playerTokens}
         </button>`
       );
@@ -106,7 +118,10 @@ function renderSpareTile(view: LabyrinthView): string {
   const openings = tile.openings ?? { N: false, E: false, S: false, W: false };
   return `
     <div class="spare-tile-wrap">
-      <div class="spare-tile-box">${tileCorridorSvg(openings, tile.objectiveId ?? null)}</div>
+      <div class="spare-tile-box" style="position:relative;">
+        ${tileCorridorSvg(openings, tile.objectiveId ?? null)}
+        ${tile.objectiveId ? `<div class="objective-marker" title="${tile.objectiveId}">${objectiveIcon(tile.objectiveId, 13)}</div>` : ""}
+      </div>
       <div>
         <div style="font-size:11px;font-weight:700;color:var(--accent-gold);text-transform:uppercase;letter-spacing:0.08em;">Spare Tile</div>
         <div style="font-size:11px;color:var(--text-muted);margin-top:2px;">Insert from any arrow</div>
@@ -115,26 +130,42 @@ function renderSpareTile(view: LabyrinthView): string {
   `;
 }
 
-export function renderLabyrinthLobby(sessionId: string, playerId: string): string {
+export function renderLabyrinthLobby(
+  sessionId: string,
+  playerId: string,
+  error?: string | null,
+  seatCount = 2
+): string {
   return `
     <section class="screen labyrinth-screen">
       <div class="section-head">
-        <h1>🌀 Labyrinth</h1>
+        <h1>${icon("maze", 24)} Labyrinth</h1>
         <p>Navigate the shifting maze. Insert the spare tile, move your pawn, collect objectives and return home to win.</p>
       </div>
       ${lobbyPanelMarkup(sessionId, playerId, {
     title: "Maze Lobby",
-    joinLabel: "Enter Maze"
+    joinLabel: "Enter Maze",
+    error,
+    seatCount,
+    vsBot: true
   })}
     </section>
   `;
 }
 
+const OPPOSITE_EDGE: Record<string, string> = {
+  top: "bottom",
+  bottom: "top",
+  left: "right",
+  right: "left"
+};
+
 export function renderLabyrinthGameplay(
   view: LabyrinthView,
   playerId: string,
   logs: string[],
-  _stateDump: string
+  _stateDump: string,
+  status: { seatNames?: Record<string, string>; lastError?: string | null } = {}
 ): string {
   const insertionIndexes = view.config?.insertionIndexes ?? [1, 3, 5];
   const isTerminal = view.phase === "terminal";
@@ -143,15 +174,22 @@ export function renderLabyrinthGameplay(
   const isMoveStage = view.turnStage === "move";
   const myObjectives = view.myState?.remainingObjectives ?? [];
   const players = view.players ?? [];
+  const nameOf = (id: string | null | undefined): string =>
+    id ? status.seatNames?.[id] ?? id : "";
+  // The server rejects pushing the spare tile straight back where it came from.
+  const last = view.lastInsertion;
+  const isReverse = (edge: string, index: number): boolean =>
+    !!last && OPPOSITE_EDGE[last.edge] === edge && last.index === index;
 
   if (isTerminal) {
     return `
       <section class="screen labyrinth-screen">
         <div class="winner-overlay">
-          <div class="winner-trophy">🏆</div>
+          <div class="winner-trophy">${icon("trophy", 46)}</div>
           <h2>Maze Conquered!</h2>
-          <p>${view.winnerPlayerId ? `<strong>${view.winnerPlayerId}</strong> collected all objectives and returned home!` : "Someone found the way home!"}</p>
+          <p>${view.winnerPlayerId ? `<strong>${nameOf(view.winnerPlayerId)}</strong> collected all objectives and returned home!` : "Someone found the way home!"}</p>
           <div class="row-actions" style="justify-content:center">
+            <button class="btn btn-primary" id="rematch-btn">⟲ Play Again</button>
             <a class="btn btn-ghost" href="#/">← Back to Hub</a>
           </div>
         </div>
@@ -164,7 +202,7 @@ export function renderLabyrinthGameplay(
     return `
       <section class="screen labyrinth-screen">
         <div class="section-head">
-          <h1>🌀 Labyrinth</h1>
+          <h1>${icon("maze", 24)} Labyrinth</h1>
         </div>
         <div class="card" style="max-width:500px;text-align:center;padding:var(--sp-8);">
           <div class="waiting-dot" style="margin:0 auto var(--sp-4);"></div>
@@ -173,7 +211,7 @@ export function renderLabyrinthGameplay(
           <div style="margin-top:var(--sp-4);padding:var(--sp-3);background:rgba(0,212,255,0.06);border-radius:var(--r-md);border:1px solid var(--border-subtle);">
             <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:var(--text-muted);margin-bottom:4px;">Players joined</div>
             ${view.players && view.players.length > 0
-        ? view.players.map(p => `<div style="font-size:13px;color:var(--text-secondary);">${p.playerId}</div>`).join('')
+        ? view.players.map(p => `<div style="font-size:13px;color:var(--text-secondary);">${nameOf(p.playerId)}</div>`).join('')
         : '<div style="font-size:13px;color:var(--text-muted);">Waiting for players…</div>'
       }
           </div>
@@ -184,13 +222,13 @@ export function renderLabyrinthGameplay(
 
   // Status banner
   let statusClass = "their-turn";
-  let statusText = `⏳ Waiting for <strong>${view.currentPlayerId ?? "other player"}</strong>`;
+  let statusText = `${icon("hourglass", 13)} Waiting for <strong>${nameOf(view.currentPlayerId) || "other player"}</strong>`;
   if (isMyTurn && isInsertStage) {
     statusClass = "your-turn";
-    statusText = "🔀 Your turn — insert the spare tile using an arrow button";
+    statusText = "Your turn — insert the spare tile using an arrow button";
   } else if (isMyTurn && isMoveStage) {
     statusClass = "your-turn";
-    statusText = "🚶 Now move your pawn — click a highlighted cell";
+    statusText = "Now move your pawn — click a highlighted cell";
   }
 
   // Build insertion ring around the board
@@ -200,7 +238,7 @@ export function renderLabyrinthGameplay(
 
   const topBtns = Array.from({ length: cols }, (_, col) => {
     const isSlot = insertionIndexes.includes(col);
-    const disabled = !isSlot || !isMyTurn || !isInsertStage ? "disabled" : "";
+    const disabled = !isSlot || !isMyTurn || !isInsertStage || isReverse("top", col) ? "disabled" : "";
     return isSlot
       ? `<button class="insert-btn labyrinth-insert-btn" data-edge="top" data-index="${col}" ${disabled} title="Insert top column ${col}">▼</button>`
       : `<div></div>`;
@@ -208,7 +246,7 @@ export function renderLabyrinthGameplay(
 
   const bottomBtns = Array.from({ length: cols }, (_, col) => {
     const isSlot = insertionIndexes.includes(col);
-    const disabled = !isSlot || !isMyTurn || !isInsertStage ? "disabled" : "";
+    const disabled = !isSlot || !isMyTurn || !isInsertStage || isReverse("bottom", col) ? "disabled" : "";
     return isSlot
       ? `<button class="insert-btn labyrinth-insert-btn" data-edge="bottom" data-index="${col}" ${disabled} title="Insert bottom column ${col}">▲</button>`
       : `<div></div>`;
@@ -216,7 +254,7 @@ export function renderLabyrinthGameplay(
 
   const leftBtns = Array.from({ length: rows }, (_, row) => {
     const isSlot = insertionIndexes.includes(row);
-    const disabled = !isSlot || !isMyTurn || !isInsertStage ? "disabled" : "";
+    const disabled = !isSlot || !isMyTurn || !isInsertStage || isReverse("left", row) ? "disabled" : "";
     return isSlot
       ? `<button class="insert-btn labyrinth-insert-btn" data-edge="left" data-index="${row}" ${disabled} title="Insert left row ${row}">▶</button>`
       : `<div></div>`;
@@ -224,7 +262,7 @@ export function renderLabyrinthGameplay(
 
   const rightBtns = Array.from({ length: rows }, (_, row) => {
     const isSlot = insertionIndexes.includes(row);
-    const disabled = !isSlot || !isMyTurn || !isInsertStage ? "disabled" : "";
+    const disabled = !isSlot || !isMyTurn || !isInsertStage || isReverse("right", row) ? "disabled" : "";
     return isSlot
       ? `<button class="insert-btn labyrinth-insert-btn" data-edge="right" data-index="${row}" ${disabled} title="Insert right row ${row}">◀</button>`
       : `<div></div>`;
@@ -242,7 +280,7 @@ export function renderLabyrinthGameplay(
         <div style="display:flex;align-items:center;gap:8px;padding:8px;border-radius:8px;border:1px solid ${isCurrent ? "rgba(0,212,255,0.4)" : "var(--border-subtle)"};background:${isCurrent ? "rgba(0,212,255,0.06)" : "transparent"};">
           <div class="player-token ${colorClass}" style="position:static;transform:none;width:28px;height:28px;font-size:10px;">${label}</div>
           <div>
-            <div style="font-size:12px;font-weight:600;color:${isMe ? "var(--accent-cyan)" : "var(--text-primary)"};">${p.playerId}${isMe ? " (you)" : ""}${isCurrent ? " 🎯" : ""}</div>
+            <div style="font-size:12px;font-weight:600;color:${isMe ? "var(--accent-cyan)" : "var(--text-primary)"};">${nameOf(p.playerId)}${isMe ? " (you)" : ""}${isCurrent ? ` ${icon("target", 11)}` : ""}</div>
             <div style="font-size:10px;color:var(--text-muted);">${p.objectivesRemainingCount} objective${p.objectivesRemainingCount !== 1 ? "s" : ""} left</div>
           </div>
         </div>
@@ -258,7 +296,7 @@ export function renderLabyrinthGameplay(
         .map(
           (obj, i) =>
             `<div class="objective-item" style="${i > 0 ? "opacity:0.6" : ""}">
-                  ${i === 0 ? "Next: " : ""}${obj.id}
+                  ${objectiveIcon(obj.id, 15)} ${i === 0 ? "Next: " : ""}${obj.id}
                 </div>`
         )
         .join("")}
@@ -268,23 +306,24 @@ export function renderLabyrinthGameplay(
   return `
     <section class="screen labyrinth-screen">
       <div class="section-head">
-        <h1>🌀 Labyrinth</h1>
+        <h1>${icon("maze", 24)} Labyrinth</h1>
         <div class="status-banner ${statusClass}">
           <span>${statusText}</span>
         </div>
+        ${status.lastError ? `<div class="error-text" role="alert">${humanizeError(status.lastError)}</div>` : ""}
       </div>
       <div class="gameplay-screen">
         <div class="card board-panel">
           ${renderSpareTile(view)}
           <div style="margin-top:16px;" id="labyrinth-insert-controls">
             <div class="labyrinth-insert-ring">
-              <div class="insert-row-top" style="display:flex;gap:3px;">${topBtns}</div>
-              <div class="insert-col-left" style="display:flex;flex-direction:column;gap:3px;">${leftBtns}</div>
+              <div class="insert-row-top" style="display:grid;grid-template-columns:repeat(${cols},minmax(0,1fr));gap:3px;width:100%;max-width:560px;margin:0 auto;padding:0 4px;">${topBtns}</div>
+              <div class="insert-col-left" style="display:grid;grid-template-rows:repeat(${rows},minmax(0,1fr));gap:3px;padding:4px 0;">${leftBtns}</div>
               <div class="labyrinth-board-center" id="labyrinth-board">
                 ${renderBoardMarkup(view, playerId)}
               </div>
-              <div class="insert-col-right" style="display:flex;flex-direction:column;gap:3px;">${rightBtns}</div>
-              <div class="insert-row-bottom" style="display:flex;gap:3px;">${bottomBtns}</div>
+              <div class="insert-col-right" style="display:grid;grid-template-rows:repeat(${rows},minmax(0,1fr));gap:3px;padding:4px 0;">${rightBtns}</div>
+              <div class="insert-row-bottom" style="display:grid;grid-template-columns:repeat(${cols},minmax(0,1fr));gap:3px;width:100%;max-width:560px;margin:0 auto;padding:0 4px;">${bottomBtns}</div>
             </div>
           </div>
         </div>

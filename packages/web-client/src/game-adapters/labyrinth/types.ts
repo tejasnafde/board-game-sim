@@ -11,6 +11,7 @@ export type LabyrinthView = {
   lastInsertion?: { edge: string; index: number } | null;
   players?: Array<{ playerId: string; position: Coord; objectivesRemainingCount: number }>;
   myState?: {
+    home?: Coord;
     remainingObjectives?: Array<{ id: string }>;
     reachableCells?: Coord[];
   };
