@@ -10,20 +10,25 @@
   "scripts": {
     "dev": "npm run dev:server & npm run dev:web",
     "dev:server": "node --import tsx packages/server/src/dev-server.ts",
+    "start": "node --import tsx packages/server/src/dev-server.ts",
+    "build:web": "vite build --config packages/web-client/vite.config.ts",
+    "deploy": "bash scripts/deploy.sh",
     "dev:web": "vite --config packages/web-client/vite.config.ts",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "test:e2e": "playwright test"
   },
   "devDependencies": {
+    "@playwright/test": "^1.61.1",
     "@types/node": "^25.3.0",
     "@types/ws": "^8.18.1",
-    "tsx": "^4.20.3",
     "typescript": "^5.6.3",
     "vite": "^5.4.21",
     "vitest": "^2.1.3"
   },
   "dependencies": {
+    "tsx": "^4.20.3",
     "ws": "^8.19.0"
   }
 }
