@@ -1,4 +1,4 @@
-import { describe, expect, test } from "vitest";
+import { describe, expect, it, test } from "vitest";
 import { deterministicHash } from "@board-game-sim/shared";
 import { LabyrinthModule } from "../../../packages/games/labyrinth/src/rules/labyrinth-module";
 import definition from "../../../packages/games/labyrinth/definition.json";
@@ -200,5 +200,39 @@ describe("labyrinth rules", () => {
     expect(p2?.remainingObjectives).toBeUndefined();
     expect(typeof p2?.objectivesRemainingCount).toBe("number");
     expect(Array.isArray(view.myState.remainingObjectives)).toBe(true);
+  });
+});
+
+describe("fixed tiles are never sealed", () => {
+  it("corners open inward and every static tile connects into the board, across seeds", () => {
+    const mod = new LabyrinthModule();
+    for (const seed of ["a", "b", "c", "unlucky", "0263DF-seed"]) {
+      const state = mod.initGame({
+        sessionId: `fixed-${seed}`,
+        gameId: "labyrinth",
+        gameVersion: "0.1.0",
+        seed,
+        players: ["p1", "p2"],
+        definition: definition as never
+      }).initialState;
+
+      const { rows, cols, insertionIndexes } = state.config;
+      for (let row = 0; row < rows; row += 1) {
+        for (let col = 0; col < cols; col += 1) {
+          if (insertionIndexes.includes(row) || insertionIndexes.includes(col)) continue;
+          const tile = state.board[row]![col]!;
+          // no opening may face off-board on a tile that can never move
+          if (row === 0) expect(tile.openings.N, `seed ${seed} (${row},${col})`).toBe(false);
+          if (row === rows - 1) expect(tile.openings.S).toBe(false);
+          if (col === 0) expect(tile.openings.W).toBe(false);
+          if (col === cols - 1) expect(tile.openings.E).toBe(false);
+          const inboard = Object.values(tile.openings).filter(Boolean).length;
+          expect(inboard, `sealed static tile at ${row},${col} seed ${seed}`).toBeGreaterThanOrEqual(2);
+        }
+      }
+      // homes specifically: corner tiles open exactly into the board
+      expect(state.board[0]![0]!.openings).toMatchObject({ S: true, E: true, N: false, W: false });
+      expect(state.board[rows - 1]![cols - 1]!.openings).toMatchObject({ N: true, W: true, S: false, E: false });
+    }
   });
 });

@@ -225,6 +225,56 @@ function collectObjectiveIfPresent(player: LabyrinthPlayerState): string | null 
   return currentObjective.id;
 }
 
+
+/**
+ * Tiles at non-insertion rows AND columns never move. Random shapes there can
+ * seal a corner (both openings facing off-board) — an unwinnable start, since
+ * homes are corners. Prescribe them like the physical game: corners open
+ * inward, edge tees point inward, interior tees rotate symmetrically.
+ */
+function applyFixedTiles(board: Tile[][], config: LabyrinthConfig): void {
+  const isFixed = (i: number): boolean => !config.insertionIndexes.includes(i);
+  const lastRow = config.rows - 1;
+  const lastCol = config.cols - 1;
+
+  const withOpenings = (id: string, shape: TileShape, want: Record<Direction, boolean>, objectiveId: string | null): Tile => {
+    for (const rotation of [0, 90, 180, 270] as const) {
+      const tile = createTile(id, shape, rotation, objectiveId);
+      if ((["N", "E", "S", "W"] as Direction[]).every((d) => tile.openings[d] === want[d])) return tile;
+    }
+    throw new Error(`no_rotation_for_openings:${shape}`);
+  };
+
+  for (let row = 0; row < config.rows; row += 1) {
+    for (let col = 0; col < config.cols; col += 1) {
+      if (!isFixed(row) || !isFixed(col)) continue;
+      const old = board[row]![col]!;
+      const onTop = row === 0;
+      const onBottom = row === lastRow;
+      const onLeft = col === 0;
+      const onRight = col === lastCol;
+
+      let want: Record<Direction, boolean>;
+      let shape: TileShape;
+      if ((onTop || onBottom) && (onLeft || onRight)) {
+        shape = "corner";
+        want = { N: onBottom, S: onTop, E: onLeft, W: onRight };
+      } else if (onTop || onBottom || onLeft || onRight) {
+        shape = "tee";
+        want = { N: !onTop, S: !onBottom, E: !onRight, W: !onLeft };
+      } else {
+        // interior: tee excluding the direction of its quadrant (rotational symmetry)
+        shape = "tee";
+        const exclude: Direction =
+          row * 2 < config.rows ? (col * 2 < config.cols ? "W" : "N") : (col * 2 < config.cols ? "S" : "E");
+        want = { N: true, E: true, S: true, W: true };
+        want[exclude] = false;
+      }
+      board[row]![col] = withOpenings(old.id, shape, want, old.objectiveId);
+    }
+  }
+}
+
 function createInitialBoardAndPlayers(input: InitGameInput, config: LabyrinthConfig, objectiveCatalog: string[]): {
   board: Tile[][];
   spareTile: Tile;
@@ -260,6 +310,7 @@ function createInitialBoardAndPlayers(input: InitGameInput, config: LabyrinthCon
     board.push(line);
   }
   const spareTile = allTiles[cursor] as Tile;
+  applyFixedTiles(board, config);
 
   const objectiveSlots: Coord[] = [];
   for (let row = 0; row < config.rows; row += 1) {
