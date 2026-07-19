@@ -59,9 +59,12 @@ export function renderConnect4Gameplay(
     `;
   }
 
+  const currentName = nameOf(view.currentPlayerId);
   const statusText = isMyTurn
     ? "Your turn — click a column to drop your disc"
-    : `${icon("hourglass", 13)} Waiting for <strong>${nameOf(view.currentPlayerId) || "opponent"}</strong>`;
+    : currentName.startsWith("Computer")
+      ? `${icon("robot", 14)} <strong>${currentName}</strong> is thinking<span class="thinking-dots"></span>`
+      : `${icon("hourglass", 13)} Waiting for <strong>${currentName || "opponent"}</strong>`;
   const seatBadges = players
     .map((seat, i) => {
       const isCurrent = seat === view.currentPlayerId;

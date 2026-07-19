@@ -52,6 +52,35 @@ export function createWsRealtimeServer(options: WsServerOptions) {
   const contexts = new WeakMap<WebSocket, ConnectionContext>();
   const sessionRooms = new Map<string, Set<WebSocket>>();
 
+  // Paced bot moves land outside any request; push fresh views to the room.
+  options.gateway.onSessionChanged = async (sessionId: string, events: { seq: number; items: unknown[] }) => {
+    const room = sessionRooms.get(sessionId);
+    if (!room || room.size === 0) return;
+    for (const peer of room) {
+      const playerId = contexts.get(peer)?.playerBySession.get(sessionId);
+      if (!playerId) continue;
+      // domain events first (objective collected, disc dropped…), then the view
+      send(peer, {
+        type: "session.action_accepted",
+        sessionId,
+        seq: events.seq,
+        events: events.items as never[]
+      });
+      send(peer, await options.gateway.createStateSyncEvent(sessionId, playerId));
+    }
+    const terminal = options.gateway.getTerminal(sessionId);
+    if (terminal) {
+      const event: ServerEvent = {
+        type: "session.terminal",
+        sessionId,
+        winnerPlayerId: terminal.winnerPlayerId,
+        reason: terminal.reason
+      };
+      logTraffic(event);
+      for (const peer of room) send(peer, event);
+    }
+  };
+
   function joinRoom(socket: WebSocket, sessionId: string, playerId: string): void {
     const room = sessionRooms.get(sessionId) ?? new Set<WebSocket>();
     room.add(socket);

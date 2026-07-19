@@ -205,7 +205,8 @@ export function mountPlayableClient(
           if (labyrinthScreen === "lobby") return renderLabyrinthLobby(sessionId, playerId, state.lastError, labSeatCount);
           return renderLabyrinthGameplay(labyrinthView, mySeat, logs, JSON.stringify(state, null, 2), {
             seatNames: state.seatNames,
-            lastError: state.lastError
+            lastError: state.lastError,
+            lastEvents: state.lastEvents
           });
         },
         connect4: () => {

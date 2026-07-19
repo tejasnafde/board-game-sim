@@ -237,9 +237,12 @@ export function renderBattleshipGameplay(
   }
 
   const statusClass = canFire ? "your-turn" : "their-turn";
+  const currentName = nameOf(view.currentPlayerId);
   const statusText = canFire
     ? "Your turn — click on the <strong>Opponent Board</strong> to fire"
-    : `${icon("hourglass", 13)} Waiting for <strong>${nameOf(view.currentPlayerId) || "opponent"}</strong>`;
+    : currentName.startsWith("Computer")
+      ? `${icon("robot", 14)} <strong>${currentName}</strong> is thinking<span class="thinking-dots"></span>`
+      : `${icon("hourglass", 13)} Waiting for <strong>${currentName || "opponent"}</strong>`;
   const errorText = humanizeError(status.lastError);
   const resultText = lastShotText(status.lastEvents ?? []);
 
