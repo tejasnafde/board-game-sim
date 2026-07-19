@@ -149,13 +149,19 @@ rejection path must log its reason — silent failures are how we got here.
 ## Deploy (friends-scale)
 
 `npm run deploy` — runs the vitest gates, ships backend to Cloud Run and
-frontend to Vercel. Config is explicit env vars, never personal gcloud/vercel
-defaults: `BGS_GCP_PROJECT` and `BGS_GCP_REGION` are required
-(`BGS_SERVICE`, `BGS_MIN_INSTANCES` optional).
+frontend to Vercel. Config is explicit env vars, never gcloud/vercel
+defaults: `BGS_GCP_PROJECT`, `BGS_GCP_REGION` and `BGS_GCP_ACCOUNT` are
+required (`BGS_SERVICE`, `BGS_MIN_INSTANCES` optional).
 
 ```
-BGS_GCP_PROJECT=my-project BGS_GCP_REGION=asia-south1 npm run deploy
+BGS_GCP_PROJECT=teejayproject BGS_GCP_REGION=asia-south1 \
+BGS_GCP_ACCOUNT=<personal gcloud email> npm run deploy
 ```
+
+RULE: every gcloud command — in scripts or ad hoc — passes `--account` and
+`--project` explicitly (the personal config, e.g. project `teejayproject`).
+The machine's ACTIVE gcloud config is a WORK account; forgetting the flags
+deploys a hobby game into work infrastructure.
 
 - Backend: `gcloud run deploy --source .` (Dockerfile, tsx runtime, no compile
   step). **`--max-instances 1` is load-bearing**: sessions are in-memory; a
