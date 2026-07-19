@@ -41,14 +41,36 @@ export class RealtimeGateway {
 
   // Seats played by the server (vs-computer mode), per session.
   private readonly botSeatsBySession = new Map<string, { gameId: string; seats: Set<string> }>();
+  private readonly botLoopRunning = new Set<string>();
 
-  constructor(private readonly sessions: SessionService) { }
+  /** Set by the transport layer to push room-wide syncs after paced bot moves. */
+  onSessionChanged:
+    | ((sessionId: string, events: { seq: number; items: JsonValue[] }) => Promise<void> | void)
+    | null = null;
+
+  constructor(
+    private readonly sessions: SessionService,
+    // 0 = bots reply inside the request (tests); >0 = paced, pushed via onSessionChanged
+    private readonly botMoveDelayMs = 0
+  ) { }
 
   /** Let bot seats act until it's a human's turn (or terminal / nothing to do). */
-  private async playBotSeats(sessionId: string): Promise<void> {
+  async playBotSeats(sessionId: string): Promise<void> {
     const entry = this.botSeatsBySession.get(sessionId);
     const game = entry ? GAMES[entry.gameId] : undefined;
     if (!entry || !game) return;
+    if (this.botLoopRunning.has(sessionId)) return;
+    this.botLoopRunning.add(sessionId);
+    try {
+      await this.runBotLoop(sessionId, game);
+    } finally {
+      this.botLoopRunning.delete(sessionId);
+    }
+  }
+
+  private async runBotLoop(sessionId: string, game: (typeof GAMES)[string]): Promise<void> {
+    const entry = this.botSeatsBySession.get(sessionId);
+    if (!entry) return;
 
     for (let move = 0; move < MAX_BOT_MOVES; move += 1) {
       if (this.sessions.getTerminalResult(sessionId)) return;
@@ -79,11 +101,27 @@ export class RealtimeGateway {
           return;
         }
         log.info(`${sessionId} 🤖 ${seat} → ${action.actionType} ${JSON.stringify(action.payload)}`);
+        await this.onSessionChanged?.(sessionId, {
+          seq: result.seq,
+          items: result.events.map((e) => ({ eventType: e.eventType, payload: e.payload })) as JsonValue[]
+        });
         acted = true;
         break;
       }
       if (!acted) return;
+      if (this.botMoveDelayMs > 0) {
+        await new Promise((resolve) => setTimeout(resolve, this.botMoveDelayMs));
+      }
     }
+  }
+
+  /** Paced mode floats the bot loop; synchronous mode (tests) awaits it. */
+  private kickBots(sessionId: string): Promise<void> {
+    if (this.botMoveDelayMs > 0) {
+      void this.playBotSeats(sessionId).catch((error) => log.error(`${sessionId} bot loop crashed`, error));
+      return Promise.resolve();
+    }
+    return this.playBotSeats(sessionId);
   }
 
   private resolveSeat(sessionId: string, name: string): string | null {
@@ -110,6 +148,10 @@ export class RealtimeGateway {
     claims.set(name, seat);
     log.info(`${sessionId} "${name}" claimed seat ${seat}`);
     return seat;
+  }
+
+  getTerminal(sessionId: string): { winnerPlayerId: string | null; reason: string } | null {
+    return this.sessions.getTerminalResult(sessionId);
   }
 
   private seatNames(sessionId: string): Record<string, string> {
@@ -196,7 +238,7 @@ export class RealtimeGateway {
           if (seat) seats.add(seat);
         }
         this.botSeatsBySession.set(event.sessionId, { gameId: event.gameId, seats });
-        await this.playBotSeats(event.sessionId);
+        await this.kickBots(event.sessionId);
       }
 
       // Return created confirmation + initial state sync for creator
@@ -251,9 +293,7 @@ export class RealtimeGateway {
         ];
       }
 
-      // Computer opponents respond before we report back, so the peer sync
-      // that follows already contains their moves.
-      await this.playBotSeats(event.envelope.sessionId);
+      await this.kickBots(event.envelope.sessionId);
 
       const outbound: ServerEvent[] = [
         {

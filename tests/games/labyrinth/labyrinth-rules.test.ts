@@ -236,3 +236,21 @@ describe("fixed tiles are never sealed", () => {
     }
   });
 });
+
+describe("findPath", () => {
+  it("returns the shortest corridor path, null when blocked", async () => {
+    const { findPath } = await import("../../../packages/games/labyrinth/src/rules/board");
+    const open = { N: true, E: true, S: true, W: true };
+    const closed = { N: false, E: false, S: false, W: false };
+    const tile = (o: typeof open) => ({ id: "t", shape: "tee" as const, rotationDeg: 0 as const, openings: o, objectiveId: null });
+    const config = { rows: 2, cols: 3, insertionIndexes: [1], objectivesPerPlayer: 1 };
+    const board = [
+      [tile(open), tile(open), tile(open)],
+      [tile(open), tile(closed), tile(open)]
+    ];
+    expect(findPath(board, config, { row: 0, col: 0 }, { row: 0, col: 2 })).toEqual([
+      { row: 0, col: 0 }, { row: 0, col: 1 }, { row: 0, col: 2 }
+    ]);
+    expect(findPath(board, config, { row: 0, col: 0 }, { row: 1, col: 1 })).toBeNull();
+  });
+});

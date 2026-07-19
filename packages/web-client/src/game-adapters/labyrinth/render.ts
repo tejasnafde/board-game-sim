@@ -160,12 +160,38 @@ const OPPOSITE_EDGE: Record<string, string> = {
   right: "left"
 };
 
+function activityMarkup(
+  view: LabyrinthView,
+  playerId: string,
+  nameOf: (id: string | null | undefined) => string,
+  lastEvents: unknown[]
+): string {
+  const lines: string[] = [];
+  for (const raw of lastEvents) {
+    const event = raw as { eventType?: string; payload?: { playerId?: string; objectiveId?: string } };
+    if (event.eventType === "objective.collected" && event.payload?.objectiveId) {
+      const who = event.payload.playerId === playerId ? "You" : nameOf(event.payload.playerId);
+      lines.push(
+        `<div class="activity-line">${objectiveIcon(event.payload.objectiveId, 14)} <strong>${who}</strong> collected the ${event.payload.objectiveId}</div>`
+      );
+    }
+  }
+  for (const p of view.players ?? []) {
+    if (p.playerId !== playerId && p.objectivesRemainingCount === 0) {
+      lines.push(
+        `<div class="activity-line danger">${icon("home", 14)} <strong>${nameOf(p.playerId)}</strong> has every objective — racing home!</div>`
+      );
+    }
+  }
+  return lines.join("");
+}
+
 export function renderLabyrinthGameplay(
   view: LabyrinthView,
   playerId: string,
   logs: string[],
   _stateDump: string,
-  status: { seatNames?: Record<string, string>; lastError?: string | null } = {}
+  status: { seatNames?: Record<string, string>; lastError?: string | null; lastEvents?: unknown[] } = {}
 ): string {
   const insertionIndexes = view.config?.insertionIndexes ?? [1, 3, 5];
   const isTerminal = view.phase === "terminal";
@@ -188,6 +214,13 @@ export function renderLabyrinthGameplay(
           <div class="winner-trophy">${icon("trophy", 46)}</div>
           <h2>Maze Conquered!</h2>
           <p>${view.winnerPlayerId ? `<strong>${nameOf(view.winnerPlayerId)}</strong> collected all objectives and returned home!` : "Someone found the way home!"}</p>
+          <div class="final-scores">
+            ${(view.players ?? [])
+              .map((p) => `<div class="final-score-row"><strong>${nameOf(p.playerId)}</strong> ${(p.collectedObjectiveIds ?? [])
+                .map((id: string) => objectiveIcon(id, 15))
+                .join("")} ${(p.collectedObjectiveIds ?? []).length} collected</div>`)
+              .join("")}
+          </div>
           <div class="row-actions" style="justify-content:center">
             <button class="btn btn-primary" id="rematch-btn">⟲ Play Again</button>
             <a class="btn btn-ghost" href="#/">← Back to Hub</a>
@@ -222,7 +255,10 @@ export function renderLabyrinthGameplay(
 
   // Status banner
   let statusClass = "their-turn";
-  let statusText = `${icon("hourglass", 13)} Waiting for <strong>${nameOf(view.currentPlayerId) || "other player"}</strong>`;
+  const currentName = nameOf(view.currentPlayerId);
+  let statusText = currentName.startsWith("Computer")
+    ? `${icon("robot", 14)} <strong>${currentName}</strong> is thinking<span class="thinking-dots"></span>`
+    : `${icon("hourglass", 13)} Waiting for <strong>${currentName || "other player"}</strong>`;
   if (isMyTurn && isInsertStage) {
     statusClass = "your-turn";
     statusText = "Your turn — insert the spare tile using an arrow button";
@@ -240,7 +276,7 @@ export function renderLabyrinthGameplay(
     const isSlot = insertionIndexes.includes(col);
     const disabled = !isSlot || !isMyTurn || !isInsertStage || isReverse("top", col) ? "disabled" : "";
     return isSlot
-      ? `<button class="insert-btn labyrinth-insert-btn" data-edge="top" data-index="${col}" ${disabled} title="Insert top column ${col}">▼</button>`
+      ? `<button class="insert-btn labyrinth-insert-btn ${last && last.edge === "top" && last.index === col ? "just-used" : ""}" data-edge="top" data-index="${col}" ${disabled} title="Insert top column ${col}">▼</button>`
       : `<div></div>`;
   }).join("");
 
@@ -248,7 +284,7 @@ export function renderLabyrinthGameplay(
     const isSlot = insertionIndexes.includes(col);
     const disabled = !isSlot || !isMyTurn || !isInsertStage || isReverse("bottom", col) ? "disabled" : "";
     return isSlot
-      ? `<button class="insert-btn labyrinth-insert-btn" data-edge="bottom" data-index="${col}" ${disabled} title="Insert bottom column ${col}">▲</button>`
+      ? `<button class="insert-btn labyrinth-insert-btn ${last && last.edge === "bottom" && last.index === col ? "just-used" : ""}" data-edge="bottom" data-index="${col}" ${disabled} title="Insert bottom column ${col}">▲</button>`
       : `<div></div>`;
   }).join("");
 
@@ -256,7 +292,7 @@ export function renderLabyrinthGameplay(
     const isSlot = insertionIndexes.includes(row);
     const disabled = !isSlot || !isMyTurn || !isInsertStage || isReverse("left", row) ? "disabled" : "";
     return isSlot
-      ? `<button class="insert-btn labyrinth-insert-btn" data-edge="left" data-index="${row}" ${disabled} title="Insert left row ${row}">▶</button>`
+      ? `<button class="insert-btn labyrinth-insert-btn ${last && last.edge === "left" && last.index === row ? "just-used" : ""}" data-edge="left" data-index="${row}" ${disabled} title="Insert left row ${row}">▶</button>`
       : `<div></div>`;
   }).join("");
 
@@ -264,7 +300,7 @@ export function renderLabyrinthGameplay(
     const isSlot = insertionIndexes.includes(row);
     const disabled = !isSlot || !isMyTurn || !isInsertStage || isReverse("right", row) ? "disabled" : "";
     return isSlot
-      ? `<button class="insert-btn labyrinth-insert-btn" data-edge="right" data-index="${row}" ${disabled} title="Insert right row ${row}">◀</button>`
+      ? `<button class="insert-btn labyrinth-insert-btn ${last && last.edge === "right" && last.index === row ? "just-used" : ""}" data-edge="right" data-index="${row}" ${disabled} title="Insert right row ${row}">◀</button>`
       : `<div></div>`;
   }).join("");
 
@@ -311,6 +347,7 @@ export function renderLabyrinthGameplay(
           <span>${statusText}</span>
         </div>
         ${status.lastError ? `<div class="error-text" role="alert">${humanizeError(status.lastError)}</div>` : ""}
+        ${activityMarkup(view, playerId, nameOf, status.lastEvents ?? [])}
       </div>
       <div class="gameplay-screen">
         <div class="card board-panel">

@@ -1,5 +1,7 @@
 import type { Coord, Direction, Insertion, LabyrinthConfig, Tile } from "./types";
 
+type BoardSize = Pick<LabyrinthConfig, "rows" | "cols">;
+
 export const DIRS: Direction[] = ["N", "E", "S", "W"];
 export const OPPOSITE: Record<Direction, Direction> = { N: "S", S: "N", E: "W", W: "E" };
 
@@ -7,7 +9,7 @@ export function coordKey(c: Coord): string {
   return `${c.row}:${c.col}`;
 }
 
-export function inBounds(c: Coord, config: LabyrinthConfig): boolean {
+export function inBounds(c: Coord, config: BoardSize): boolean {
   return c.row >= 0 && c.row < config.rows && c.col >= 0 && c.col < config.cols;
 }
 
@@ -23,7 +25,7 @@ export function shiftBoard(
   board: Tile[][],
   spare: Tile,
   insertion: Insertion,
-  config: LabyrinthConfig
+  config: BoardSize
 ): { board: Tile[][]; spare: Tile } {
   const next = board.map((row) => [...row]);
   let ejected: Tile;
@@ -58,7 +60,7 @@ export function shiftBoard(
 }
 
 /** Where a pawn/objective on `position` ends up after `insertion` (wraps). */
-export function shiftPosition(position: Coord, insertion: Insertion, config: LabyrinthConfig): Coord {
+export function shiftPosition(position: Coord, insertion: Insertion, config: BoardSize): Coord {
   if (insertion.edge === "top" && position.col === insertion.index) {
     return { row: (position.row + 1) % config.rows, col: position.col };
   }
@@ -74,7 +76,7 @@ export function shiftPosition(position: Coord, insertion: Insertion, config: Lab
   return position;
 }
 
-export function findReachable(board: Tile[][], config: LabyrinthConfig, from: Coord): Set<string> {
+export function findReachable(board: Tile[][], config: BoardSize, from: Coord): Set<string> {
   const visited = new Set<string>([coordKey(from)]);
   const queue: Coord[] = [from];
 
@@ -95,4 +97,34 @@ export function findReachable(board: Tile[][], config: LabyrinthConfig, from: Co
   }
 
   return visited;
+}
+
+/** BFS shortest path from → to (inclusive), or null when unreachable. */
+export function findPath(board: Tile[][], config: BoardSize, from: Coord, to: Coord): Coord[] | null {
+  const parent = new Map<string, Coord | null>([[coordKey(from), null]]);
+  const queue: Coord[] = [from];
+
+  while (queue.length > 0) {
+    const current = queue.shift()!;
+    if (current.row === to.row && current.col === to.col) {
+      const path: Coord[] = [];
+      for (let step: Coord | null = current; step; step = parent.get(coordKey(step)) ?? null) {
+        path.unshift(step);
+      }
+      return path;
+    }
+    const tile = board[current.row]?.[current.col];
+    if (!tile) continue;
+    for (const dir of DIRS) {
+      if (!tile.openings[dir]) continue;
+      const dest = nextCoord(current, dir);
+      if (!inBounds(dest, config)) continue;
+      if (!board[dest.row]?.[dest.col]?.openings[OPPOSITE[dir]]) continue;
+      const key = coordKey(dest);
+      if (parent.has(key)) continue;
+      parent.set(key, current);
+      queue.push(dest);
+    }
+  }
+  return null;
 }

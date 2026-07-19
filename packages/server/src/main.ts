@@ -48,7 +48,9 @@ export async function startServer(options: StartServerOptions = {}): Promise<{
     });
   }
 
-  const gateway = new RealtimeGateway(service);
+  // Paced bot replies (ms between moves) so games feel turn-based, not instant.
+  const botMoveDelayMs = Number(process.env.BOT_MOVE_DELAY_MS ?? "800");
+  const gateway = new RealtimeGateway(service, botMoveDelayMs);
   const httpServer = createServer((req, res) => {
     if (req.url === "/health") {
       res.statusCode = 200;

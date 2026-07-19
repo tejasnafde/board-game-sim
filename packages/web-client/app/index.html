@@ -1708,6 +1708,119 @@
       color: #fbbf24;
       margin-right: 4px;
     }
+
+    /* Bot pacing + activity feedback */
+    .thinking-dots::after {
+      content: '';
+      animation: thinking 1.2s steps(4, end) infinite;
+    }
+
+    @keyframes thinking {
+      0% { content: ''; }
+      25% { content: '.'; }
+      50% { content: '..'; }
+      75% { content: '...'; }
+    }
+
+    .activity-line {
+      margin-top: 6px;
+      font-size: 13px;
+      color: var(--text-secondary);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .activity-line .icon {
+      color: var(--accent-gold);
+    }
+
+    .activity-line.danger {
+      color: var(--accent-red);
+      font-weight: 700;
+    }
+
+    .activity-line.danger .icon {
+      color: var(--accent-red);
+    }
+
+    .insert-btn.just-used {
+      border-color: var(--accent-gold);
+      color: var(--accent-gold);
+      animation: just-used-pulse 1s ease-out 2;
+    }
+
+    @keyframes just-used-pulse {
+      0% { box-shadow: 0 0 0 0 rgba(251, 191, 36, 0.7); }
+      100% { box-shadow: 0 0 0 8px rgba(251, 191, 36, 0); }
+    }
+
+    /* Move path preview */
+    .labyrinth-cell.path-step::after,
+    .labyrinth-cell.path-step-blocked::after {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(0, 212, 255, 0.85);
+      box-shadow: 0 0 6px rgba(0, 212, 255, 0.8);
+      pointer-events: none;
+      z-index: 2;
+    }
+
+    .labyrinth-cell.path-step-blocked::after {
+      background: rgba(251, 191, 36, 0.85);
+      box-shadow: 0 0 6px rgba(251, 191, 36, 0.8);
+    }
+
+    .labyrinth-cell.path-target {
+      outline: 2px solid var(--accent-cyan);
+      outline-offset: -2px;
+      box-shadow: 0 0 12px rgba(0, 212, 255, 0.7);
+      z-index: 2;
+    }
+
+    .labyrinth-cell.path-dead-end {
+      outline: 2px dashed var(--accent-gold);
+      outline-offset: -2px;
+    }
+
+    .labyrinth-cell.path-unreachable {
+      outline: 2px solid var(--accent-red);
+      outline-offset: -2px;
+      cursor: not-allowed;
+    }
+
+    .ghost-token {
+      position: fixed;
+      transform: translate(-50%, -50%);
+      transition: left 55ms linear, top 55ms linear;
+      z-index: 50;
+      pointer-events: none;
+    }
+
+    .final-scores {
+      margin: var(--sp-3) 0;
+      display: grid;
+      gap: 4px;
+    }
+
+    .final-score-row {
+      font-size: 13px;
+      color: var(--text-secondary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+
+    .final-score-row .icon {
+      color: var(--accent-gold);
+    }
   </style>
 </head>
 
