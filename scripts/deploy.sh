@@ -37,7 +37,7 @@ echo "▶ backend live: $RUN_URL"
 echo "▶ frontend build (VITE_WS_URL=$WS_URL)"
 VITE_WS_URL="$WS_URL" npm run build:web
 
-echo "▶ frontend → Vercel"
-(cd packages/web-client/app/dist && vercel link --yes --project board-game-sim && vercel deploy --prod --yes)
+echo "▶ frontend → Cloudflare Pages (gaming.tn07.dev)"
+npx wrangler pages deploy packages/web-client/app/dist --project-name board-game-sim
 
-echo "✅ done — share the Vercel URL. New games need nothing extra: just rerun this."
+echo "✅ done — live at https://gaming.tn07.dev. New games need nothing extra: just rerun this."

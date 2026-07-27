@@ -1,5 +1,12 @@
 # board-game-sim
 
+Shared cross-project conventions (GCP accounts and the --configuration=personal
+rule, OAuth consent branding, Secret Manager inventory, writing style) live in
+`~/Desktop/projects/CLAUDE.local.md`. Read it before touching gcloud, OAuth, or
+secrets.
+
+@/Users/tejas/Desktop/projects/CLAUDE.local.md
+
 Browser board-game simulator monorepo. Read `AGENTS.md` first — its architecture
 rules (server-authoritative, intents-only clients, deterministic rule modules,
 hidden info via `getPlayerView`) are non-negotiable and match the code.
@@ -170,7 +177,10 @@ deploys a hobby game into work infrastructure.
 - `BGS_MIN_INSTANCES=0` (default) scales to zero — running games die on idle.
   Set 1 to keep games alive at ~always-on cost.
 - Frontend: vite build with `VITE_WS_URL=wss://<run-url>/realtime` baked in,
-  then `vercel deploy --prod` from `packages/web-client/app/dist`.
+  then `wrangler pages deploy` to Cloudflare Pages project `board-game-sim`
+  (custom domain gaming.tn07.dev; wrangler is OAuth'd on this machine —
+  see ~/Desktop/projects/CLAUDE.local.md for the Cloudflare identity/limits).
+  Releases are manual (`npm run deploy`); pushes alone deploy nothing.
 - New games need NO deploy changes — they ship inside the same two bundles;
   just rerun `npm run deploy`.
 
