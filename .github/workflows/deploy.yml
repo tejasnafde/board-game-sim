@@ -1,0 +1,55 @@
+# Runs the existing scripts/deploy.sh rather than reimplementing it, so local
+# `npm run deploy` and CI cannot drift apart. The script runs the vitest gates
+# itself, ships the backend to Cloud Run and the frontend to Cloudflare Pages.
+#
+# BGS_GCP_ACCOUNT is deliberately unset: WIF supplies one service-account
+# credential, and the script treats the flag as optional when CI=true.
+
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+    paths-ignore: ["documentation/**", "**/*.md"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      BGS_GCP_PROJECT: teejayproject
+      BGS_GCP_REGION: asia-south1
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ead98e71ae0ee06c6d5fa8742f18409a
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - run: npm run deploy
+
+      # A 200 on the page proves Pages shipped; the realtime endpoint is what
+      # actually breaks, and it lives on Cloud Run behind a different origin.
+      - name: Smoke test
+        run: |
+          curl -fsS https://gaming.tn07.dev/ > /dev/null
+          curl -fsS "$(gcloud run services describe board-game-sim \
+            --project teejayproject --region asia-south1 \
+            --format 'value(status.url)')/health" > /dev/null
