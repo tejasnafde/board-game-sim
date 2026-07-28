@@ -165,10 +165,25 @@ BGS_GCP_PROJECT=teejayproject BGS_GCP_REGION=asia-south1 \
 BGS_GCP_ACCOUNT=<personal gcloud email> npm run deploy
 ```
 
+**Merging to `main` deploys.** `.github/workflows/deploy.yml` runs
+`scripts/deploy.sh` on every push to `main`, so a merged PR ships backend and
+frontend. It skips commits that only touch `documentation/**` or `*.md`. The
+script runs `npm test` first, so a red suite blocks the deploy. Run
+`npm run deploy` locally only to ship without merging.
+
+CI authenticates with Workload Identity Federation (no key files); secrets
+`GCP_WORKLOAD_IDENTITY_PROVIDER`, `GCP_SERVICE_ACCOUNT` and
+`CLOUDFLARE_API_TOKEN` are already set on the repo.
+
 RULE: every gcloud command — in scripts or ad hoc — passes `--account` and
 `--project` explicitly (the personal config, e.g. project `teejayproject`).
 The machine's ACTIVE gcloud config is a WORK account; forgetting the flags
-deploys a hobby game into work infrastructure.
+deploys a hobby game into work infrastructure. `--account` is skipped when
+`CI=true`, because WIF supplies exactly one credential and there is nothing to
+choose. `--project` is required EVERYWHERE including CI: gcloud otherwise infers
+it from the service account's email domain
+(`...@developer.gserviceaccount.com`) and fails against a project named
+`developer`.
 
 - Backend: `gcloud run deploy --source .` (Dockerfile, tsx runtime, no compile
   step). **`--max-instances 1` is load-bearing**: sessions are in-memory; a
@@ -180,9 +195,12 @@ deploys a hobby game into work infrastructure.
   then `wrangler pages deploy` to Cloudflare Pages project `board-game-sim`
   (custom domain gaming.tn07.dev; wrangler is OAuth'd on this machine —
   see ~/Desktop/projects/CLAUDE.local.md for the Cloudflare identity/limits).
-  Releases are manual (`npm run deploy`); pushes alone deploy nothing.
+  **`--branch main` is mandatory**: wrangler picks the Pages environment from the
+  current git branch, so without it a deploy from a feature branch publishes a
+  preview alias while gaming.tn07.dev keeps serving the old build, and still
+  reports success.
 - New games need NO deploy changes — they ship inside the same two bundles;
-  just rerun `npm run deploy`.
+  merge to `main`, or rerun `npm run deploy`.
 
 ## Before committing
 
