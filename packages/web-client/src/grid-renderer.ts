@@ -48,7 +48,7 @@ function renderOwnBoard(board: BoardView): string {
       else if (shipCells.has(coord)) cls = "cell ship";
       cells.push(`<button class="${cls} own-cell" data-board="own" data-r="${r}" data-c="${c}" type="button" aria-label="Own ${r},${c}"></button>`);
     }
-    const rowLabel = `<div style="font-size:10px;font-weight:600;color:var(--ink-3);display:flex;align-items:center;justify-content:center;user-select:none;">${r + 1}</div>`;
+    const rowLabel = `<div class="board-label num">${r + 1}</div>`;
     rows.push(`<div style="display:grid;grid-template-columns:20px repeat(${board.cols},1fr);gap:2px;">${rowLabel}${cells.join("")}</div>`);
   }
 
@@ -81,7 +81,7 @@ function renderOpponentBoard(board: BoardView): string {
       const extra = !fired.has(coord) ? " opponent-cell" : "";
       cells.push(`<button class="${cls}${extra}"${style} data-board="opponent" data-r="${r}" data-c="${c}" type="button" aria-label="Fire ${r},${c}"></button>`);
     }
-    const rowLabel = `<div style="font-size:10px;font-weight:600;color:var(--ink-3);display:flex;align-items:center;justify-content:center;user-select:none;">${r + 1}</div>`;
+    const rowLabel = `<div class="board-label num">${r + 1}</div>`;
     rows.push(`<div style="display:grid;grid-template-columns:20px repeat(${board.cols},1fr);gap:2px;">${rowLabel}${cells.join("")}</div>`);
   }
 

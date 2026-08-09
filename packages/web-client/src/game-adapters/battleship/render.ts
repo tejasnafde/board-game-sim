@@ -263,7 +263,7 @@ export function renderBattleshipGameplay(
         <aside class="side-stack">
           <div class="card side-card">
             <h3>Battle Log</h3>
-            <pre style="max-height:200px;overflow:auto;font-size:10px;color:var(--ink-3);font-family:'Inter',monospace;white-space:pre-wrap;line-height:1.5">${logs.slice(0, 20).join("\n") || "No events yet"}</pre>
+            <pre class="log-pre">${logs.slice(0, 20).join("\n") || "No events yet"}</pre>
           </div>
         </aside>
       </div>
