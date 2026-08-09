@@ -9,7 +9,7 @@ export function renderConnect4Lobby(sessionId: string, playerId: string, error?:
     <section class="screen connect4-screen">
       <div class="section-head">
         <h1><span class="c4-disc-mini c4-p1" style="width:18px;height:18px;"></span> Connect Four</h1>
-        <p>Drop discs, connect four in a row — down, across, or diagonally.</p>
+        <p>Drop discs, connect four in a row - down, across, or diagonally.</p>
       </div>
       ${lobbyPanelMarkup(sessionId, playerId, {
         title: "Arcade Lobby",
@@ -51,8 +51,8 @@ export function renderConnect4Gameplay(
           <h2>${heading}</h2>
           <div class="c4-board c4-board-small" id="connect4-board">${boardMarkup(grid, cols, discClassOf, winning, last)}</div>
           <div class="row-actions" style="justify-content:center;margin-top:var(--sp-4)">
-            <button class="btn btn-primary" id="rematch-btn">⟲ Play Again</button>
-            <a class="btn btn-ghost" href="#/">← Back to Hub</a>
+            <button class="btn btn-primary" id="rematch-btn">Play Again</button>
+            <a class="btn btn-ghost" href="#/">Back to Hub</a>
           </div>
         </div>
       </section>
@@ -61,7 +61,7 @@ export function renderConnect4Gameplay(
 
   const currentName = nameOf(view.currentPlayerId);
   const statusText = isMyTurn
-    ? "Your turn — click a column to drop your disc"
+    ? "Your turn - click a column to drop your disc"
     : currentName.startsWith("Computer")
       ? `${icon("robot", 14)} <strong>${currentName}</strong> is thinking<span class="thinking-dots"></span>`
       : `${icon("hourglass", 13)} Waiting for <strong>${currentName || "opponent"}</strong>`;

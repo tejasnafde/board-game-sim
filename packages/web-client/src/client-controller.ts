@@ -44,7 +44,7 @@ export function createClientController(transport: ControllerTransport): ClientCo
    * Join or create a session.
    * If gameId is provided, we attempt to CREATE the session first (server handles idempotency:
    * if it already exists, the server falls back to a join).
-   * If no gameId, just join — a typo'd code surfaces session_not_found instead of
+   * If no gameId, just join - a typo'd code surfaces session_not_found instead of
    * silently creating a private empty game.
    */
   function join(sessionId: string, playerId: string, gameId?: string, seatCount?: number, bots?: number): void {

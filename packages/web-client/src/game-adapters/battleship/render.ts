@@ -55,12 +55,12 @@ export function renderPlacementBoardMarkup(
 
       // The div spans its exact footprint via the CSS grid vars below, so a
       // solid block always fits the cells. (Sprite art was overflowing its
-      // slot; a labelled block is correct and legible — polish later.)
+      // slot; a labelled block is correct and legible - polish later.)
       return `<div
         class="placement-ship ${isSelected ? "selected" : ""}"
         data-ship-id="${spec.id}"
         style="--ship-row:${draft.row};--ship-col:${draft.col};--ship-width:${widthCells};--ship-height:${heightCells};"
-        title="${spec.id} — click to select, right-click board to rotate"
+        title="${spec.id} - click to select, right-click board to rotate"
       >
         <span class="placement-ship-label" style="${isHorizontal ? "" : "writing-mode:vertical-rl;"}">${spec.id}</span>
         ${isSelected ? `<div class="ship-selected-ring"></div>` : ""}
@@ -116,7 +116,7 @@ export function renderBattleshipSetup(
   const waitingForOpponent = fleetSubmitted;
 
   const ERROR_MESSAGES: Record<string, string> = {
-    illegal_action: "Action not allowed — the game may already be in progress. Try rejoining.",
+    illegal_action: "Action not allowed - the game may already be in progress. Try rejoining.",
     ship_out_of_bounds: "Ship extends outside the board. Try a different position.",
     ship_overlap_collision: "Ships can't overlap. Choose a clear area.",
     rotation_out_of_bounds: "Not enough space to rotate here.",
@@ -160,8 +160,8 @@ export function renderBattleshipSetup(
                   <button class="fleet-row fleet-button ${isSelected ? "active" : ""}" data-ship-id="${ship.id}">
                     <div class="fleet-icons">${fleetIconBlocks(ship.size, isSelected, shipPreview[ship.id] ?? "")}</div>
                     <span class="ship-name">${ship.id}</span>
-                    <span class="ship-size">×${ship.size}</span>
-                    <span class="ship-status-badge ${isPlaced ? "placed" : "unplaced"}">${isPlaced ? "✓" : "—"}</span>
+                    <span class="ship-size num">x${ship.size}</span>
+                    <span class="ship-status-dot ${isPlaced ? "placed" : ""}" role="img" aria-label="${isPlaced ? "placed" : "not placed"}"></span>
                   </button>
                 `;
         }
@@ -169,15 +169,15 @@ export function renderBattleshipSetup(
       .join("")}
           </div>
           <div class="fleet-actions">
-            <button class="btn btn-secondary" id="load-template-btn" style="width:100%">↓ Load Valid Fleet</button>
-            <button class="btn btn-ghost" id="random-template-btn" style="width:100%">⚄ Randomize</button>
+            <button class="btn btn-secondary" id="load-template-btn" style="width:100%">Load Valid Fleet</button>
+            <button class="btn btn-ghost" id="random-template-btn" style="width:100%">Randomize</button>
           </div>
         </aside>
         <section class="card setup-editor">
           <h3>Placement Grid</h3>
           <div class="setup-controls">
-            <button class="btn btn-ghost" id="rotate-btn">↻ Rotate</button>
-            <button class="btn btn-ghost" id="clear-ship-btn">✕ Clear</button>
+            <button class="btn btn-ghost" id="rotate-btn">Rotate</button>
+            <button class="btn btn-ghost" id="clear-ship-btn">Clear</button>
             ${errorText ? `<span class="error-text">${errorText}</span>` : ""}
           </div>
           <div class="placement-board" id="placement-board">
@@ -187,7 +187,7 @@ export function renderBattleshipSetup(
             <button class="btn btn-primary" id="submit-setup-btn" ${allPlaced ? "" : 'disabled aria-disabled="true"'}>
               ${allPlaced ? "Submit Fleet" : "Place all ships to continue"}
             </button>
-            <button class="btn btn-ghost" id="rejoin-btn">⟲ Rejoin</button>
+            <button class="btn btn-ghost" id="rejoin-btn">Rejoin</button>
           </div>
         </section>
       </div>
@@ -228,8 +228,8 @@ export function renderBattleshipGameplay(
           <h2>Game Over!</h2>
           <p>${winner ? `<strong>${nameOf(winner)}</strong> wins the battle!` : "It's a draw!"}</p>
           <div class="row-actions" style="justify-content:center">
-            <button class="btn btn-primary" id="rematch-btn">⟲ Play Again</button>
-            <a class="btn btn-ghost" href="#/">← Back to Hub</a>
+            <button class="btn btn-primary" id="rematch-btn">Play Again</button>
+            <a class="btn btn-ghost" href="#/">Back to Hub</a>
           </div>
         </div>
       </section>
@@ -239,7 +239,7 @@ export function renderBattleshipGameplay(
   const statusClass = canFire ? "your-turn" : "their-turn";
   const currentName = nameOf(view.currentPlayerId);
   const statusText = canFire
-    ? "Your turn — click on the <strong>Opponent Board</strong> to fire"
+    ? "Your turn - click on the <strong>Opponent Board</strong> to fire"
     : currentName.startsWith("Computer")
       ? `${icon("robot", 14)} <strong>${currentName}</strong> is thinking<span class="thinking-dots"></span>`
       : `${icon("hourglass", 13)} Waiting for <strong>${currentName || "opponent"}</strong>`;
@@ -263,7 +263,7 @@ export function renderBattleshipGameplay(
         <aside class="side-stack">
           <div class="card side-card">
             <h3>Battle Log</h3>
-            <pre style="max-height:200px;overflow:auto;font-size:10px;color:var(--text-muted);font-family:'Inter',monospace;white-space:pre-wrap;line-height:1.5">${logs.slice(0, 20).join("\n") || "No events yet"}</pre>
+            <pre style="max-height:200px;overflow:auto;font-size:10px;color:var(--ink-3);font-family:'Inter',monospace;white-space:pre-wrap;line-height:1.5">${logs.slice(0, 20).join("\n") || "No events yet"}</pre>
           </div>
         </aside>
       </div>

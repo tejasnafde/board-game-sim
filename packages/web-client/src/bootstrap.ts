@@ -31,7 +31,7 @@ export function mountFromBrowser(root: HTMLElement, env: Record<string, string |
     if (fromUrl) localStorage.setItem("bgs:log", fromUrl);
     stored = localStorage.getItem("bgs:log");
   } catch {
-    // storage unavailable (private mode) — default level stands
+    // storage unavailable (private mode) - default level stands
   }
   const level = resolveLogLevel(window.location.search, stored);
   if (level) setLogLevel(level);

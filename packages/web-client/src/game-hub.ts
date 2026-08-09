@@ -32,7 +32,7 @@ export const GAME_HUB_CARDS: HubCard[] = [
   {
     gameId: "connect4",
     name: "Connect Four",
-    subtitle: "Drop discs and connect four — beat a friend or the computer.",
+    subtitle: "Drop discs and connect four - beat a friend or the computer.",
     status: "live",
     releaseTag: "Playable now",
     players: "2 players (or vs AI)",

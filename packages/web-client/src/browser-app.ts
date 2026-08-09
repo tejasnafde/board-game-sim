@@ -118,7 +118,7 @@ export function mountPlayableClient(
   let labSeatCount = 2;
   const battleshipDefinition = battleshipManifest.definition as { board: { rows: number; cols: number }; ships: ShipSpec[] };
   const shipSpecs = battleshipDefinition.ships;
-  // Start with an EMPTY draft map — don't pre-place ships, let the user do it
+  // Start with an EMPTY draft map - don't pre-place ships, let the user do it
   let placementDraftMap: Record<string, import("./game-adapters/battleship").PlacementDraft> = {};
   let selectedShipId = shipSpecs[0]?.id ?? "";
   let localError: string | null = null;
@@ -245,7 +245,7 @@ export function mountPlayableClient(
     copySessionBtn?.addEventListener("click", () => {
       navigator.clipboard.writeText(sessionId).then(() => {
         const originalText = copySessionBtn.innerText;
-        copySessionBtn.innerText = "✓ Copied!";
+        copySessionBtn.innerText = "Copied";
         setTimeout(() => {
           copySessionBtn.innerText = originalText;
         }, 1500);

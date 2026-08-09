@@ -59,7 +59,7 @@ function showPathPreview(
   cellButton(board, target)?.classList.add("path-unreachable");
 }
 
-/** Walk a ghost token along the path before the move submits — no teleporting. */
+/** Walk a ghost token along the path before the move submits - no teleporting. */
 async function walkGhost(board: HTMLElement, path: Coord[], colorClass: string): Promise<void> {
   const start = cellButton(board, path[0]!);
   if (!start || path.length < 2) return;

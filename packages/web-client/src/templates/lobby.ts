@@ -57,19 +57,19 @@ export function lobbyPanelMarkup(
           <label for="session-id">Game Code</label>
           <div class="lobby-input-row">
             <input id="session-id" value="${sessionId}" placeholder="e.g. my-game-123" autocomplete="off" spellcheck="false" />
-            <button class="btn btn-ghost" id="new-session-btn" type="button" title="Generate a new random game code" style="padding:0 10px;font-size:16px;">⟳</button>
+            <button class="btn btn-ghost" id="new-session-btn" type="button" aria-label="Generate a new random game code" title="Generate a new random game code" style="padding:0 10px;">New</button>
           </div>
           <span class="field-hint">Share this code with a friend to play together</span>
         </div>
         <div class="lobby-field-group">
           <label for="player-id">Your Name</label>
           <input id="player-id" value="${playerId}" placeholder="e.g. alice" autocomplete="off" spellcheck="false" />
-          <span class="field-hint">Any name works — just use a different one in each tab</span>
+          <span class="field-hint">Any name works - just use a different one in each tab</span>
         </div>
         ${seatPicker}
         ${options.vsBot
-          ? `<label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;color:var(--text-secondary);">
-              <input type="checkbox" id="vs-bot" style="width:16px;height:16px;accent-color:var(--accent-cyan);" />
+          ? `<label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;color:var(--ink-2);">
+              <input type="checkbox" id="vs-bot" style="width:16px;height:16px;accent-color:var(--accent);" />
               ${icon("robot", 15)} Play vs computer
             </label>`
           : ""}
@@ -78,7 +78,7 @@ export function lobbyPanelMarkup(
       <div class="row-actions" style="margin-top:var(--sp-4)">
         <button class="btn btn-primary" id="create-btn" style="flex:1">Create game</button>
         <button class="btn btn-secondary" id="join-btn" style="flex:1">${options.joinLabel}</button>
-        <button class="btn btn-ghost" id="back-home-btn">← Back</button>
+        <button class="btn btn-ghost" id="back-home-btn">Back</button>
       </div>
       ${options.hint ? `<div class="hint">${options.hint}</div>` : ""}
     </div>

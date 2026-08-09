@@ -100,7 +100,7 @@ export function bindBattleshipEvents(root: HTMLElement, ctx: BattleshipBindConte
     ctx.render();
   });
 
-  // Handle clicks on the placement board — both on cells and on ship sprites
+  // Handle clicks on the placement board - both on cells and on ship sprites
   placementBoard?.addEventListener("click", (event) => {
     const target = event.target as HTMLElement;
 
