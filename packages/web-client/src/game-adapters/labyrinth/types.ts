@@ -9,7 +9,7 @@ export type LabyrinthView = {
   board?: Array<Array<{ openings: Record<"N" | "E" | "S" | "W", boolean>; objectiveId: string | null }>>;
   spareTile?: { openings?: Record<"N" | "E" | "S" | "W", boolean>; objectiveId?: string | null };
   lastInsertion?: { edge: string; index: number } | null;
-  players?: Array<{ playerId: string; position: Coord; home?: Coord; objectivesRemainingCount: number; collectedObjectiveIds?: string[] }>;
+  players?: Array<{ playerId: string; position: Coord; home?: Coord; objectivesRemainingCount: number; collectedObjectiveIds?: string[]; finishedRank?: number | null }>;
   myState?: {
     position?: Coord;
     home?: Coord;

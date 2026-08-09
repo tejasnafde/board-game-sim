@@ -128,3 +128,13 @@ export function findPath(board: Tile[][], config: BoardSize, from: Coord, to: Co
   }
   return null;
 }
+
+/** Board cell of the tile carrying `objectiveId`, or null while it is the spare. */
+export function findObjectiveTile(board: Tile[][], objectiveId: string): Coord | null {
+  for (let row = 0; row < board.length; row += 1) {
+    for (let col = 0; col < (board[row]?.length ?? 0); col += 1) {
+      if (board[row]![col]!.objectiveId === objectiveId) return { row, col };
+    }
+  }
+  return null;
+}

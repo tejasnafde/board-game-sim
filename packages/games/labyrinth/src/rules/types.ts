@@ -16,7 +16,6 @@ export type Tile = {
 
 export type PlayerObjective = {
   id: string;
-  position: Coord;
 };
 
 export type LabyrinthPlayerState = {
@@ -41,6 +40,9 @@ export type LabyrinthConfig = {
 
 export type LabyrinthState = {
   phase: "play" | "terminal";
+  /** players who have finished, in placement order; play continues until
+      only one player remains unfinished */
+  finishOrder: string[];
   turnStage: "insert" | "move";
   config: LabyrinthConfig;
   board: Tile[][];

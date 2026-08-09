@@ -1,6 +1,6 @@
 import type { GameBot } from "@board-game-sim/shared";
-import type { Coord, Edge, Insertion, LabyrinthConfig, PlayerObjective, Tile } from "./rules/types";
-import { coordKey, findReachable, shiftBoard, shiftPosition } from "./rules/board";
+import type { Coord, Edge, Insertion, LabyrinthConfig, Tile } from "./rules/types";
+import { coordKey, findObjectiveTile, findReachable, shiftBoard, shiftPosition } from "./rules/board";
 
 // Shapes the bot reads from getPlayerView.
 type LabyrinthView = {
@@ -14,7 +14,7 @@ type LabyrinthView = {
   myState: {
     position: Coord;
     home: Coord;
-    remainingObjectives: PlayerObjective[];
+    remainingObjectives: { id: string }[];
     reachableCells: Coord[];
   };
 };
@@ -57,7 +57,7 @@ export const labyrinthBot: GameBot = ({ view, playerId, rng }) => {
   const v = view as unknown as LabyrinthView;
   if (v.phase !== "play" || v.currentPlayerId !== playerId) return null;
 
-  const target = v.myState.remainingObjectives[0]?.position ?? v.myState.home;
+  const targetId = v.myState.remainingObjectives[0]?.id ?? null;
 
   if (v.turnStage === "insert") {
     let best: Insertion | null = null;
@@ -66,7 +66,12 @@ export const labyrinthBot: GameBot = ({ view, playerId, rng }) => {
     for (const slot of legalInsertions(v.config, v.lastInsertion)) {
       const shifted = shiftBoard(v.board, v.spareTile, slot, v.config);
       const myPos = shiftPosition(v.myState.position, slot, v.config);
-      const targetPos = shiftPosition(target, slot, v.config);
+      // the objective is a TILE: find where this insertion leaves it (null =
+      // we would eject our own target onto the spare - heavily penalized)
+      const targetPos = targetId
+        ? findObjectiveTile(shifted.board, targetId)
+        : shiftPosition(v.myState.home, slot, v.config);
+      if (!targetPos) continue;
       const reachable = findReachable(shifted.board, v.config, myPos);
 
       // rng jitter breaks ties AND deterministic bot-vs-bot board cycles
@@ -87,6 +92,7 @@ export const labyrinthBot: GameBot = ({ view, playerId, rng }) => {
   }
 
   // move stage: the view's reachableCells reflect the post-insert board.
+  const target = (targetId ? findObjectiveTile(v.board, targetId) : null) ?? v.myState.home;
   const reachable = v.myState.reachableCells;
   let bestCell = reachable[0];
   for (const cell of reachable) {
