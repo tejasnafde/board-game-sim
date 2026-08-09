@@ -1618,6 +1618,8 @@ input::placeholder {
 
 .ghost-token {
   position: fixed;
+  width: 30px; /* fallback; walkGhost pins the measured token size */
+  height: 30px;
   z-index: 50;
   pointer-events: none;
 }

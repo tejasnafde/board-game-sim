@@ -171,6 +171,21 @@ type Decorations = {
 // renders; decorations stay live long enough for their fade animations.
 let prevSnapshot: { key: string; positions: Record<string, string>; spareId: string | null; insertion: string } | null = null;
 let liveDecoration: (Decorations & { until: number }) | null = null;
+let feed: string[] = [];
+let feedSeen = new Set<string>();
+let feedKey = "";
+
+function pushFeed(sessionKey: string, dedupeKey: string, html: string): void {
+  if (feedKey !== sessionKey) {
+    feed = [];
+    feedSeen = new Set();
+    feedKey = sessionKey;
+  }
+  if (feedSeen.has(dedupeKey)) return;
+  feedSeen.add(dedupeKey);
+  feed.unshift(html);
+  if (feed.length > 6) feed.pop();
+}
 
 function diffDecorations(view: LabyrinthView, myId: string): Decorations {
   const none: Decorations = { trailCells: new Set(), laneCells: new Set(), movedPlayerId: null, spareChanged: false };
@@ -186,6 +201,10 @@ function diffDecorations(view: LabyrinthView, myId: string): Decorations {
 
   if (prev && prev.key === key) {
     if (prev.insertion !== insertion && view.lastInsertion) {
+      const actor = view.currentPlayerId ?? "";
+      const { edge: e, index: i } = view.lastInsertion;
+      pushFeed(key, `ins:${insertion}:${JSON.stringify(positions)}`,
+        `<span data-actor="${actor}">pushed the tile in from the ${e}, lane ${i + 1}</span>`);
       const lane = new Set<string>();
       const { edge, index } = view.lastInsertion;
       const size = { rows: view.config?.rows ?? 7, cols: view.config?.cols ?? 7 };
@@ -201,6 +220,9 @@ function diffDecorations(view: LabyrinthView, myId: string): Decorations {
         const [row, col] = prev.positions[mover.playerId]!.split(":").map(Number);
         const size = { rows: view.config?.rows ?? 7, cols: view.config?.cols ?? 7 };
         const path = findPath(view.board as never, size, { row: row!, col: col! }, mover.position);
+        const steps = path ? path.length - 1 : null;
+        pushFeed(key, `mov:${mover.playerId}:${positions[mover.playerId]}`,
+          `<span data-actor="${mover.playerId}">moved${steps ? ` <span class="num">${steps}</span> tile${steps === 1 ? "" : "s"}` : ""}</span>`);
         liveDecoration = {
           trailCells: new Set((path ?? []).map((c) => `${c.row}:${c.col}`)),
           laneCells: new Set(),
@@ -224,30 +246,43 @@ const OPPOSITE_EDGE: Record<string, string> = {
   right: "left"
 };
 
+const ORDINALS = ["1st", "2nd", "3rd", "4th"];
+
 function activityMarkup(
   view: LabyrinthView,
   playerId: string,
   nameOf: (id: string | null | undefined) => string,
   lastEvents: unknown[]
 ): string {
-  const lines: string[] = [];
+  const sessionKey = (view.players ?? []).map((p) => p.playerId).join(",");
   for (const raw of lastEvents) {
-    const event = raw as { eventType?: string; payload?: { playerId?: string; objectiveId?: string } };
+    const event = raw as { eventType?: string; payload?: { playerId?: string; objectiveId?: string; rank?: number } };
     if (event.eventType === "objective.collected" && event.payload?.objectiveId) {
-      const who = event.payload.playerId === playerId ? "You" : nameOf(event.payload.playerId);
-      lines.push(
-        `<div class="activity-line">${objectiveIcon(event.payload.objectiveId, 14)} <strong>${who}</strong> collected the ${event.payload.objectiveId}</div>`
-      );
+      pushFeed(sessionKey, `col:${event.payload.objectiveId}`,
+        `${objectiveIcon(event.payload.objectiveId, 14)} <span data-actor="${event.payload.playerId ?? ""}">collected the ${event.payload.objectiveId}</span>`);
+    }
+    if (event.eventType === "player.finished" && event.payload?.rank) {
+      pushFeed(sessionKey, `fin:${event.payload.playerId}`,
+        `${icon("trophy", 14)} <span data-actor="${event.payload.playerId ?? ""}">finished ${ORDINALS[event.payload.rank - 1] ?? `#${event.payload.rank}`}!</span>`);
     }
   }
+
+  const lines = feed.map((html) => {
+    const withNames = html.replace(/<span data-actor="([^"]*)">/g, (_m, actor: string) => {
+      const who = actor === playerId ? "You" : nameOf(actor) || "someone";
+      return `<span><strong>${who}</strong> `;
+    });
+    return `<div class="activity-line">${withNames}</div>`;
+  });
+
   for (const p of view.players ?? []) {
-    if (p.playerId !== playerId && p.objectivesRemainingCount === 0) {
-      lines.push(
+    if (p.playerId !== playerId && p.objectivesRemainingCount === 0 && !p.finishedRank && view.phase === "play") {
+      lines.unshift(
         `<div class="activity-line danger">${icon("home", 14)} <strong>${nameOf(p.playerId)}</strong> has every objective - racing home!</div>`
       );
     }
   }
-  return lines.join("");
+  return `<div class="activity-feed">${lines.join("")}</div>`;
 }
 
 export function renderLabyrinthGameplay(
@@ -391,8 +426,9 @@ export function renderLabyrinthGameplay(
               view.winnerPlayerId === playerId
                 ? "You conquered the maze!"
                 : `${nameOf(view.winnerPlayerId)} conquered the maze!`,
-              (view.players ?? [])
-                .map((p) => `<span class="num">${nameOf(p.playerId)} ${(p.collectedObjectiveIds ?? []).length}</span>`)
+              [...(view.players ?? [])]
+                .sort((a, b) => (a.finishedRank ?? 9) - (b.finishedRank ?? 9))
+                .map((p) => `<span class="num">${ORDINALS[(p.finishedRank ?? 1) - 1] ?? ""} ${nameOf(p.playerId)}</span>`)
                 .join(" · ")
             )
           : `<div class="status-banner ${statusClass}">

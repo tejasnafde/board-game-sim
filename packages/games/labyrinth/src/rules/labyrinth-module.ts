@@ -24,7 +24,7 @@ import type {
   Tile,
   TileShape
 } from "./types";
-import { findReachable as findReachableOnBoard, shiftBoard, shiftPosition } from "./board";
+import { findObjectiveTile, findReachable as findReachableOnBoard, shiftBoard, shiftPosition } from "./board";
 
 type LabyrinthDefinition = {
   board?: {
@@ -169,8 +169,11 @@ function getCurrentPlayer(state: LabyrinthState): LabyrinthPlayerState {
 
 function nextPlayerId(state: LabyrinthState): string {
   const index = state.players.findIndex((player) => player.playerId === state.currentPlayerId);
-  const next = (index + 1) % state.players.length;
-  return state.players[next]?.playerId ?? state.players[0]?.playerId ?? state.currentPlayerId;
+  for (let step = 1; step <= state.players.length; step += 1) {
+    const candidate = state.players[(index + step) % state.players.length];
+    if (candidate && !state.finishOrder.includes(candidate.playerId)) return candidate.playerId;
+  }
+  return state.currentPlayerId;
 }
 
 function isValidInsertionSlot(state: LabyrinthState, payload: InsertTilePayload): boolean {
@@ -202,10 +205,7 @@ function applyInsertionShift(state: LabyrinthState, insertion: Insertion): void 
   for (const player of state.players) {
     player.position = shiftPosition(player.position, insertion, state.config);
     player.home = shiftPosition(player.home, insertion, state.config);
-    player.remainingObjectives = player.remainingObjectives.map((objective) => ({
-      ...objective,
-      position: shiftPosition(objective.position, insertion, state.config)
-    }));
+
   }
 }
 
@@ -213,12 +213,11 @@ function findReachable(state: LabyrinthState, from: Coord): Set<string> {
   return findReachableOnBoard(state.board, state.config, from);
 }
 
-function collectObjectiveIfPresent(player: LabyrinthPlayerState): string | null {
+function collectObjectiveIfPresent(state: LabyrinthState, player: LabyrinthPlayerState): string | null {
   const currentObjective = player.remainingObjectives[0];
   if (!currentObjective) return null;
-  if (!sameCoord(currentObjective.position, player.position)) {
-    return null;
-  }
+  const tile = state.board[player.position.row]?.[player.position.col];
+  if (tile?.objectiveId !== currentObjective.id) return null;
 
   player.collectedObjectiveIds.push(currentObjective.id);
   player.remainingObjectives = player.remainingObjectives.slice(1);
@@ -357,6 +356,7 @@ export class LabyrinthModule implements GameModule<LabyrinthState> {
 
     const state: LabyrinthState = {
       phase: "play",
+      finishOrder: [],
       turnStage: "insert",
       config: parsed.config,
       board,
@@ -376,6 +376,7 @@ export class LabyrinthModule implements GameModule<LabyrinthState> {
 
   listLegalActions(state: LabyrinthState, playerId: string): LegalAction[] {
     if (state.phase === "terminal") return [];
+    if (state.finishOrder.includes(playerId)) return [];
     if (state.currentPlayerId !== playerId) return [];
 
     if (state.turnStage === "insert") {
@@ -498,7 +499,7 @@ export class LabyrinthModule implements GameModule<LabyrinthState> {
       player.position = payload;
       const events: DomainEvent[] = [{ eventType: "pawn.moved", payload }];
 
-      const collected = collectObjectiveIfPresent(player);
+      const collected = collectObjectiveIfPresent(state, player);
       if (collected) {
         events.push({ eventType: "objective.collected", payload: { playerId: player.playerId, objectiveId: collected } });
       }
@@ -506,10 +507,23 @@ export class LabyrinthModule implements GameModule<LabyrinthState> {
       const completedAllObjectives = player.remainingObjectives.length === 0;
       const atHome = sameCoord(player.position, player.home);
       if (completedAllObjectives && atHome) {
-        state.phase = "terminal";
-        state.winnerPlayerId = player.playerId;
-        state.turnStage = "insert";
-        events.push({ eventType: "game.ended", payload: { winnerPlayerId: player.playerId } });
+        state.finishOrder.push(player.playerId);
+        events.push({
+          eventType: "player.finished",
+          payload: { playerId: player.playerId, rank: state.finishOrder.length }
+        });
+        if (state.finishOrder.length >= state.players.length - 1) {
+          // rank the one player left, then close the game
+          const last = state.players.find((p) => !state.finishOrder.includes(p.playerId));
+          if (last) state.finishOrder.push(last.playerId);
+          state.phase = "terminal";
+          state.winnerPlayerId = state.finishOrder[0] ?? player.playerId;
+          state.turnStage = "insert";
+          events.push({ eventType: "game.ended", payload: { winnerPlayerId: state.winnerPlayerId } });
+        } else {
+          state.currentPlayerId = nextPlayerId(state);
+          state.turnStage = "insert";
+        }
       } else {
         state.currentPlayerId = nextPlayerId(state);
         state.turnStage = "insert";
@@ -560,18 +574,25 @@ export class LabyrinthModule implements GameModule<LabyrinthState> {
         board: state.board,
         spareTile: state.spareTile,
         lastInsertion: state.lastInsertion,
-        players: state.players.map((player) => ({
-          playerId: player.playerId,
-          position: player.position,
-          home: player.home,
-          objectivesRemainingCount: player.remainingObjectives.length,
-          collectedObjectiveIds: player.collectedObjectiveIds
-        })),
+        players: state.players.map((player) => {
+          const rank = state.finishOrder.indexOf(player.playerId);
+          return {
+            playerId: player.playerId,
+            position: player.position,
+            home: player.home,
+            objectivesRemainingCount: player.remainingObjectives.length,
+            collectedObjectiveIds: player.collectedObjectiveIds,
+            finishedRank: rank === -1 ? null : rank + 1
+          };
+        }),
         myState: {
           playerId: me.playerId,
           position: me.position,
           home: me.home,
-          remainingObjectives: me.remainingObjectives,
+          remainingObjectives: me.remainingObjectives.map((objective) => ({
+            id: objective.id,
+            position: findObjectiveTile(state.board, objective.id)
+          })),
           collectedObjectiveIds: me.collectedObjectiveIds,
           reachableCells: reachable
         }

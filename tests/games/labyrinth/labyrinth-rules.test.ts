@@ -115,7 +115,7 @@ describe("labyrinth rules", () => {
     expect(moved.reason).toBe("unreachable_destination");
   });
 
-  test("collects objective and can terminate after returning home", () => {
+  test("collects objective and can terminate after returning home", async () => {
     const { module, state } = initState();
     const mut = state;
 
@@ -126,8 +126,11 @@ describe("labyrinth rules", () => {
     const objective = p1.remainingObjectives[0];
     expect(objective).toBeDefined();
     if (!objective) return;
+    const { findObjectiveTile } = await import("../../../packages/games/labyrinth/src/rules/board");
+    const objectivePos = findObjectiveTile(mut.board, objective.id);
+    expect(objectivePos).not.toBeNull();
 
-    p1.position = { ...objective.position };
+    p1.position = { ...objectivePos! };
 
     const inserted = module.applyAction({
       sessionId: "lab-1",
@@ -145,7 +148,7 @@ describe("labyrinth rules", () => {
       seq: 1,
       actorPlayerId: "p1",
       actionType: "move_pawn",
-      payload: { row: objective.position.row, col: objective.position.col },
+      payload: findObjectiveTile(inserted.nextState.board, objective.id) ?? { row: -1, col: -1 },
       state: inserted.nextState,
       seed: "seed-1"
     });
@@ -252,5 +255,68 @@ describe("findPath", () => {
       { row: 0, col: 0 }, { row: 0, col: 1 }, { row: 0, col: 2 }
     ]);
     expect(findPath(board, config, { row: 0, col: 0 }, { row: 1, col: 1 })).toBeNull();
+  });
+});
+
+describe("objectives are tiles, not coordinates", () => {
+  it("an ejected-and-reinserted objective tile is collectable where the TILE is", async () => {
+    const { findObjectiveTile } = await import("../../../packages/games/labyrinth/src/rules/board");
+    const module = new LabyrinthModule();
+    let state = module.initGame({
+      sessionId: "tile-obj", gameId: "labyrinth", gameVersion: "0.1.0",
+      seed: "eject-seed", players: ["p1", "p2"], definition: definition as never
+    }).initialState;
+
+    const objective = state.players[0]!.remainingObjectives[0]!;
+    // force the objective onto a shiftable lane's edge so one insertion ejects it
+    const pos = findObjectiveTile(state.board, objective.id)!;
+    const tile = state.board[pos.row]![pos.col]!;
+    state.board[pos.row]![pos.col] = { ...tile, objectiveId: null };
+    state.board[6]![1] = { ...state.board[6]![1]!, objectiveId: objective.id };
+
+    // insert from top of column 1: the objective tile at row 6 is ejected to spare
+    state = module.applyAction({
+      sessionId: "tile-obj", seq: 0, actorPlayerId: "p1", actionType: "insert_tile",
+      payload: { edge: "top", index: 1 }, state, seed: "eject-seed"
+    }).nextState;
+    expect(state.spareTile.objectiveId).toBe(objective.id);
+    expect(findObjectiveTile(state.board, objective.id)).toBeNull();
+  });
+});
+
+describe("placements: play continues after the first finisher", () => {
+  it("ranks finishers and ends only when one player remains", () => {
+    const module = new LabyrinthModule();
+    const open = { N: true, E: true, S: true, W: true };
+    let state = module.initGame({
+      sessionId: "rank", gameId: "labyrinth", gameVersion: "0.1.0",
+      seed: "rank-seed", players: ["p1", "p2", "p3"], definition: definition as never
+    }).initialState;
+    state.board = state.board.map((row, r) =>
+      row.map((_, c) => ({ id: `o${r}-${c}`, shape: "tee" as const, rotationDeg: 0 as const, openings: open, objectiveId: null })));
+    state.spareTile = { id: "sp", shape: "tee", rotationDeg: 0, openings: open, objectiveId: null };
+    for (const p of state.players) p.remainingObjectives = [];
+
+    const turn = (pid: string, dest: { row: number; col: number }) => {
+      let r = module.applyAction({ sessionId: "rank", seq: 0, actorPlayerId: pid, actionType: "insert_tile", payload: { edge: "top", index: state.lastInsertion?.edge === "bottom" && state.lastInsertion.index === 1 ? 3 : 1 }, state, seed: "rank-seed" });
+      expect(r.accepted).toBe(true);
+      state = r.nextState;
+      r = module.applyAction({ sessionId: "rank", seq: 1, actorPlayerId: pid, actionType: "move_pawn", payload: dest, state, seed: "rank-seed" });
+      expect(r.accepted).toBe(true);
+      state = r.nextState;
+    };
+
+    // p1 goes home: finished 1st, game continues
+    turn("p1", state.players[0]!.home);
+    expect(state.finishOrder).toEqual(["p1"]);
+    expect(state.phase).toBe("play");
+    expect(state.currentPlayerId).toBe("p2");
+    expect(module.listLegalActions(state, "p1")).toHaveLength(0);
+
+    // p2 goes home: finished 2nd -> only p3 left -> terminal, full ranking
+    turn("p2", state.players[1]!.home);
+    expect(state.phase).toBe("terminal");
+    expect(state.finishOrder).toEqual(["p1", "p2", "p3"]);
+    expect(module.isTerminal(state)?.winnerPlayerId).toBe("p1");
   });
 });

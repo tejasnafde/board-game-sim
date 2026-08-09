@@ -66,7 +66,7 @@ describe("labyrinth bot quality bar", () => {
     let state = openBoardState();
     const me = state.players.find((p) => p.playerId === "me")!;
     me.position = { row: 3, col: 3 };
-    me.remainingObjectives = [{ id: "gem", position: { row: 4, col: 4 } }];
+    me.remainingObjectives = [{ id: "gem" }];
     state.board[4]![4] = openTile("t4-4", "gem");
 
     state = act(state, "me");
