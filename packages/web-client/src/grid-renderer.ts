@@ -9,6 +9,7 @@ type BoardView = {
   shotsFired?: Coord[];
   knownHits?: Coord[];
   sunkShips?: Array<{ shipId: string; cells: Coord[] }>;
+  revealedShips?: Array<{ shipId: string; cells: Coord[] }>;
 };
 
 type ClientView = {
@@ -65,6 +66,7 @@ function renderOpponentBoard(board: BoardView): string {
   const knownHits = new Set((board.knownHits ?? []).map(key));
   // Show sunk ship cells so player can see them
   const sunkCells = new Set((board.sunkShips ?? []).flatMap((ship) => ship.cells.map(key)));
+  const revealedCells = new Set((board.revealedShips ?? []).flatMap((ship) => ship.cells.map(key)));
 
   const rows: string[] = [];
   for (let r = 0; r < board.rows; r += 1) {
@@ -77,6 +79,7 @@ function renderOpponentBoard(board: BoardView): string {
         cls = "cell attack-hit sunk-cell";
         style = ' style="background:#dc2626;box-shadow:0 0 6px #dc2626,inset 0 0 4px #7f1d1d"';
       } else if (fired.has(coord) && knownHits.has(coord)) cls = "cell attack-hit";
+      else if (revealedCells.has(coord)) cls = "cell revealed-ship";
       else if (fired.has(coord)) cls = "cell attack-miss";
       const extra = !fired.has(coord) ? " opponent-cell" : "";
       cells.push(`<button class="${cls}${extra}"${style} data-board="opponent" data-r="${r}" data-c="${c}" type="button" aria-label="Fire ${r},${c}"></button>`);

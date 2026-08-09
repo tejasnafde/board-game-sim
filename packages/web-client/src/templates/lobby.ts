@@ -23,6 +23,21 @@ export function nextSessionId(id: string): string {
   return match ? `${match[1]}-r${Number(match[2]) + 1}` : `${id}-r2`;
 }
 
+/** Game-over banner that sits where the status banner was: the final board
+    stays on screen instead of being wiped by a separate winner page. */
+export function terminalBannerMarkup(heading: string, detailHtml = "", trophy = true): string {
+  return `
+    <div class="status-banner terminal-banner">
+      <span class="terminal-heading">${trophy ? icon("trophy", 18) : ""} <strong>${heading}</strong></span>
+      ${detailHtml ? `<span class="terminal-detail">${detailHtml}</span>` : ""}
+      <span class="terminal-actions">
+        <button class="btn btn-primary" id="rematch-btn">Play Again</button>
+        <a class="btn btn-ghost" href="#/">Back to Hub</a>
+      </span>
+    </div>
+  `;
+}
+
 export function lobbyPanelMarkup(
   sessionId: string,
   playerId: string,

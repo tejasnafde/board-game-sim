@@ -360,3 +360,38 @@ describe("battleship rules", () => {
     expect(viewAfterSunk.opponentBoard.sunkShips).toHaveLength(1);
   });
 });
+
+describe("terminal fleet reveal", () => {
+  test("opponent ships stay hidden in play, revealed at terminal", () => {
+    const mod = new BattleshipModule();
+    let state = mod.initGame({
+      sessionId: "rv", gameId: "battleship", gameVersion: "0.1.0", seed: "s",
+      players: ["a", "b"],
+      definition: { board: { rows: 3, cols: 3 }, ships: [{ id: "d", size: 1 }] } as never
+    }).initialState;
+
+    const place = (pid: string, row: number, col: number) =>
+      mod.applyAction({
+        sessionId: "rv", seq: 0, actorPlayerId: pid, actionType: "place_ships",
+        payload: { placements: [{ shipId: "d", cells: [{ row, col }] }] } as never,
+        state, seed: "s"
+      }).nextState;
+    state = place("a", 0, 0);
+    state = place("b", 2, 2);
+
+    const during = mod.getPlayerView({ state, playerId: "a" }).visibleState as never as
+      { opponentBoard: { revealedShips: unknown[] } };
+    expect(during.opponentBoard.revealedShips).toHaveLength(0);
+
+    state = mod.applyAction({
+      sessionId: "rv", seq: 1, actorPlayerId: "a", actionType: "fire",
+      payload: { row: 2, col: 2 } as never, state, seed: "s"
+    }).nextState;
+    expect(state.phase).toBe("terminal");
+
+    const after = mod.getPlayerView({ state, playerId: "a" }).visibleState as never as
+      { opponentBoard: { revealedShips: { cells: { row: number; col: number }[] }[] } };
+    expect(after.opponentBoard.revealedShips).toHaveLength(1);
+    expect(after.opponentBoard.revealedShips[0]!.cells).toEqual([{ row: 2, col: 2 }]);
+  });
+});

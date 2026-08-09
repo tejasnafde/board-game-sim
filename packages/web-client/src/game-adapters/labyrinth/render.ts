@@ -1,5 +1,6 @@
-import { humanizeError, lobbyPanelMarkup } from "../../templates/lobby";
+import { humanizeError, lobbyPanelMarkup, terminalBannerMarkup } from "../../templates/lobby";
 import { icon, objectiveIcon } from "../../icons";
+import { findPath } from "@board-game-sim/labyrinth";
 import type { LabyrinthView } from "./types";
 
 type Openings = Record<"N" | "E" | "S" | "W", boolean>;
@@ -52,14 +53,17 @@ function tileCorridorSvg(openings: Openings, objectiveId: string | null): string
   </svg>`;
 }
 
-function renderBoardMarkup(view: LabyrinthView, playerId: string): string {
+function renderBoardMarkup(view: LabyrinthView, playerId: string, decorations: Decorations): string {
   const board = view.board ?? [];
   const reachable = new Set(
     (view.myState?.reachableCells ?? []).map((cell) => `${cell.row},${cell.col}`)
   );
   const players = view.players ?? [];
   const nextObjectiveId = view.myState?.remainingObjectives?.[0]?.id ?? null;
-  const home = view.myState?.home ?? null;
+  const homeOwners = new Map<string, number>();
+  (view.players ?? []).forEach((p, i) => {
+    if (p.home) homeOwners.set(`${p.home.row}:${p.home.col}`, i);
+  });
   // Map each player to their index for color
   const playerIndexMap = new Map(players.map((p, i) => [p.playerId, i]));
 
@@ -76,16 +80,19 @@ function renderBoardMarkup(view: LabyrinthView, playerId: string): string {
 
       const isReachable = reachable.has(`${row},${col}`);
       const isNextObjective = objectiveId !== null && objectiveId === nextObjectiveId;
-      const isHome = home !== null && home.row === row && home.col === col;
+      const homeOwner = homeOwners.get(`${row}:${col}`);
       const classes = ["labyrinth-cell"];
       if (isReachable) classes.push("reachable");
       if (isNextObjective) classes.push("next-objective");
+      if (decorations.laneCells.has(`${row}:${col}`)) classes.push("lane-shifted");
+      if (decorations.trailCells.has(`${row}:${col}`)) classes.push("trail");
 
       const playerTokens = playersHere
         .map((p) => {
           const colorClass = PLAYER_COLORS[playerIndexMap.get(p.playerId) ?? 0] ?? "player-color-0";
           const label = PLAYER_INITIALS[playerIndexMap.get(p.playerId) ?? 0] ?? p.playerId.slice(0, 2).toUpperCase();
-          return `<div class="player-token ${colorClass}">${label}</div>`;
+          const moved = decorations.movedPlayerId === p.playerId ? " just-moved" : "";
+          return `<div class="player-token ${colorClass}${moved}">${label}</div>`;
         })
         .join("");
 
@@ -95,8 +102,8 @@ function renderBoardMarkup(view: LabyrinthView, playerId: string): string {
       const objectiveMarker = objectiveId
         ? `<div class="objective-marker ${isNextObjective ? "next" : ""}" title="${objectiveId}">${objectiveIcon(objectiveId, 15)}</div>`
         : "";
-      const homeMarker = isHome
-        ? `<div class="home-marker" title="your home">${icon("home", 13)}</div>`
+      const homeMarker = homeOwner !== undefined
+        ? `<div class="home-marker owner-${homeOwner}" title="${homeOwner === playerIndexMap.get(playerId) ? "your home" : "home corner"}">${icon("home", 14)}</div>`
         : "";
 
       cells.push(
@@ -112,13 +119,13 @@ function renderBoardMarkup(view: LabyrinthView, playerId: string): string {
   return `<div class="labyrinth-grid">${cells.join("")}</div>`;
 }
 
-function renderSpareTile(view: LabyrinthView): string {
+function renderSpareTile(view: LabyrinthView, changed = false): string {
   if (!view.spareTile) return "";
   const tile = view.spareTile as { openings?: Openings; objectiveId?: string | null };
   const openings = tile.openings ?? { N: false, E: false, S: false, W: false };
   return `
     <div class="spare-tile-wrap">
-      <div class="spare-tile-box" style="position:relative;">
+      <div class="spare-tile-box ${changed ? "spare-changed" : ""}" style="position:relative;">
         ${tileCorridorSvg(openings, tile.objectiveId ?? null)}
         ${tile.objectiveId ? `<div class="objective-marker" title="${tile.objectiveId}">${objectiveIcon(tile.objectiveId, 13)}</div>` : ""}
       </div>
@@ -151,6 +158,63 @@ export function renderLabyrinthLobby(
   })}
     </section>
   `;
+}
+
+type Decorations = {
+  trailCells: Set<string>;
+  laneCells: Set<string>;
+  movedPlayerId: string | null;
+  spareChanged: boolean;
+};
+
+// Full re-render per event means "what just changed" must be remembered across
+// renders; decorations stay live long enough for their fade animations.
+let prevSnapshot: { key: string; positions: Record<string, string>; spareId: string | null; insertion: string } | null = null;
+let liveDecoration: (Decorations & { until: number }) | null = null;
+
+function diffDecorations(view: LabyrinthView, myId: string): Decorations {
+  const none: Decorations = { trailCells: new Set(), laneCells: new Set(), movedPlayerId: null, spareChanged: false };
+  const players = view.players ?? [];
+  const key = players.map((p) => p.playerId).join(",");
+  const positions: Record<string, string> = {};
+  for (const p of players) positions[p.playerId] = `${p.position.row}:${p.position.col}`;
+  const spareId = (view.spareTile as { id?: string } | undefined)?.id ?? null;
+  const insertion = view.lastInsertion ? `${view.lastInsertion.edge}:${view.lastInsertion.index}` : "";
+
+  const prev = prevSnapshot;
+  prevSnapshot = { key, positions, spareId, insertion };
+
+  if (prev && prev.key === key) {
+    if (prev.insertion !== insertion && view.lastInsertion) {
+      const lane = new Set<string>();
+      const { edge, index } = view.lastInsertion;
+      const size = { rows: view.config?.rows ?? 7, cols: view.config?.cols ?? 7 };
+      if (edge === "top" || edge === "bottom") {
+        for (let row = 0; row < size.rows; row += 1) lane.add(`${row}:${index}`);
+      } else {
+        for (let col = 0; col < size.cols; col += 1) lane.add(`${index}:${col}`);
+      }
+      liveDecoration = { ...none, laneCells: lane, spareChanged: prev.spareId !== spareId, until: Date.now() + 1200 };
+    } else {
+      const mover = players.find((p) => p.playerId !== myId && prev.positions[p.playerId] && prev.positions[p.playerId] !== positions[p.playerId]);
+      if (mover && view.board) {
+        const [row, col] = prev.positions[mover.playerId]!.split(":").map(Number);
+        const size = { rows: view.config?.rows ?? 7, cols: view.config?.cols ?? 7 };
+        const path = findPath(view.board as never, size, { row: row!, col: col! }, mover.position);
+        liveDecoration = {
+          trailCells: new Set((path ?? []).map((c) => `${c.row}:${c.col}`)),
+          laneCells: new Set(),
+          movedPlayerId: mover.playerId,
+          spareChanged: false,
+          until: Date.now() + 1700
+        };
+      }
+    }
+  }
+
+  if (liveDecoration && liveDecoration.until > Date.now()) return liveDecoration;
+  liveDecoration = null;
+  return none;
 }
 
 const OPPOSITE_EDGE: Record<string, string> = {
@@ -194,8 +258,9 @@ export function renderLabyrinthGameplay(
   status: { seatNames?: Record<string, string>; lastError?: string | null; lastEvents?: unknown[] } = {}
 ): string {
   const insertionIndexes = view.config?.insertionIndexes ?? [1, 3, 5];
+  const decorations = diffDecorations(view, playerId);
   const isTerminal = view.phase === "terminal";
-  const isMyTurn = view.currentPlayerId === playerId;
+  const isMyTurn = !isTerminal && view.currentPlayerId === playerId;
   const isInsertStage = view.turnStage === "insert";
   const isMoveStage = view.turnStage === "move";
   const myObjectives = view.myState?.remainingObjectives ?? [];
@@ -207,28 +272,6 @@ export function renderLabyrinthGameplay(
   const isReverse = (edge: string, index: number): boolean =>
     !!last && OPPOSITE_EDGE[last.edge] === edge && last.index === index;
 
-  if (isTerminal) {
-    return `
-      <section class="screen labyrinth-screen">
-        <div class="winner-overlay">
-          <div class="winner-trophy">${icon("trophy", 46)}</div>
-          <h2>Maze Conquered!</h2>
-          <p>${view.winnerPlayerId ? `<strong>${nameOf(view.winnerPlayerId)}</strong> collected all objectives and returned home!` : "Someone found the way home!"}</p>
-          <div class="final-scores">
-            ${(view.players ?? [])
-              .map((p) => `<div class="final-score-row"><strong>${nameOf(p.playerId)}</strong> ${(p.collectedObjectiveIds ?? [])
-                .map((id: string) => objectiveIcon(id, 15))
-                .join("")} ${(p.collectedObjectiveIds ?? []).length} collected</div>`)
-              .join("")}
-          </div>
-          <div class="row-actions" style="justify-content:center">
-            <button class="btn btn-primary" id="rematch-btn">Play Again</button>
-            <a class="btn btn-ghost" href="#/">Back to Hub</a>
-          </div>
-        </div>
-      </section>
-    `;
-  }
 
   // Board not populated yet - game hasn't started
   if (!view.board || view.board.length === 0) {
@@ -343,21 +386,30 @@ export function renderLabyrinthGameplay(
     <section class="screen labyrinth-screen">
       <div class="section-head">
         <h1>${icon("maze", 24)} Labyrinth</h1>
-        <div class="status-banner ${statusClass}">
+        ${isTerminal
+          ? terminalBannerMarkup(
+              view.winnerPlayerId === playerId
+                ? "You conquered the maze!"
+                : `${nameOf(view.winnerPlayerId)} conquered the maze!`,
+              (view.players ?? [])
+                .map((p) => `<span class="num">${nameOf(p.playerId)} ${(p.collectedObjectiveIds ?? []).length}</span>`)
+                .join(" · ")
+            )
+          : `<div class="status-banner ${statusClass}">
           <span>${statusText}</span>
-        </div>
+        </div>`}
         ${status.lastError ? `<div class="error-text" role="alert">${humanizeError(status.lastError)}</div>` : ""}
         ${activityMarkup(view, playerId, nameOf, status.lastEvents ?? [])}
       </div>
       <div class="gameplay-screen">
         <div class="card board-panel">
-          ${renderSpareTile(view)}
-          <div style="margin-top:16px;" id="labyrinth-insert-controls">
+          <div id="labyrinth-insert-controls">
             <div class="labyrinth-insert-ring">
+              ${renderSpareTile(view, decorations.spareChanged)}
               <div class="insert-row-top" style="display:grid;grid-template-columns:repeat(${cols},minmax(0,1fr));gap:3px;width:100%;max-width:560px;margin:0 auto;padding:0 4px;">${topBtns}</div>
               <div class="insert-col-left" style="display:grid;grid-template-rows:repeat(${rows},minmax(0,1fr));gap:3px;padding:4px 0;">${leftBtns}</div>
               <div class="labyrinth-board-center" id="labyrinth-board">
-                ${renderBoardMarkup(view, playerId)}
+                ${renderBoardMarkup(view, playerId, decorations)}
               </div>
               <div class="insert-col-right" style="display:grid;grid-template-rows:repeat(${rows},minmax(0,1fr));gap:3px;padding:4px 0;">${rightBtns}</div>
               <div class="insert-row-bottom" style="display:grid;grid-template-columns:repeat(${cols},minmax(0,1fr));gap:3px;width:100%;max-width:560px;margin:0 auto;padding:0 4px;">${bottomBtns}</div>

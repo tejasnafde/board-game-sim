@@ -41,7 +41,7 @@ describe("connect4 adapter", () => {
     expect(html).toContain("Computer");
   });
 
-  it("renders the winner overlay with highlighted cells and rematch", () => {
+  it("keeps the final board on screen with a result banner and rematch", () => {
     const view = makeView({
       phase: "terminal",
       winnerPlayerId: "player-1",
@@ -50,7 +50,9 @@ describe("connect4 adapter", () => {
     for (const c of view.winningCells!) view.grid![c.row]![c.col] = "player-1";
     const html = renderConnect4Gameplay(view, "player-1", {});
     expect(html).toContain("You win");
+    expect(html).toContain("terminal-banner");
     expect(count(html, /c4-cell winning/g)).toBe(4);
+    expect(count(html, /c4-drop-btn/g)).toBe(7); // full board still rendered
     expect(html).toContain('id="rematch-btn"');
   });
 });
