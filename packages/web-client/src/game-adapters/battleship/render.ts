@@ -1,6 +1,6 @@
 import type { BattleshipDefinition, ClientView, PlacementDraft, ShipSpec } from "./types";
 import { buildCellsFromAnchor } from "./placement-utils";
-import { humanizeError, lobbyPanelMarkup } from "../../templates/lobby";
+import { humanizeError, lobbyPanelMarkup, terminalBannerMarkup } from "../../templates/lobby";
 import { icon } from "../../icons";
 
 export function renderPlacementBoardMarkup(
@@ -220,21 +220,6 @@ export function renderBattleshipGameplay(
   const nameOf = (id: string | null | undefined): string =>
     id ? status.seatNames?.[id] ?? id : "";
 
-  if (isTerminal) {
-    return `
-      <section class="screen battleship-screen">
-        <div class="winner-overlay">
-          <div class="winner-trophy">${icon("trophy", 46)}</div>
-          <h2>Game Over!</h2>
-          <p>${winner ? `<strong>${nameOf(winner)}</strong> wins the battle!` : "It's a draw!"}</p>
-          <div class="row-actions" style="justify-content:center">
-            <button class="btn btn-primary" id="rematch-btn">Play Again</button>
-            <a class="btn btn-ghost" href="#/">Back to Hub</a>
-          </div>
-        </div>
-      </section>
-    `;
-  }
 
   const statusClass = canFire ? "your-turn" : "their-turn";
   const currentName = nameOf(view.currentPlayerId);
@@ -250,9 +235,15 @@ export function renderBattleshipGameplay(
     <section class="screen battleship-screen">
       <div class="section-head">
         <h1>${icon("anchor", 22)} Live Battle</h1>
-        <div class="status-banner ${statusClass}">
+        ${isTerminal
+          ? terminalBannerMarkup(
+              winner === null ? "It's a draw!" : `${nameOf(winner)} wins the battle!`,
+              "The enemy fleet is revealed on the opponent board.",
+              winner !== null
+            )
+          : `<div class="status-banner ${statusClass}">
           <span>${statusText}</span>
-        </div>
+        </div>`}
         ${resultText ? `<div class="status-banner last-result"><span>${resultText}</span></div>` : ""}
         ${errorText ? `<div class="error-text" role="alert">${errorText}</div>` : ""}
       </div>

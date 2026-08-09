@@ -1,4 +1,4 @@
-import { humanizeError, lobbyPanelMarkup } from "../../templates/lobby";
+import { humanizeError, lobbyPanelMarkup, terminalBannerMarkup } from "../../templates/lobby";
 import { icon } from "../../icons";
 import type { Connect4View } from "./types";
 
@@ -38,27 +38,12 @@ export function renderConnect4Gameplay(
   const winning = new Set((view.winningCells ?? []).map((c) => `${c.row},${c.col}`));
   const last = view.lastDrop;
 
-  if (isTerminal) {
-    const heading = view.winnerPlayerId
-      ? view.winnerPlayerId === mySeat
-        ? "You win!"
-        : `${nameOf(view.winnerPlayerId)} wins!`
-      : "It's a draw!";
-    return `
-      <section class="screen connect4-screen">
-        <div class="winner-overlay">
-          <div class="winner-trophy">${view.winnerPlayerId ? icon("trophy", 46) : ""}</div>
-          <h2>${heading}</h2>
-          <div class="c4-board c4-board-small" id="connect4-board">${boardMarkup(grid, cols, discClassOf, winning, last)}</div>
-          <div class="row-actions" style="justify-content:center;margin-top:var(--sp-4)">
-            <button class="btn btn-primary" id="rematch-btn">Play Again</button>
-            <a class="btn btn-ghost" href="#/">Back to Hub</a>
-          </div>
-        </div>
-      </section>
-    `;
-  }
 
+  const heading = view.winnerPlayerId
+    ? view.winnerPlayerId === mySeat
+      ? "You win!"
+      : `${nameOf(view.winnerPlayerId)} wins!`
+    : "It's a draw!";
   const currentName = nameOf(view.currentPlayerId);
   const statusText = isMyTurn
     ? "Your turn - click a column to drop your disc"
@@ -84,7 +69,9 @@ export function renderConnect4Gameplay(
     <section class="screen connect4-screen">
       <div class="section-head">
         <h1><span class="c4-disc-mini c4-p1" style="width:18px;height:18px;"></span> Connect Four</h1>
-        <div class="status-banner ${isMyTurn ? "your-turn" : "their-turn"}"><span>${statusText}</span></div>
+        ${isTerminal
+          ? terminalBannerMarkup(heading, "", !!view.winnerPlayerId)
+          : `<div class="status-banner ${isMyTurn ? "your-turn" : "their-turn"}"><span>${statusText}</span></div>`}
         ${status.lastError ? `<div class="error-text" role="alert">${humanizeError(status.lastError)}</div>` : ""}
       </div>
       <div class="card board-panel" style="max-width:560px;margin:0 auto;">

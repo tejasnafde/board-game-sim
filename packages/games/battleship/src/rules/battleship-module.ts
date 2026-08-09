@@ -353,6 +353,13 @@ export class BattleshipModule implements GameModule<BattleshipState> {
       .filter((ship) => opponent.sunkShipIds.includes(ship.shipId))
       .map((ship) => ({ shipId: ship.shipId, cells: ship.cells }));
 
+    // Game over means no hidden information is left: reveal the fleet so the
+    // final board answers "where WERE they?".
+    const revealedShips =
+      state.phase === "terminal"
+        ? opponent.ships.map((ship) => ({ shipId: ship.shipId, cells: ship.cells }))
+        : [];
+
     return {
       visibleState: {
         phase: state.phase,
@@ -371,7 +378,8 @@ export class BattleshipModule implements GameModule<BattleshipState> {
           cols: state.config.cols,
           shotsFired: me.shotsFired,
           knownHits: me.shotsFired.filter((shot) => getShipByCell(opponent, shot) !== null),
-          sunkShips: opponentSunkShips
+          sunkShips: opponentSunkShips,
+          revealedShips
         }
       }
     };
