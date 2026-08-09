@@ -90,7 +90,7 @@ function renderBoardMarkup(view: LabyrinthView, playerId: string): string {
         .join("");
 
       const glow = isNextObjective
-        ? ' style="outline:2px solid #fbbf24;outline-offset:-2px;box-shadow:0 0 10px rgba(251,191,36,0.8);z-index:1;"'
+        ? ' style="outline:2px solid var(--warn);outline-offset:-2px;z-index:1;"'
         : "";
       const objectiveMarker = objectiveId
         ? `<div class="objective-marker ${isNextObjective ? "next" : ""}" title="${objectiveId}">${objectiveIcon(objectiveId, 15)}</div>`
@@ -123,8 +123,8 @@ function renderSpareTile(view: LabyrinthView): string {
         ${tile.objectiveId ? `<div class="objective-marker" title="${tile.objectiveId}">${objectiveIcon(tile.objectiveId, 13)}</div>` : ""}
       </div>
       <div>
-        <div style="font-size:11px;font-weight:700;color:var(--accent-gold);text-transform:uppercase;letter-spacing:0.08em;">Spare Tile</div>
-        <div style="font-size:11px;color:var(--text-muted);margin-top:2px;">Insert from any arrow</div>
+        <div style="font-size:11px;font-weight:700;color:var(--warn);text-transform:uppercase;letter-spacing:0.08em;">Spare Tile</div>
+        <div style="font-size:11px;color:var(--ink-3);margin-top:2px;">Insert from any arrow</div>
       </div>
     </div>
   `;
@@ -179,7 +179,7 @@ function activityMarkup(
   for (const p of view.players ?? []) {
     if (p.playerId !== playerId && p.objectivesRemainingCount === 0) {
       lines.push(
-        `<div class="activity-line danger">${icon("home", 14)} <strong>${nameOf(p.playerId)}</strong> has every objective — racing home!</div>`
+        `<div class="activity-line danger">${icon("home", 14)} <strong>${nameOf(p.playerId)}</strong> has every objective - racing home!</div>`
       );
     }
   }
@@ -222,15 +222,15 @@ export function renderLabyrinthGameplay(
               .join("")}
           </div>
           <div class="row-actions" style="justify-content:center">
-            <button class="btn btn-primary" id="rematch-btn">⟲ Play Again</button>
-            <a class="btn btn-ghost" href="#/">← Back to Hub</a>
+            <button class="btn btn-primary" id="rematch-btn">Play Again</button>
+            <a class="btn btn-ghost" href="#/">Back to Hub</a>
           </div>
         </div>
       </section>
     `;
   }
 
-  // Board not populated yet — game hasn't started
+  // Board not populated yet - game hasn't started
   if (!view.board || view.board.length === 0) {
     return `
       <section class="screen labyrinth-screen">
@@ -240,12 +240,12 @@ export function renderLabyrinthGameplay(
         <div class="card" style="max-width:500px;text-align:center;padding:var(--sp-8);">
           <div class="waiting-dot" style="margin:0 auto var(--sp-4);"></div>
           <h3>Waiting for the game to start…</h3>
-          <p style="color:var(--text-muted);margin-top:8px;font-size:14px;">The maze will appear once all players have joined. Share the Session ID with your friends to begin.</p>
-          <div style="margin-top:var(--sp-4);padding:var(--sp-3);background:rgba(0,212,255,0.06);border-radius:var(--r-md);border:1px solid var(--border-subtle);">
-            <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:var(--text-muted);margin-bottom:4px;">Players joined</div>
+          <p style="color:var(--ink-3);margin-top:8px;font-size:14px;">The maze will appear once all players have joined. Share the Session ID with your friends to begin.</p>
+          <div style="margin-top:var(--sp-4);padding:var(--sp-3);background:var(--accent-subtle);border-radius:var(--r-md);border:1px solid var(--line);">
+            <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:var(--ink-3);margin-bottom:4px;">Players joined</div>
             ${view.players && view.players.length > 0
-        ? view.players.map(p => `<div style="font-size:13px;color:var(--text-secondary);">${nameOf(p.playerId)}</div>`).join('')
-        : '<div style="font-size:13px;color:var(--text-muted);">Waiting for players…</div>'
+        ? view.players.map(p => `<div style="font-size:13px;color:var(--ink-2);">${nameOf(p.playerId)}</div>`).join('')
+        : '<div style="font-size:13px;color:var(--ink-3);">Waiting for players…</div>'
       }
           </div>
         </div>
@@ -261,10 +261,10 @@ export function renderLabyrinthGameplay(
     : `${icon("hourglass", 13)} Waiting for <strong>${currentName || "other player"}</strong>`;
   if (isMyTurn && isInsertStage) {
     statusClass = "your-turn";
-    statusText = "Your turn — insert the spare tile using an arrow button";
+    statusText = "Your turn - insert the spare tile using an arrow button";
   } else if (isMyTurn && isMoveStage) {
     statusClass = "your-turn";
-    statusText = "Now move your pawn — click a highlighted cell";
+    statusText = "Now move your pawn - click a highlighted cell";
   }
 
   // Build insertion ring around the board
@@ -313,11 +313,11 @@ export function renderLabyrinthGameplay(
       const isCurrent = p.playerId === view.currentPlayerId;
       const isMe = p.playerId === playerId;
       return `
-        <div style="display:flex;align-items:center;gap:8px;padding:8px;border-radius:8px;border:1px solid ${isCurrent ? "rgba(0,212,255,0.4)" : "var(--border-subtle)"};background:${isCurrent ? "rgba(0,212,255,0.06)" : "transparent"};">
+        <div style="display:flex;align-items:center;gap:8px;padding:8px;border-radius:8px;border:1px solid ${isCurrent ? "var(--accent)" : "var(--line)"};background:${isCurrent ? "var(--accent-subtle)" : "transparent"};">
           <div class="player-token ${colorClass}" style="position:static;transform:none;width:28px;height:28px;font-size:10px;">${label}</div>
           <div>
-            <div style="font-size:12px;font-weight:600;color:${isMe ? "var(--accent-cyan)" : "var(--text-primary)"};">${nameOf(p.playerId)}${isMe ? " (you)" : ""}${isCurrent ? ` ${icon("target", 11)}` : ""}</div>
-            <div style="font-size:10px;color:var(--text-muted);">${p.objectivesRemainingCount} objective${p.objectivesRemainingCount !== 1 ? "s" : ""} left</div>
+            <div style="font-size:12px;font-weight:600;color:${isMe ? "var(--accent)" : "var(--ink)"};">${nameOf(p.playerId)}${isMe ? " (you)" : ""}${isCurrent ? ` ${icon("target", 11)}` : ""}</div>
+            <div style="font-size:10px;color:var(--ink-3);"><span class="num">${p.objectivesRemainingCount}</span> objective${p.objectivesRemainingCount !== 1 ? "s" : ""} left</div>
           </div>
         </div>
       `;
@@ -337,7 +337,7 @@ export function renderLabyrinthGameplay(
         )
         .join("")}
         </div>`
-      : `<div style="font-size:12px;color:var(--accent-green);font-weight:600;">✓ All collected! Return home!</div>`;
+      : `<div style="font-size:12px;color:var(--pos);font-weight:600;">All collected! Return home!</div>`;
 
   return `
     <section class="screen labyrinth-screen">
@@ -374,7 +374,7 @@ export function renderLabyrinthGameplay(
             ${objectivesMarkup}
           </div>
           <div class="card debug-panel">
-            <h3 style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:var(--text-muted);margin-bottom:8px;">Event Log</h3>
+            <h3 style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:var(--ink-3);margin-bottom:8px;">Event Log</h3>
             <pre>${logs.slice(0, 15).join("\n") || "No events yet"}</pre>
           </div>
         </aside>

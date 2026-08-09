@@ -27,7 +27,7 @@ const COL_LABELS = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"];
 
 function boardLabelsRow(cols: number): string {
   const labels = Array.from({ length: cols }, (_, i) =>
-    `<div style="text-align:center;font-size:10px;font-weight:600;color:var(--text-muted);letter-spacing:0.04em;user-select:none;">${COL_LABELS[i] ?? i}</div>`
+    `<div style="text-align:center;font-size:10px;font-weight:600;color:var(--ink-3);letter-spacing:0.04em;user-select:none;">${COL_LABELS[i] ?? i}</div>`
   ).join("");
   return `<div style="display:grid;grid-template-columns:20px repeat(${cols},1fr);gap:2px;margin-bottom:2px;">
     <div></div>${labels}
@@ -48,7 +48,7 @@ function renderOwnBoard(board: BoardView): string {
       else if (shipCells.has(coord)) cls = "cell ship";
       cells.push(`<button class="${cls} own-cell" data-board="own" data-r="${r}" data-c="${c}" type="button" aria-label="Own ${r},${c}"></button>`);
     }
-    const rowLabel = `<div style="font-size:10px;font-weight:600;color:var(--text-muted);display:flex;align-items:center;justify-content:center;user-select:none;">${r + 1}</div>`;
+    const rowLabel = `<div style="font-size:10px;font-weight:600;color:var(--ink-3);display:flex;align-items:center;justify-content:center;user-select:none;">${r + 1}</div>`;
     rows.push(`<div style="display:grid;grid-template-columns:20px repeat(${board.cols},1fr);gap:2px;">${rowLabel}${cells.join("")}</div>`);
   }
 
@@ -81,7 +81,7 @@ function renderOpponentBoard(board: BoardView): string {
       const extra = !fired.has(coord) ? " opponent-cell" : "";
       cells.push(`<button class="${cls}${extra}"${style} data-board="opponent" data-r="${r}" data-c="${c}" type="button" aria-label="Fire ${r},${c}"></button>`);
     }
-    const rowLabel = `<div style="font-size:10px;font-weight:600;color:var(--text-muted);display:flex;align-items:center;justify-content:center;user-select:none;">${r + 1}</div>`;
+    const rowLabel = `<div style="font-size:10px;font-weight:600;color:var(--ink-3);display:flex;align-items:center;justify-content:center;user-select:none;">${r + 1}</div>`;
     rows.push(`<div style="display:grid;grid-template-columns:20px repeat(${board.cols},1fr);gap:2px;">${rowLabel}${cells.join("")}</div>`);
   }
 
@@ -114,12 +114,12 @@ export class GridRenderer implements GameRenderer {
               ${renderOwnBoard(own)}
             </div>
             <div class="board-meta">
-              <span>${ownHitsCount} hit${ownHitsCount !== 1 ? "s" : ""} taken</span>
-              <span>${totalOwnCells - ownHitsCount} cells intact</span>
+              <span class="num">${ownHitsCount} hit${ownHitsCount !== 1 ? "s" : ""} taken</span>
+              <span class="num">${totalOwnCells - ownHitsCount} cells intact</span>
             </div>
           </section>
           <section class="opponent-panel">
-            <h3>Opponent Board — click to fire</h3>
+            <h3>Opponent Board - click to fire</h3>
             <div class="board-wrapper">
               ${renderOpponentBoard(opponent)}
             </div>

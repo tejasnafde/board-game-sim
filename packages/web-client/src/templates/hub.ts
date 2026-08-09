@@ -3,7 +3,7 @@ import { icon } from "../icons";
 
 export function hubCardMarkup(card: HubCard): string {
   const isLive = card.status === "live";
-  const actionLabel = isLive ? "Play now →" : "Coming soon";
+  const actionLabel = isLive ? "Play now" : "Coming soon";
   const iconName =
     card.gameId === "battleship" ? "ship"
     : card.gameId === "labyrinth" ? "maze"
@@ -37,7 +37,7 @@ export function hubLandingMarkup(cardsHtml: string): string {
       <section class="game-grid" id="game-hub-grid" aria-label="Available games">
         ${cardsHtml}
       </section>
-      <p style="margin-top:var(--sp-5);font-size:11px;color:var(--text-muted);">
+      <p style="margin-top:var(--sp-5);font-size:11px;color:var(--ink-3);">
         Icons by <a href="https://game-icons.net" target="_blank" rel="noreferrer" style="color:inherit;">game-icons.net</a> (CC BY 3.0)
       </p>
     </section>

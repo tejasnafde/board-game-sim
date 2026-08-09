@@ -10,9 +10,9 @@ import { test, expect, type Page } from "@playwright/test";
  */
 
 async function codeFrom(page: Page): Promise<string> {
-  const chip = page.locator("#copy-session-btn");
-  await expect(chip).toBeVisible();
-  return (await chip.innerText()).replace(/[^A-Za-z0-9-]/g, "");
+  const code = page.locator("#copy-session-btn .num");
+  await expect(code).toBeVisible();
+  return (await code.innerText()).trim();
 }
 
 test("battleship: two players join, deploy fleets, fire with feedback", async ({ browser }) => {

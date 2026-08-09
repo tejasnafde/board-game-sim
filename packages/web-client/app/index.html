@@ -7,17 +7,21 @@
   <title>Board Game Sim</title>
   <meta name="description"
     content="Browser-first, server-authoritative turn-based board game platform. Play Battleship and Labyrinth online." />
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <script>
+    /* set theme before first paint or the page flashes (STYLE.md rule 10) */
+    try { var t = localStorage.getItem("theme"); if (t) document.documentElement.dataset.theme = t; } catch (e) { }
+  </script>
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link
-    href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,400;0,14..32,500;0,14..32,600;0,14..32,700;0,14..32,800;0,14..32,900&display=swap"
-    rel="stylesheet" />
+  <link rel="stylesheet"
+    href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" />
+  <link rel="stylesheet" href="https://tn07.dev/design/tokens.css" />
   <link rel="stylesheet" href="/app.css" />
 </head>
 
 <body>
   <div id="app"></div>
   <script type="module" src="/main.ts"></script>
+  <script src="https://tn07.dev/ring.js" defer></script>
 </body>
 
 </html>
