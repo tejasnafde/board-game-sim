@@ -123,7 +123,7 @@ function renderSpareTile(view: LabyrinthView): string {
         ${tile.objectiveId ? `<div class="objective-marker" title="${tile.objectiveId}">${objectiveIcon(tile.objectiveId, 13)}</div>` : ""}
       </div>
       <div>
-        <div style="font-size:11px;font-weight:700;color:var(--warn);text-transform:uppercase;letter-spacing:0.08em;">Spare Tile</div>
+        <div class="label" style="color:var(--warn);">Spare Tile</div>
         <div style="font-size:11px;color:var(--ink-3);margin-top:2px;">Insert from any arrow</div>
       </div>
     </div>
@@ -241,8 +241,8 @@ export function renderLabyrinthGameplay(
           <div class="waiting-dot" style="margin:0 auto var(--sp-4);"></div>
           <h3>Waiting for the game to start…</h3>
           <p style="color:var(--ink-3);margin-top:8px;font-size:14px;">The maze will appear once all players have joined. Share the Session ID with your friends to begin.</p>
-          <div style="margin-top:var(--sp-4);padding:var(--sp-3);background:var(--accent-subtle);border-radius:var(--r-md);border:1px solid var(--line);">
-            <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:var(--ink-3);margin-bottom:4px;">Players joined</div>
+          <div style="margin-top:var(--sp-4);padding:var(--sp-3);background:var(--accent-subtle);border-radius:var(--r);border:1px solid var(--line);">
+            <div class="label" style="margin-bottom:4px;">Players joined</div>
             ${view.players && view.players.length > 0
         ? view.players.map(p => `<div style="font-size:13px;color:var(--ink-2);">${nameOf(p.playerId)}</div>`).join('')
         : '<div style="font-size:13px;color:var(--ink-3);">Waiting for players…</div>'
