@@ -1,0 +1,10 @@
+<!-- gaming.tn07.dev serves no favicon, so this is a stand-in board tile in the
+     app's accent #5B8DEF (see STYLE.md identities). If the site ever ships a
+     real favicon, replace this file with it. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <rect width="32" height="32" rx="6" fill="#0A0A0C"/>
+  <rect x="7" y="7" width="8" height="8" rx="1.5" fill="#5B8DEF"/>
+  <rect x="17" y="7" width="8" height="8" rx="1.5" fill="none" stroke="#5B8DEF" stroke-width="1.6"/>
+  <rect x="7" y="17" width="8" height="8" rx="1.5" fill="none" stroke="#5B8DEF" stroke-width="1.6"/>
+  <rect x="17" y="17" width="8" height="8" rx="1.5" fill="#5B8DEF"/>
+</svg>

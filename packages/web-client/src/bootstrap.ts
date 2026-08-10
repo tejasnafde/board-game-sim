@@ -11,6 +11,12 @@ export function resolveLogLevel(search: string, stored: string | null): LogLevel
   return level && LOG_LEVELS.includes(level) ? (level as LogLevel) : null;
 }
 
+// Cloud Run URL is stable per service+project+region. Baking it as the
+// production fallback means a bundle built without VITE_WS_URL (the incident:
+// a stale local dist manually deployed over CI's build) still connects
+// instead of dialing the static host and bricking every game.
+const PROD_WS_URL = "wss://board-game-sim-ezvux7gqxa-el.a.run.app/realtime";
+
 export function resolveWebsocketUrl(
   env: Record<string, string | undefined>,
   locationHref: string
@@ -20,6 +26,9 @@ export function resolveWebsocketUrl(
   }
 
   const location = new URL(locationHref);
+  if (location.hostname !== "localhost" && location.hostname !== "127.0.0.1") {
+    return PROD_WS_URL;
+  }
   const protocol = location.protocol === "https:" ? "wss:" : "ws:";
   return `${protocol}//${location.host}/realtime`;
 }
