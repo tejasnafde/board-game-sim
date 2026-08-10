@@ -12,8 +12,10 @@ describe("web bootstrap", () => {
     expect(wsUrl).toBe("ws://127.0.0.1:5173/realtime");
   });
 
-  test("falls back to wss for https origin", () => {
+  test("non-local origins without a baked url get the production backend", () => {
+    // same-host fallback bricked prod when a url-less dist was deployed;
+    // any deployed bundle must reach the real backend
     const wsUrl = resolveWebsocketUrl({}, "https://example.com/app");
-    expect(wsUrl).toBe("wss://example.com/realtime");
+    expect(wsUrl).toBe("wss://board-game-sim-ezvux7gqxa-el.a.run.app/realtime");
   });
 });

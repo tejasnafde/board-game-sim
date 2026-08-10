@@ -2,27 +2,15 @@
      DESIGN TOKENS
   ============================================================ */
 :root {
-  /* per-app identity (STYLE.md): override these four, nothing else */
-  --accent: #5B8DEF;
+  /* per-app identity (STYLE.md): override these five, nothing else.
+     The accent is a pair: #5B8DEF is 2.99:1 on light --bg and fails, so light
+     mode gets the darker twin. tokens.css derives --accent and --accent-subtle
+     from these, so the dark-mode re-assertion this file used to carry is gone. */
+  --accent-light: #2869EA;   /* 4.52:1 on light --bg */
+  --accent-dark: #5B8DEF;    /* 6.12:1 on dark --bg */
   --r: 10px;
   --font-body: 'Space Grotesk', ui-sans-serif, system-ui, sans-serif;
   --font-mono: 'JetBrains Mono', ui-monospace, monospace;
-}
-
-/* tokens.css re-declares --accent inside its dark blocks at higher
-   specificity, which would repaint this app violet in OS dark mode. Re-assert
-   the identity in the same selectors. The real fix belongs upstream: tokens
-   should derive dark accents from var(--accent) instead of hardcoding. */
-[data-theme='dark'] {
-  --accent: #5B8DEF;
-  --accent-subtle: rgb(91 141 239 / 0.14);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme='light']) {
-    --accent: #5B8DEF;
-    --accent-subtle: rgb(91 141 239 / 0.14);
-  }
 }
 
 /* ============================================================
@@ -90,11 +78,12 @@ body {
 }
 
 .brand::before {
+  /* the four-square board mark, same art as /favicon.svg. Hardcoded hue
+     because a CSS var cannot reach inside a data URI. */
   content: '';
-  width: 10px;
-  height: 10px;
-  border-radius: 2px;
-  background: var(--accent);
+  width: 15px;
+  height: 15px;
+  background: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 26 26'><rect x='1' y='1' width='10' height='10' rx='2' fill='%235B8DEF'/><rect x='15' y='1' width='10' height='10' rx='2' fill='none' stroke='%235B8DEF' stroke-width='2'/><rect x='1' y='15' width='10' height='10' rx='2' fill='none' stroke='%235B8DEF' stroke-width='2'/><rect x='15' y='15' width='10' height='10' rx='2' fill='%235B8DEF'/></svg>") center/contain no-repeat;
 }
 
 .top-nav-right {
@@ -926,7 +915,6 @@ input::placeholder {
   font-size: 11px;
 }
 
-}
 
 /* Opponent clickable cells */
 .opponent-cell {
@@ -1574,7 +1562,6 @@ input::placeholder {
   color: var(--warn);
 }
 
-}
 
 /* Move path preview */
 .labyrinth-cell.path-step::after,
