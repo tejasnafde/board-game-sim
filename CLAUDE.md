@@ -171,6 +171,28 @@ frontend. It skips commits that only touch `documentation/**` or `*.md`. The
 script runs `npm test` first, so a red suite blocks the deploy. Run
 `npm run deploy` locally only to ship without merging.
 
+`CLOUDFLARE_API_TOKEN` on this repo is a **shared deploy token used by three
+repos** (since 2026-08-15): here, `board-game-sim`, and `job-finder-app`
+(scout). It carries Account > Cloudflare Pages > Edit AND Account > Workers
+Scripts > Edit, because scout ships a Worker and Pages rights alone get a 403
+on the Workers API.
+
+It deliberately has **no DNS rights**. The DNS token is a separate credential
+in Secret Manager used by `tn07-site/dns.sh`. Keep those apart: a compromised
+CI secret must not be able to repoint the domain.
+
+**Rotating it is a three-repo job.** Cloudflare never re-displays a token value
+and GitHub secrets are write-only, so it cannot be copied between repos after
+the fact. Roll it, then set it everywhere in one go:
+
+```sh
+for r in tejasnafde/tejasnafde.github.io tejasnafde/board-game-sim tejasnafde/job-finder-app; do
+  gh secret set CLOUDFLARE_API_TOKEN -R $r --body 'cfat_NEW'
+done
+```
+
+Skip one and that repo fails its next deploy.
+
 CI authenticates with Workload Identity Federation (no key files); secrets
 `GCP_WORKLOAD_IDENTITY_PROVIDER`, `GCP_SERVICE_ACCOUNT` and
 `CLOUDFLARE_API_TOKEN` are already set on the repo.
