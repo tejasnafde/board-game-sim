@@ -901,12 +901,12 @@ input::placeholder {
 
 .placement-ship.is-vertical .placement-ship-art {
   height: calc(100% - 6px);
-  transform: translate(-50%, -50%);
+  transform: translate(-50%, -50%) rotate(var(--ship-art-rotation));
 }
 
 .placement-ship.is-horizontal .placement-ship-art {
   height: calc(100% * var(--ship-size) - 8px);
-  transform: translate(-50%, -50%) rotate(90deg);
+  transform: translate(-50%, -50%) rotate(var(--ship-art-rotation));
 }
 
 .placement-ship-label {

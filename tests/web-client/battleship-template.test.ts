@@ -40,4 +40,34 @@ describe("battleship setup template", () => {
     expect(html).toContain('class="placement-ship-art"');
     expect(html).toContain('src="/ships/carrier.png"');
   });
+
+  test("anchors a 180-degree ship overlay at the left edge of its occupied cells", () => {
+    const html = renderPlacementBoardMarkup(
+      definition,
+      definition.ships,
+      { carrier: { row: 4, col: 6, rotationDeg: 180 } },
+      "carrier",
+      { carrier: "/ships/carrier.png" }
+    );
+
+    expect(html).toContain(
+      "--ship-row:4;--ship-col:2;--ship-width:5;--ship-height:1;--ship-size:5;"
+    );
+    expect(html).toContain("--ship-art-rotation:270deg;");
+  });
+
+  test("anchors a 270-degree ship overlay at the top edge of its occupied cells", () => {
+    const html = renderPlacementBoardMarkup(
+      definition,
+      definition.ships,
+      { carrier: { row: 7, col: 3, rotationDeg: 270 } },
+      "carrier",
+      { carrier: "/ships/carrier.png" }
+    );
+
+    expect(html).toContain(
+      "--ship-row:3;--ship-col:3;--ship-width:1;--ship-height:5;--ship-size:5;"
+    );
+    expect(html).toContain("--ship-art-rotation:0deg;");
+  });
 });

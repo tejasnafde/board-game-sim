@@ -16,7 +16,8 @@ span is the footprint width and height. The highlighted cells and artwork then
 share the same source of truth for all four rotations.
 
 The image remains centered inside that overlay. Placement, collision checks,
-submission, and server contracts do not change.
+submission, and server contracts do not change. Its artwork rotation is derived
+from the same draft angle so the bow points toward the occupied-cell direction.
 
 ## Alternatives Rejected
 

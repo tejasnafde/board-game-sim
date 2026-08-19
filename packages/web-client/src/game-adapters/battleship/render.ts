@@ -48,15 +48,21 @@ export function renderPlacementBoardMarkup(
     .map((spec) => {
       const draft = draftMap[spec.id];
       if (!draft) return "";
+      const shipCells = buildCellsFromAnchor(draft, spec.size);
+      const rows = shipCells.map((cell) => cell.row);
+      const cols = shipCells.map((cell) => cell.col);
+      const startRow = Math.min(...rows);
+      const startCol = Math.min(...cols);
       const isHorizontal = draft.rotationDeg % 180 === 0;
-      const widthCells = isHorizontal ? spec.size : 1;
-      const heightCells = isHorizontal ? 1 : spec.size;
+      const widthCells = Math.max(...cols) - startCol + 1;
+      const heightCells = Math.max(...rows) - startRow + 1;
+      const artRotation = (draft.rotationDeg + 90) % 360;
       const isSelected = selectedShipId === spec.id;
 
       return `<div
         class="placement-ship ${isHorizontal ? "is-horizontal" : "is-vertical"} ${isSelected ? "selected" : ""}"
         data-ship-id="${spec.id}"
-        style="--ship-row:${draft.row};--ship-col:${draft.col};--ship-width:${widthCells};--ship-height:${heightCells};--ship-size:${spec.size};"
+        style="--ship-row:${startRow};--ship-col:${startCol};--ship-width:${widthCells};--ship-height:${heightCells};--ship-size:${spec.size};--ship-art-rotation:${artRotation}deg;"
         title="${spec.id} - click to select, right-click board to rotate"
       >
         <img class="placement-ship-art" src="${shipPreview[spec.id] ?? ""}" alt="" />
