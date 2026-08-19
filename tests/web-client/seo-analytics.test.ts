@@ -13,6 +13,7 @@ describe("gaming discovery", () => {
     expect(html).toContain('<link rel="canonical" href="https://gaming.tn07.dev/"');
     expect(html).toContain('property="og:title"');
     expect(html).toContain('name="twitter:card" content="summary"');
+    expect(html).toContain("e8aafecaa71a4d23ad2dba81e3d20b70");
     expect(robots).toContain("User-agent: GPTBot\nDisallow: /");
     expect(robots).toContain("Sitemap: https://gaming.tn07.dev/sitemap.xml");
     expect(llms).toContain("# Board Game Simulator");
