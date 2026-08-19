@@ -11,8 +11,9 @@ export type PlayableGameRenderContext = {
 export type PlayableGameBindContext = {
   root: HTMLElement;
   playerId: string;
-  render: () => void;
   pushLog: (entry: string) => void;
+  rematch: () => void;
+  logs: string[];
 };
 
 export type PlayableGameUiAdapter = {
@@ -21,4 +22,6 @@ export type PlayableGameUiAdapter = {
   render(context: PlayableGameRenderContext): string;
   bind(context: PlayableGameBindContext): void;
   resetSession(): void;
+  hasMountedView(): boolean;
+  unmountView(): void;
 };

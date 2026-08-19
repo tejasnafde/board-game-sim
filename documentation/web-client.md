@@ -20,7 +20,11 @@
   game module. Shared runtime code contains no ship or shot vocabulary.
 - `browser-app.ts`: route-aware shell and session host; it has no game-specific render or event knowledge.
 - `game-adapters/playable-game-ui.ts`: the shared Playable Game UI adapter interface.
-- `game-adapters/<game>/index.ts`: adapter implementation that owns that game's screens, rendering, event binding, and ephemeral UI state.
+- `game-adapters/react-game-ui-adapter.ts`: the reusable React root lifecycle,
+  static-lobby handoff, and native-view host.
+- `game-adapters/<game>/index.ts`: a thin controller-to-component adapter that
+  validates interaction timing and submits server intents.
+- `game-adapters/<game>/game-view.tsx`: typed, declarative setup and gameplay UI.
 - `game-adapters/index.ts`: derives the playable adapter map from the catalog.
 - `grid-renderer.ts`: default renderer for grid board games.
 
@@ -37,7 +41,8 @@ Each playable lobby defaults to a server-backed computer game. Private tables ar
 
 1. Add its server-side definition, rules, bot, contract tests, and self-play
    entry as required by the repository rules.
-2. Add the client adapter or React view and any semantic asset packs.
+2. Add a typed React game view, its thin controller adapter, and any semantic
+   asset packs. Use `createReactGameUiAdapter` for the lobby/view boundary.
 3. Register one entry in `registered-games.ts`.
 
 The hub, hash route, session defaults, and adapter lookup require no separate

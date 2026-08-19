@@ -32,9 +32,13 @@
 - `RendererRegistry` maps board type (`grid`/`hex`/`graph`) to concrete renderer implementation.
 - `RealtimeClient` transports websocket protocol events.
 - `ClientController` maps UI interactions to intent submissions using sequence-safe envelopes and generic `submitAction(actionType, payload)` support.
-- React owns the browser mount and cleanup. `browser-app.ts` remains the shared
-  session host during the incremental native-view migration.
-- Each Playable Game UI adapter owns screen selection, rendering, event binding, and ephemeral UI state behind one interface.
+- React owns each playable game view and subscribes directly to controller
+  state. `browser-app.ts` remains the shared route, lobby, and session host.
+- `createReactGameUiAdapter` owns the React root lifecycle for every game.
+  Per-game adapters provide a static lobby and a typed game component, keeping
+  mount, unmount, rematch, logging, and realtime behavior out of new games.
+- Battleship, Labyrinth, and Connect Four use declarative React interactions;
+  their adapters submit intents and never patch authoritative game state.
 - `registered-games.ts` is the single explicit registration point for the three
   playable clients and roadmap entries. The adapter map is derived from it.
 - Battleship proves the asset-pack seam with `sea-command` and

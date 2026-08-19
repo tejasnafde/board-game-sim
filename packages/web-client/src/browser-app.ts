@@ -112,6 +112,9 @@ export function mountPlayableClient(
   realtimeClient.onLog((entry) => pushLog(entry));
 
   const render = (): void => {
+    for (const gameAdapter of gameUiAdapters.values()) {
+      gameAdapter.unmountView();
+    }
     const route = getCurrentRoute();
     const adapter = getAdapterForRoute(route);
     const runtime = adapter.runtime;
@@ -260,10 +263,8 @@ export function mountPlayableClient(
       startSession(sessionId, { create: false });
     });
 
-    const rematchBtn = root.querySelector<HTMLButtonElement>("#rematch-btn");
-    rematchBtn?.addEventListener("click", () => {
-      // Everyone derives the same next code from the finished session, so all
-      // players clicking "Play Again" land in the same fresh game.
+    // Deriving the next code lets every player rejoin the same fresh game.
+    const rematch = (): void => {
       const seats = Object.keys(state.seatNames).length;
       const bots = Object.values(state.seatNames).filter((n) => n.startsWith("Computer")).length;
       startSession(nextSessionId(sessionId), {
@@ -271,10 +272,12 @@ export function mountPlayableClient(
         seatCount: seats > 0 ? seats : undefined,
         bots: bots > 0 ? bots : undefined
       });
-    });
+    };
+    const rematchBtn = root.querySelector<HTMLButtonElement>("#rematch-btn");
+    rematchBtn?.addEventListener("click", rematch);
 
     if (route.name === "game" && gameCatalog.resolvePlayable(route.gameId)) {
-      adapter.bind({ root, playerId, render, pushLog });
+      adapter.bind({ root, playerId, pushLog, rematch, logs });
     }
   };
 
@@ -293,7 +296,10 @@ export function mountPlayableClient(
         return;
       }
     }
-    render();
+    const adapter = getAdapterForRoute(getCurrentRoute());
+    if (!adapter.hasMountedView()) {
+      render();
+    }
   });
 
   const onHashChange = (): void => {
@@ -313,6 +319,9 @@ export function mountPlayableClient(
     dispose: () => {
       disposeTransportSubscription();
       window.removeEventListener("hashchange", onHashChange);
+      for (const adapter of gameUiAdapters.values()) {
+        adapter.unmountView();
+      }
       realtimeClient.disconnect();
       root.innerHTML = "";
     }
