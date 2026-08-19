@@ -52,6 +52,41 @@ test("battleship: two players join, deploy fleets, fire with feedback", async ({
   await bob.close();
 });
 
+test("battleship: selected ship art stays on its cells through every rotation", async ({ browser }) => {
+  const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+  await page.goto("/#/games/battleship");
+  await page.fill("#player-id", "alignment-check");
+  await page.locator("#create-btn").dispatchEvent("click");
+  await page.click('.placement-cell[data-r="4"][data-c="4"]');
+  await page.click('.placement-ship[data-ship-id="carrier"]');
+
+  const expectOverlayAligned = async (): Promise<void> => {
+    const delta = await page.locator(".placement-ship.selected").evaluate((ship) => {
+      const cells = [...document.querySelectorAll<HTMLElement>(".placement-cell.selected-cell")];
+      const shipRect = ship.getBoundingClientRect();
+      const cellRects = cells.map((cell) => cell.getBoundingClientRect());
+      return {
+        left: shipRect.left - Math.min(...cellRects.map((rect) => rect.left)),
+        top: shipRect.top - Math.min(...cellRects.map((rect) => rect.top)),
+        right: shipRect.right - Math.max(...cellRects.map((rect) => rect.right)),
+        bottom: shipRect.bottom - Math.max(...cellRects.map((rect) => rect.bottom))
+      };
+    });
+
+    for (const edgeDelta of Object.values(delta)) {
+      expect(Math.abs(edgeDelta)).toBeLessThan(0.1);
+    }
+  };
+
+  await expectOverlayAligned();
+  for (let rotation = 90; rotation <= 270; rotation += 90) {
+    await page.click("#rotate-btn");
+    await expectOverlayAligned();
+  }
+
+  await page.close();
+});
+
 test("connect4 vs computer: solo player gets instant bot replies to a finished game", async ({ browser }) => {
   const page = await browser.newPage();
   await page.goto("/#/games/connect4");
