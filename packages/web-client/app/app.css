@@ -21,6 +21,21 @@ body {
   min-height: 100vh;
 }
 
+html {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+h1,
+h2,
+h3 {
+  text-wrap: balance;
+}
+
+p,
+li {
+  text-wrap: pretty;
+}
 
 #app {
   width: min(1360px, 100% - 32px);
@@ -105,6 +120,39 @@ body {
   letter-spacing: 0.03em;
 }
 
+button.top-chip {
+  cursor: pointer;
+  user-select: none;
+}
+
+.skip-link {
+  position: fixed;
+  top: 8px;
+  left: 8px;
+  z-index: 100;
+  padding: 10px 14px;
+  border-radius: var(--r-sm);
+  background: var(--ink);
+  color: var(--surface);
+  font-size: 13px;
+  font-weight: 700;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-140%);
+  transition: transform var(--dur-1) var(--ease), opacity var(--dur-1) var(--ease);
+}
+
+.skip-link:focus-visible {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0);
+}
+
+button {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: color-mix(in srgb, var(--accent) 18%, transparent);
+}
+
 /* ============================================================
      BUTTONS
   ============================================================ */
@@ -119,7 +167,7 @@ body {
   font: 600 13px/1 var(--font-body);
   cursor: pointer;
   text-decoration: none;
-  transition: all var(--dur-1) var(--ease);
+  transition: transform var(--dur-1) var(--ease), background-color var(--dur-1) var(--ease), border-color var(--dur-1) var(--ease), color var(--dur-1) var(--ease), filter var(--dur-1) var(--ease);
   white-space: nowrap;
   position: relative;
   overflow: hidden;
@@ -139,7 +187,7 @@ body {
 }
 
 .btn:active {
-  transform: scale(0.98);
+  transform: scale(0.96);
 }
 
 
@@ -541,7 +589,7 @@ input::placeholder {
   border-radius: var(--r);
   background: transparent;
   cursor: pointer;
-  transition: all var(--dur-1) var(--ease);
+  transition: background-color var(--dur-1) var(--ease), border-color var(--dur-1) var(--ease), color var(--dur-1) var(--ease);
   width: 100%;
   color: var(--ink);
   font: 13px/1 var(--font-body);
@@ -841,7 +889,7 @@ input::placeholder {
   width: 100%;
   aspect-ratio: 1 / 1;
   border-radius: 3px;
-  transition: all var(--dur-1) var(--ease);
+  transition: transform var(--dur-1) var(--ease), background-color var(--dur-1) var(--ease), border-color var(--dur-1) var(--ease), box-shadow var(--dur-1) var(--ease);
   position: relative;
   overflow: hidden;
 }
@@ -1027,6 +1075,99 @@ input::placeholder {
 /* ============================================================
      LABYRINTH BOARD
   ============================================================ */
+.labyrinth-screen {
+  --maze-size: min(560px, calc(100vh - 335px), calc(100vw - 410px));
+  padding: 18px 24px 24px;
+}
+
+.labyrinth-play-header {
+  display: grid;
+  grid-template-columns: minmax(180px, 0.7fr) minmax(340px, 1.4fr) auto;
+  align-items: center;
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-3);
+}
+
+.labyrinth-title-block h1 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 2px 0 0;
+  color: var(--ink);
+  font-size: clamp(22px, 2vw, 28px);
+  letter-spacing: -0.035em;
+}
+
+.labyrinth-kicker,
+.turn-index,
+.turn-progress,
+.debug-panel summary {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.labyrinth-kicker {
+  color: var(--ink-3);
+}
+
+.labyrinth-turn-status {
+  justify-content: flex-start;
+  min-height: 42px;
+  padding: 9px 12px;
+}
+
+.turn-index {
+  display: grid;
+  width: 24px;
+  height: 24px;
+  place-items: center;
+  border: 1px solid currentColor;
+  border-radius: 50%;
+  font-variant-numeric: tabular-nums;
+}
+
+.turn-progress {
+  display: flex;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  color: var(--ink-3);
+}
+
+.turn-progress span {
+  padding: 8px 9px;
+  white-space: nowrap;
+}
+
+.turn-progress span + span {
+  border-left: 1px solid var(--line);
+}
+
+.turn-progress .active {
+  background: var(--ink);
+  color: var(--surface);
+}
+
+.turn-progress .complete {
+  color: var(--pos);
+}
+
+.labyrinth-gameplay {
+  grid-template-columns: minmax(0, 1fr) 260px;
+  gap: 12px;
+}
+
+.labyrinth-board-panel {
+  min-width: 0;
+  padding: 12px;
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--pos) 5%, transparent), transparent 55%),
+    var(--surface);
+}
+
 .labyrinth-board-wrap {
   overflow: auto;
 }
@@ -1035,8 +1176,8 @@ input::placeholder {
   display: grid;
   grid-template-columns: repeat(7, minmax(0, 1fr));
   gap: 3px;
-  width: 100%;
-  max-width: 560px;
+  width: var(--maze-size);
+  max-width: 100%;
   margin: 0 auto;
   background: rgba(0, 10, 20, 0.8);
   padding: 4px;
@@ -1052,7 +1193,7 @@ input::placeholder {
   position: relative;
   overflow: hidden;
   cursor: default;
-  transition: transform var(--dur-1), box-shadow var(--dur-1);
+  transition: transform var(--dur-1) var(--ease), box-shadow var(--dur-1) var(--ease), border-color var(--dur-1) var(--ease), filter var(--dur-1) var(--ease);
   padding: 0;
   display: block;
 }
@@ -1072,8 +1213,23 @@ input::placeholder {
 }
 
 .labyrinth-cell.reachable:hover {
-  transform: scale(0.92);
+  transform: scale(0.96);
   box-shadow: none;
+}
+
+.labyrinth-cell.reachable:active {
+  transform: scale(0.96);
+}
+
+.labyrinth-cell:focus-visible,
+.insert-btn:focus-visible {
+  z-index: 4;
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.labyrinth-cell:disabled {
+  opacity: 1;
 }
 
 /* Player pawn token */
@@ -1110,7 +1266,8 @@ input::placeholder {
   grid-template-columns: auto 1fr auto;
   grid-template-rows: auto 1fr auto;
   gap: var(--sp-2);
-  max-width: 640px;
+  width: fit-content;
+  max-width: 100%;
   margin: 0 auto;
 }
 
@@ -1160,15 +1317,15 @@ input::placeholder {
   justify-content: center;
   justify-self: center;
   align-self: center;
-  width: 32px;
-  height: 32px;
+  width: 40px;
+  height: 40px;
   border-radius: var(--r-sm);
   border: 1px solid var(--line);
   background: var(--raised);
   color: var(--ink-2);
   font-size: 13px;
   cursor: pointer;
-  transition: all var(--dur-1);
+  transition: transform var(--dur-1) var(--ease), background-color var(--dur-1) var(--ease), border-color var(--dur-1) var(--ease), color var(--dur-1) var(--ease);
   flex-shrink: 0;
   padding: 0;
 }
@@ -1177,7 +1334,7 @@ input::placeholder {
   background: var(--accent-subtle);
   border-color: var(--line-2);
   color: var(--accent);
-  transform: scale(1.1);
+  transform: scale(1.04);
 }
 
 .insert-btn:disabled {
@@ -1189,20 +1346,36 @@ input::placeholder {
      SPARE TILE DISPLAY
   ============================================================ */
 .spare-tile-wrap {
+  grid-area: spare;
   display: flex;
+  flex-direction: row;
   align-items: center;
-  gap: var(--sp-3);
+  gap: var(--sp-2);
+  justify-self: end;
 }
 
 .spare-tile-box {
-  width: 56px;
-  height: 56px;
-  border-radius: var(--r);
-  border: 1px solid var(--warn);
+  position: relative;
+  width: 48px;
+  height: 48px;
+  border: 2px solid var(--warn);
+  border-radius: var(--r-sm);
   box-shadow: none;
   overflow: hidden;
   flex-shrink: 0;
   background: rgba(20, 35, 20, 0.8);
+}
+
+.spare-tile-label {
+  color: var(--warn);
+}
+
+.spare-tile-hint {
+  margin-top: 2px;
+  color: var(--ink-3);
+  font-size: 10px;
+  line-height: 1.3;
+  text-align: center;
 }
 
 /* ============================================================
@@ -1233,6 +1406,16 @@ input::placeholder {
   color: var(--warn);
 }
 
+.objective-item.is-upcoming {
+  opacity: 0.48;
+}
+
+.objectives-complete {
+  color: var(--pos);
+  font-size: 12px;
+  font-weight: 700;
+}
+
 /* ============================================================
      PLAYER COLORS (labyrinth)
   ============================================================ */
@@ -1260,9 +1443,80 @@ input::placeholder {
      SIDE PANEL ITEMS
   ============================================================ */
 .side-card {
-  padding: var(--sp-4);
+  padding: 12px;
 }
 
+.labyrinth-players {
+  display: grid;
+  gap: 6px;
+}
+
+.labyrinth-player {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+}
+
+.labyrinth-player.is-current {
+  border-color: var(--accent);
+  background: var(--accent-subtle);
+}
+
+.labyrinth-player-token {
+  position: static;
+  width: 28px;
+  height: 28px;
+  flex: 0 0 28px;
+  transform: none;
+  font-size: 10px;
+}
+
+.labyrinth-player-copy {
+  min-width: 0;
+}
+
+.labyrinth-player-name {
+  overflow: hidden;
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.labyrinth-player.is-me .labyrinth-player-name {
+  color: var(--accent);
+}
+
+.labyrinth-player-meta {
+  margin-top: 2px;
+  color: var(--ink-3);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-variant-numeric: tabular-nums;
+  text-transform: uppercase;
+}
+
+.activity-card {
+  min-height: 96px;
+}
+
+.activity-feed {
+  display: grid;
+  max-height: 140px;
+  overflow: auto;
+}
+
+.activity-feed:empty::after {
+  content: 'No moves yet';
+  color: var(--ink-3);
+  font-size: 11px;
+}
+
+.side-card h2,
 .side-card h3 {
   font-size: 11px;
   font-weight: 700;
@@ -1281,6 +1535,16 @@ input::placeholder {
 
 .debug-panel {
   padding: var(--sp-3);
+}
+
+.debug-panel summary {
+  color: var(--ink-3);
+  cursor: pointer;
+  list-style-position: inside;
+}
+
+.debug-panel[open] summary {
+  margin-bottom: var(--sp-2);
 }
 
 .debug-panel pre {
@@ -1335,6 +1599,26 @@ input::placeholder {
   .board-columns {
     grid-template-columns: 1fr 1fr;
   }
+
+  .labyrinth-screen {
+    --maze-size: min(560px, calc(100vh - 335px), calc(100vw - 140px));
+  }
+
+  .labyrinth-play-header {
+    grid-template-columns: minmax(180px, 0.7fr) minmax(320px, 1.3fr);
+  }
+
+  .turn-progress {
+    display: none;
+  }
+
+  .labyrinth-gameplay .side-stack {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .labyrinth-gameplay .debug-panel {
+    grid-column: 1 / -1;
+  }
 }
 
 @media (max-width: 768px) {
@@ -1357,6 +1641,83 @@ input::placeholder {
 
   .screen {
     padding: var(--sp-4);
+  }
+
+  .labyrinth-screen {
+    --maze-size: min(480px, calc(100vw - 128px));
+    padding: 12px;
+  }
+
+  .labyrinth-play-header {
+    grid-template-columns: 1fr;
+  }
+
+  .labyrinth-turn-status {
+    width: 100%;
+  }
+
+  .labyrinth-gameplay .side-stack {
+    grid-template-columns: 1fr;
+  }
+
+  .labyrinth-insert-ring {
+    grid-template-areas:
+      "spare spare spare"
+      ". top ."
+      "left board right"
+      ". bottom .";
+    grid-template-columns: 36px var(--maze-size) 36px;
+    gap: 4px;
+  }
+
+  .insert-btn {
+    width: 36px;
+    height: 36px;
+  }
+
+  .spare-tile-wrap {
+    justify-self: start;
+  }
+}
+
+@media (max-width: 520px) {
+  #app {
+    width: calc(100% - 16px);
+    margin-top: 8px;
+  }
+
+  .labyrinth-screen {
+    --maze-size: calc(100vw - 104px);
+    padding-inline: 8px;
+  }
+
+  .labyrinth-board-panel {
+    padding: 8px 4px;
+  }
+
+  .labyrinth-screen .spare-tile-box {
+    width: 46px;
+    height: 46px;
+  }
+
+  .spare-tile-hint {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .labyrinth-cell,
+  .insert-btn,
+  .ghost-token {
+    transition-duration: 0.01ms;
+  }
+
+  .spare-tile-box.spare-changed,
+  .labyrinth-cell.lane-shifted::before,
+  .labyrinth-cell.trail::after,
+  .player-token.just-moved,
+  .thinking-dots::after {
+    animation: none;
   }
 }
 
@@ -1679,25 +2040,6 @@ input::placeholder {
 .cell.revealed-ship {
   background: var(--accent-subtle);
   border: 1px dashed var(--accent);
-}
-
-/* spare tile lives beside the insert arrows: what you push is next to where
-   you push it */
-.spare-tile-wrap {
-  grid-area: spare;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--sp-1);
-  justify-self: center;
-}
-
-.spare-tile-box {
-  width: 76px;
-  height: 76px;
-  border: 2px solid var(--warn);
-  border-radius: var(--r-sm);
-  overflow: hidden;
 }
 
 .spare-tile-box.spare-changed {

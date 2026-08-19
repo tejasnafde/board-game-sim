@@ -5,7 +5,7 @@ export function renderAppShell(mainContent: string, route: AppRoute, sessionId: 
     <nav class="top-nav" aria-label="Primary">
       <a class="brand" href="#/">Board Game Sim</a>
       <div class="top-nav-right">
-        <span class="top-chip" id="copy-session-btn" style="cursor: pointer; user-select: none;" title="Click to copy session ID"><span class="label">game</span> <span class="num">${sessionId}</span></span>
+        <button class="top-chip" id="copy-session-btn" aria-label="Copy game code ${sessionId}" title="Copy game code"><span class="label">game</span> <span class="num">${sessionId}</span></button>
         <span class="top-chip" title="Your player identity">${playerId}</span>
         ${route.name === "game" ? `<button class="btn btn-ghost" id="nav-back-btn" style="padding:6px 12px;font-size:12px">Hub</button>` : ""}
       </div>
@@ -14,8 +14,9 @@ export function renderAppShell(mainContent: string, route: AppRoute, sessionId: 
 
   return `
     <section class="app-shell">
+      <a class="skip-link" href="#main-content">Skip to game</a>
       ${topNav}
-      <main>${mainContent}</main>
+      <main id="main-content" tabindex="-1">${mainContent}</main>
     </section>
   `;
 }

@@ -1,31 +1,7 @@
 import { RealtimeClient, type SocketLike } from "./realtime-client";
-import { createWebClientRuntime, type WebClientRuntime } from "./runtime";
-import { battleshipManifest, connect4Manifest, getManifest, labyrinthManifest } from "./game-manifests";
+import type { WebClientRuntime } from "./runtime";
 import { renderAppShell, renderComingSoon, renderHubLanding } from "./app-shell";
-import {
-  bindBattleshipEvents,
-  inferBattleshipScreen,
-  placementsToDraftMap,
-  renderBattleshipGameplay,
-  renderBattleshipLobby,
-  renderBattleshipSetup,
-  type ClientView,
-  type ShipSpec
-} from "./game-adapters/battleship";
-import {
-  bindLabyrinthEvents,
-  inferLabyrinthScreen,
-  renderLabyrinthGameplay,
-  renderLabyrinthLobby,
-  type LabyrinthView
-} from "./game-adapters/labyrinth";
-import {
-  bindConnect4Events,
-  inferConnect4Screen,
-  renderConnect4Gameplay,
-  renderConnect4Lobby,
-  type Connect4View
-} from "./game-adapters/connect4";
+import { createPlayableGameUiAdapters, type PlayableGameUiAdapter } from "./game-adapters";
 import { GAME_HUB_CARDS, resolveGameHubNavigation } from "./game-hub";
 import { nextSessionId } from "./templates/lobby";
 import { navigate, parseHashRoute, toHashRoute, type AppRoute, type GameId } from "./routes";
@@ -85,43 +61,15 @@ export function mountPlayableClient(
     subscribe: (listener: Parameters<RealtimeClient["onServerEvent"]>[0]) => realtimeClient.onServerEvent(listener)
   };
 
-  const runtimeByGame = {
-    battleship: createWebClientRuntime({
-      presentation: battleshipManifest.presentation,
-      baseAssetPath: options.assetBasePath ?? "/",
-      transport
-    }),
-    labyrinth: createWebClientRuntime({
-      presentation: labyrinthManifest.presentation,
-      baseAssetPath: options.assetBasePath ?? "/",
-      transport
-    }),
-    connect4: createWebClientRuntime({
-      presentation: connect4Manifest.presentation,
-      baseAssetPath: options.assetBasePath ?? "/",
-      transport
-    })
-  } satisfies Record<"battleship" | "labyrinth" | "connect4", WebClientRuntime>;
-
-  const shipPreview = {
-    carrier: runtimeByGame.battleship.assetManager.resolveAssetUrl("ship-carrier"),
-    battleship: runtimeByGame.battleship.assetManager.resolveAssetUrl("ship-battleship"),
-    cruiser: runtimeByGame.battleship.assetManager.resolveAssetUrl("ship-cruiser"),
-    submarine: runtimeByGame.battleship.assetManager.resolveAssetUrl("ship-submarine"),
-    destroyer: runtimeByGame.battleship.assetManager.resolveAssetUrl("ship-destroyer")
-  };
+  const gameUiAdapters = createPlayableGameUiAdapters({
+    transport,
+    baseAssetPath: options.assetBasePath ?? "/"
+  });
 
   let joined = false;
   let joinedGameId: GameId | null = null;
   let sessionId = getDefaultSessionForGame("battleship");
   let playerId = getDefaultPlayerId();
-  let labSeatCount = 2;
-  const battleshipDefinition = battleshipManifest.definition as { board: { rows: number; cols: number }; ships: ShipSpec[] };
-  const shipSpecs = battleshipDefinition.ships;
-  // Start with an EMPTY draft map - don't pre-place ships, let the user do it
-  let placementDraftMap: Record<string, import("./game-adapters/battleship").PlacementDraft> = {};
-  let selectedShipId = shipSpecs[0]?.id ?? "";
-  let localError: string | null = null;
   const logs: string[] = [];
 
   const pushLog = (entry: string): void => {
@@ -133,32 +81,28 @@ export function mountPlayableClient(
   };
 
   const getCurrentRoute = (): AppRoute => parseHashRoute(window.location.hash);
+  const getAdapterForRoute = (route: AppRoute): PlayableGameUiAdapter => {
+    if (route.name === "game" && route.gameId === "labyrinth") return gameUiAdapters.labyrinth;
+    if (route.name === "game" && route.gameId === "connect4") return gameUiAdapters.connect4;
+    return gameUiAdapters.battleship;
+  };
   const goHome = (): void => {
     if (joined && sessionId && playerId) {
       realtimeClient.send({ type: "session.leave", sessionId, playerId });
     }
+    getAdapterForRoute(getCurrentRoute()).resetSession();
     joined = false;
     joinedGameId = null;
     navigate({ name: "landing" });
-  };
-  const getRuntimeForRoute = (route: AppRoute): WebClientRuntime => {
-    if (route.name === "game" && route.gameId === "labyrinth") {
-      return runtimeByGame.labyrinth;
-    }
-    if (route.name === "game" && route.gameId === "connect4") {
-      return runtimeByGame.connect4;
-    }
-    return runtimeByGame.battleship;
   };
 
   realtimeClient.onLog((entry) => pushLog(entry));
 
   const render = (): void => {
     const route = getCurrentRoute();
-    const runtime = getRuntimeForRoute(route);
+    const adapter = getAdapterForRoute(route);
+    const runtime = adapter.runtime;
     const state = runtime.controller.getState();
-    const view = (state.view ?? {}) as ClientView;
-    const phase = view.phase ?? "setup";
 
     let mainContent = "";
 
@@ -170,63 +114,12 @@ export function mountPlayableClient(
       // Only server evidence moves us off the lobby: a state_sync for the
       // session we asked for. The local `joined` flag alone is just intent.
       const confirmed = joined && state.synced && state.sessionId === sessionId;
-      const mySeat = state.seatId ?? playerId;
-
-      const gameUiAdapters = {
-        battleship: () => {
-          const battleshipScreen = inferBattleshipScreen(confirmed && joinedGameId === "battleship", view);
-          const canFire = phase === "play" && view.currentPlayerId === mySeat;
-          if (battleshipScreen === "lobby") return renderBattleshipLobby(sessionId, playerId, state.lastError);
-          if (battleshipScreen === "setup")
-            return renderBattleshipSetup(
-              battleshipDefinition,
-              (view.ownBoard?.ships?.length ?? 0) > 0,
-              sessionId,
-              playerId,
-              placementDraftMap,
-              selectedShipId,
-              shipPreview,
-              localError,
-              state.lastError
-            );
-          return renderBattleshipGameplay(
-            phase,
-            view,
-            canFire,
-            runtime.renderer.render(view),
-            logs,
-            JSON.stringify(state, null, 2),
-            { seatNames: state.seatNames, lastError: state.lastError, lastEvents: state.lastEvents }
-          );
-        },
-        labyrinth: () => {
-          const labyrinthView = (state.view ?? {}) as LabyrinthView;
-          const labyrinthScreen = inferLabyrinthScreen(confirmed && joinedGameId === "labyrinth");
-          if (labyrinthScreen === "lobby") return renderLabyrinthLobby(sessionId, playerId, state.lastError, labSeatCount);
-          return renderLabyrinthGameplay(labyrinthView, mySeat, logs, JSON.stringify(state, null, 2), {
-            seatNames: state.seatNames,
-            lastError: state.lastError,
-            lastEvents: state.lastEvents
-          });
-        },
-        connect4: () => {
-          const connect4View = (state.view ?? {}) as Connect4View;
-          const connect4Screen = inferConnect4Screen(confirmed && joinedGameId === "connect4");
-          if (connect4Screen === "lobby") return renderConnect4Lobby(sessionId, playerId, state.lastError);
-          return renderConnect4Gameplay(connect4View, mySeat, {
-            seatNames: state.seatNames,
-            lastError: state.lastError
-          });
-        }
-      } as const;
-
-      if (route.gameId === "battleship") {
-        mainContent = gameUiAdapters.battleship();
-      } else if (route.gameId === "labyrinth") {
-        mainContent = gameUiAdapters.labyrinth();
-      } else if (route.gameId === "connect4") {
-        mainContent = gameUiAdapters.connect4();
-      }
+      mainContent = adapter.render({
+        confirmed: confirmed && joinedGameId === route.gameId,
+        sessionId,
+        playerId,
+        logs
+      });
     }
 
     root.innerHTML = renderAppShell(mainContent, route, sessionId, playerId);
@@ -297,9 +190,6 @@ export function mountPlayableClient(
     });
 
     const seatCountSelect = root.querySelector<HTMLSelectElement>("#seat-count");
-    seatCountSelect?.addEventListener("change", () => {
-      labSeatCount = Number(seatCountSelect.value) || 2;
-    });
 
     const startSession = (id: string, options: { create: boolean; seatCount?: number; bots?: number }): void => {
       sessionId = id;
@@ -308,10 +198,7 @@ export function mountPlayableClient(
       }
       joined = true;
       joinedGameId = route.name === "game" ? route.gameId : null;
-      // Reset placement state when joining a fresh session
-      placementDraftMap = {};
-      selectedShipId = shipSpecs[0]?.id ?? "";
-      localError = null;
+      adapter.resetSession();
       if (options.create && joinedGameId) {
         runtime.controller.join(sessionId, playerId, joinedGameId, options.seatCount, options.bots);
       } else {
@@ -325,7 +212,7 @@ export function mountPlayableClient(
     const createBtn = root.querySelector<HTMLButtonElement>("#create-btn");
     createBtn?.addEventListener("click", () => {
       const vsBot = root.querySelector<HTMLInputElement>("#vs-bot")?.checked ?? false;
-      const seatCount = seatCountSelect ? labSeatCount : undefined;
+      const seatCount = seatCountSelect ? Number(seatCountSelect.value) || 2 : undefined;
       startSession(generateSessionId(), {
         create: true,
         seatCount,
@@ -351,45 +238,8 @@ export function mountPlayableClient(
       });
     });
 
-    if (route.name === "game" && route.gameId === "battleship") {
-      bindBattleshipEvents(root, {
-        runtime,
-        definition: battleshipDefinition,
-        shipSpecs,
-        placementDraftMap,
-        selectedShipId,
-        localError,
-        playerId,
-        render,
-        pushLog,
-        setPlacementDraftMap: (map) => {
-          placementDraftMap = map;
-        },
-        setSelectedShipId: (id) => {
-          selectedShipId = id;
-        },
-        setLocalError: (err) => {
-          localError = err;
-        }
-      });
-    }
-
-    if (route.name === "game" && route.gameId === "labyrinth") {
-      bindLabyrinthEvents(root, {
-        runtime,
-        playerId,
-        render,
-        pushLog
-      });
-    }
-
-    if (route.name === "game" && route.gameId === "connect4") {
-      bindConnect4Events(root, {
-        runtime,
-        playerId,
-        render,
-        pushLog
-      });
+    if (route.name === "game" && route.gameId !== "catan") {
+      adapter.bind({ root, playerId, render, pushLog });
     }
   };
 
@@ -403,7 +253,7 @@ export function mountPlayableClient(
       root.contains(active) &&
       (active.tagName === "INPUT" || active.tagName === "SELECT")
     ) {
-      const routeState = getRuntimeForRoute(getCurrentRoute()).controller.getState();
+      const routeState = getAdapterForRoute(getCurrentRoute()).runtime.controller.getState();
       if (!(routeState.synced && routeState.sessionId === sessionId)) {
         return;
       }
@@ -424,7 +274,7 @@ export function mountPlayableClient(
   render();
 
   return {
-    runtime: runtimeByGame.battleship,
+    runtime: gameUiAdapters.battleship.runtime,
     dispose: () => {
       disposeTransportSubscription();
       window.removeEventListener("hashchange", onHashChange);
