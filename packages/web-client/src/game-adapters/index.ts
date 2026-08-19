@@ -1,25 +1,24 @@
 import type { ControllerTransport } from "../client-controller";
-import { battleshipManifest, connect4Manifest, labyrinthManifest } from "../game-manifests";
-import { createWebClientRuntime } from "../runtime";
-import { createBattleshipUiAdapter } from "./battleship";
-import { createConnect4UiAdapter } from "./connect4";
-import { createLabyrinthUiAdapter } from "./labyrinth";
+import { gameCatalog } from "../registered-games";
 
 export function createPlayableGameUiAdapters(input: {
   transport: ControllerTransport;
   baseAssetPath: string;
+  assetPackByGame?: Record<string, string | undefined>;
 }) {
-  const runtimeFor = (presentation: unknown) => createWebClientRuntime({
-    presentation,
-    baseAssetPath: input.baseAssetPath,
-    transport: input.transport
-  });
-
-  return {
-    battleship: createBattleshipUiAdapter(runtimeFor(battleshipManifest.presentation)),
-    labyrinth: createLabyrinthUiAdapter(runtimeFor(labyrinthManifest.presentation)),
-    connect4: createConnect4UiAdapter(runtimeFor(connect4Manifest.presentation))
-  };
+  return new Map(gameCatalog.listPlayable().map((entry) => {
+    if (!entry.client) {
+      throw new Error(`playable_game_client_missing:${entry.manifest.gameId}`);
+    }
+    return [
+      entry.manifest.gameId,
+      entry.client.createUiAdapter({
+        transport: input.transport,
+        baseAssetPath: input.baseAssetPath,
+        assetPackId: input.assetPackByGame?.[entry.manifest.gameId]
+      })
+    ];
+  }));
 }
 
 export type {

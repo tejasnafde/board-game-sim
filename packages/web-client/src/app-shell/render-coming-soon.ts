@@ -1,7 +1,7 @@
 import type { GameId } from "../routes";
 import { GAME_HUB_CARDS } from "../game-hub";
 
-export function renderComingSoon(gameId: Exclude<GameId, "battleship" | "labyrinth">): string {
+export function renderComingSoon(gameId: GameId): string {
   const card = GAME_HUB_CARDS.find((item) => item.gameId === gameId);
   return `
     <section class="screen coming-soon" aria-label="Coming soon">

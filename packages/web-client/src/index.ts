@@ -11,10 +11,8 @@ export * from "./routes";
 export * from "./runtime";
 
 import type { SocketLike } from "./realtime-client";
-import { mountPlayableClient } from "./browser-app";
+import { mountReactBrowserApp } from "./react-app";
 
 export function initPlayableWebClient(root: HTMLElement, websocketFactory: () => SocketLike) {
-  return mountPlayableClient(root, {
-    websocketFactory
-  });
+  return mountReactBrowserApp(root, websocketFactory);
 }

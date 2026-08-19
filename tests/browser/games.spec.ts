@@ -87,6 +87,20 @@ test("battleship: selected ship art stays on its cells through every rotation", 
   await page.close();
 });
 
+test("battleship: visual pack selection persists without changing gameplay", async ({ browser }) => {
+  const page = await browser.newPage();
+  await page.goto("/#/games/battleship");
+  await page.selectOption("#asset-pack-select", "classic-vector");
+  await expect(page.locator("#asset-pack-select")).toHaveValue("classic-vector");
+
+  await page.locator("#create-btn").dispatchEvent("click");
+  await expect(page.locator("#placement-board")).toBeVisible();
+  await page.click("#load-template-btn");
+  await expect(page.locator(".placement-ship-art").first()).toHaveAttribute("src", /\.svg$/);
+
+  await page.close();
+});
+
 test("connect4 vs computer: solo player gets instant bot replies to a finished game", async ({ browser }) => {
   const page = await browser.newPage();
   await page.goto("/#/games/connect4");

@@ -4,14 +4,24 @@
 
 ## Modules
 
+- `registered-games.ts`: the single audited game catalog. Hub metadata,
+  playability, and adapter factories derive from these entries.
+- `game-catalog.ts`: validates and indexes client modules without game-specific
+  route or shell knowledge.
+- `asset-pack.ts`: validates semantic visual roles, emitted file URLs, theme
+  variables, and source credits.
+- `game-assets/<game>.ts`: owns a game's compatible visual packs and static Vite
+  asset imports.
+- `react-app.tsx`: React application mount and lifecycle boundary.
 - `realtime-client.ts`: websocket transport abstraction.
 - `realtime-state.ts`: client-side event reducer and action envelope builder.
 - `client-controller.ts`: join/rejoin plus generic `submitAction` API (with Battleship helpers preserved).
-- `runtime.ts`: binds presentation definition, asset manager, renderer, and controller.
+- `runtime.ts`: binds presentation, controller, and a renderer supplied by the
+  game module. Shared runtime code contains no ship or shot vocabulary.
 - `browser-app.ts`: route-aware shell and session host; it has no game-specific render or event knowledge.
 - `game-adapters/playable-game-ui.ts`: the shared Playable Game UI adapter interface.
 - `game-adapters/<game>/index.ts`: adapter implementation that owns that game's screens, rendering, event binding, and ephemeral UI state.
-- `game-adapters/index.ts`: creates the current adapter set and their runtimes.
+- `game-adapters/index.ts`: derives the playable adapter map from the catalog.
 - `grid-renderer.ts`: default renderer for grid board games.
 
 ## Screens
@@ -22,6 +32,24 @@
 - Connect Four: session lobby, column controls, and a tactile drop board.
 
 Each playable lobby defaults to a server-backed computer game. Private tables are an explicit mode for people joining with the same game code.
+
+## Adding a Playable Game
+
+1. Add its server-side definition, rules, bot, contract tests, and self-play
+   entry as required by the repository rules.
+2. Add the client adapter or React view and any semantic asset packs.
+3. Register one entry in `registered-games.ts`.
+
+The hub, hash route, session defaults, and adapter lookup require no separate
+game-specific edit.
+
+## Visual Packs
+
+Visuals resolve through roles such as `piece.carrier` and `effect.shot.hit`.
+Rendering metadata records the source art's native facing so packs can swap
+horizontal and vertical sprites without special-case rotations. Battleship's
+appearance selector persists the chosen pack locally and reloads presentation
+only; authoritative server state is unchanged.
 
 ## Runtime Flow
 

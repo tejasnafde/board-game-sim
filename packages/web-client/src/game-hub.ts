@@ -1,4 +1,5 @@
 import type { AppRoute, GameId } from "./routes";
+import { gameCatalog } from "./registered-games";
 
 export type HubCard = {
   gameId: GameId;
@@ -10,46 +11,16 @@ export type HubCard = {
   turnStyle: string;
 };
 
-export const GAME_HUB_CARDS: HubCard[] = [
-  {
-    gameId: "battleship",
-    name: "Battleship",
-    subtitle: "Hidden fleet placement with tactical turn-based strikes.",
-    status: "live",
-    releaseTag: "Playable now",
-    players: "2 players",
-    turnStyle: "Alternating turns"
-  },
-  {
-    gameId: "labyrinth",
-    name: "Labyrinth",
-    subtitle: "Shifting maze strategy with rotating board pathways.",
-    status: "live",
-    releaseTag: "Playable now",
-    players: "2-4 players",
-    turnStyle: "Board transform turns"
-  },
-  {
-    gameId: "connect4",
-    name: "Connect Four",
-    subtitle: "Drop discs and connect four - beat a friend or the computer.",
-    status: "live",
-    releaseTag: "Playable now",
-    players: "2 players (or vs AI)",
-    turnStyle: "Alternating drops"
-  },
-  {
-    gameId: "catan",
-    name: "Catan",
-    subtitle: "Resource trading and settlement growth on a hex island.",
-    status: "coming-soon",
-    releaseTag: "Coming soon: later milestone",
-    players: "3-4 players",
-    turnStyle: "Dice + trading rounds"
-  }
-];
+export const GAME_HUB_CARDS: HubCard[] = gameCatalog.list().map(({ manifest }) => ({
+  gameId: manifest.gameId,
+  name: manifest.title,
+  subtitle: manifest.summary,
+  status: manifest.status,
+  releaseTag: manifest.releaseTag,
+  players: manifest.players,
+  turnStyle: manifest.turnStyle
+}));
 
 export function resolveGameHubNavigation(gameId: GameId): AppRoute | null {
-  if (gameId === "catan") return null;
-  return { name: "game", gameId };
+  return gameCatalog.resolvePlayable(gameId) ? { name: "game", gameId } : null;
 }

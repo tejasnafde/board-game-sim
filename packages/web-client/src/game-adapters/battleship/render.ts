@@ -3,12 +3,25 @@ import { buildCellsFromAnchor } from "./placement-utils";
 import { humanizeError, lobbyPanelMarkup, terminalBannerMarkup } from "../../templates/lobby";
 import { icon } from "../../icons";
 
+export type ShipPreview = {
+  url: string;
+  nativeFacing?: "north" | "east" | "south" | "west";
+};
+
+function normalizeShipPreview(preview: ShipPreview | string | undefined): ShipPreview {
+  return typeof preview === "string" ? { url: preview, nativeFacing: "north" } : (preview ?? { url: "" });
+}
+
+function facingAngle(facing: ShipPreview["nativeFacing"]): number {
+  return { north: 270, east: 0, south: 90, west: 180 }[facing ?? "north"];
+}
+
 export function renderPlacementBoardMarkup(
   definition: BattleshipDefinition,
   specs: ShipSpec[],
   draftMap: Record<string, PlacementDraft>,
   selectedShipId: string,
-  shipPreview: Record<string, string>
+  shipPreview: Record<string, ShipPreview | string>
 ): string {
   const occupied = new Set<string>();
   for (const spec of specs) {
@@ -56,16 +69,20 @@ export function renderPlacementBoardMarkup(
       const isHorizontal = draft.rotationDeg % 180 === 0;
       const widthCells = Math.max(...cols) - startCol + 1;
       const heightCells = Math.max(...rows) - startRow + 1;
-      const artRotation = (draft.rotationDeg + 90) % 360;
+      const preview = normalizeShipPreview(shipPreview[spec.id]);
+      const artRotation = (draft.rotationDeg - facingAngle(preview.nativeFacing) + 360) % 360;
+      const nativeAxis = preview.nativeFacing === "east" || preview.nativeFacing === "west"
+        ? "native-horizontal"
+        : "native-vertical";
       const isSelected = selectedShipId === spec.id;
 
       return `<div
-        class="placement-ship ${isHorizontal ? "is-horizontal" : "is-vertical"} ${isSelected ? "selected" : ""}"
+        class="placement-ship ${isHorizontal ? "is-horizontal" : "is-vertical"} ${nativeAxis} ${isSelected ? "selected" : ""}"
         data-ship-id="${spec.id}"
         style="--ship-row:${startRow};--ship-col:${startCol};--ship-width:${widthCells};--ship-height:${heightCells};--ship-size:${spec.size};--ship-art-rotation:${artRotation}deg;"
         title="${spec.id} - click to select, right-click board to rotate"
       >
-        <img class="placement-ship-art" src="${shipPreview[spec.id] ?? ""}" alt="" />
+        <img class="placement-ship-art" src="${preview.url}" alt="" />
         <span class="placement-ship-label">${spec.id}</span>
         ${isSelected ? `<div class="ship-selected-ring"></div>` : ""}
       </div>`;
@@ -96,9 +113,11 @@ export function renderBattleshipLobby(sessionId: string, playerId: string, error
   `;
 }
 
-function fleetIconBlocks(size: number, isSelected: boolean, imgSrc: string): string {
-  if (imgSrc) {
-    return `<img src="${imgSrc}" alt="" style="width:auto;height:20px;image-rendering:pixelated;transform:rotate(90deg);opacity:${isSelected ? 1 : 0.7}" />`;
+function fleetIconBlocks(size: number, isSelected: boolean, input: ShipPreview | string | undefined): string {
+  const preview = normalizeShipPreview(input);
+  if (preview.url) {
+    const rotation = (0 - facingAngle(preview.nativeFacing) + 360) % 360;
+    return `<img src="${preview.url}" alt="" style="width:auto;height:20px;transform:rotate(${rotation}deg);opacity:${isSelected ? 1 : 0.7}" />`;
   }
   return Array.from({ length: size }, () =>
     `<div class="ship-block ${isSelected ? "active-block" : ""}"></div>`
@@ -112,7 +131,7 @@ export function renderBattleshipSetup(
   playerId: string,
   placementDraftMap: Record<string, PlacementDraft>,
   selectedShipId: string,
-  shipPreview: Record<string, string>,
+  shipPreview: Record<string, ShipPreview | string>,
   localError: string | null,
   stateLastError: string | null | undefined
 ): string {
@@ -162,7 +181,7 @@ export function renderBattleshipSetup(
           const isPlaced = !!placementDraftMap[ship.id];
           return `
                   <button class="fleet-row fleet-button ${isSelected ? "active" : ""}" data-ship-id="${ship.id}">
-                    <div class="fleet-icons">${fleetIconBlocks(ship.size, isSelected, shipPreview[ship.id] ?? "")}</div>
+                    <div class="fleet-icons">${fleetIconBlocks(ship.size, isSelected, shipPreview[ship.id])}</div>
                     <span class="ship-name">${ship.id}</span>
                     <span class="ship-size num">x${ship.size}</span>
                     <span class="ship-status-dot ${isPlaced ? "placed" : ""}" role="img" aria-label="${isPlaced ? "placed" : "not placed"}"></span>

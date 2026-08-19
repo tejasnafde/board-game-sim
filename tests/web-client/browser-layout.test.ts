@@ -17,6 +17,27 @@ describe("browser gameplay layout", () => {
     expect(html).toContain('<button class="top-chip" id="copy-session-btn"');
   });
 
+  test("credits the selected open-source visual pack", () => {
+    const html = renderAppShell(
+      "<p>Game</p>",
+      { name: "game", gameId: "battleship" },
+      "S1",
+      "P1",
+      {
+        selected: "sea-command",
+        packs: [{ id: "sea-command", label: "Sea Command" }],
+        credit: {
+          author: "Lowder2",
+          license: "CC0-1.0",
+          sourceUrl: "https://opengameart.org/content/sea-warfare-set-ships-and-more"
+        }
+      }
+    );
+
+    expect(html).toContain("Art: Lowder2 · CC0-1.0");
+    expect(html).toContain('rel="noreferrer"');
+  });
+
   test("playable lobbies make the computer the explicit default opponent", () => {
     const html = lobbyPanelMarkup("S1", "P1", {
       title: "Table",
