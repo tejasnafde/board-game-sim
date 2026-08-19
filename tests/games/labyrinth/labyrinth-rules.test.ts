@@ -27,10 +27,70 @@ describe("labyrinth rules", () => {
     expect(deterministicHash(first.state)).toBe(deterministicHash(second.state));
   });
 
-  test("only insert_tile is legal during insertion stage", () => {
+  test("rotation and insertion are legal during insertion stage", () => {
     const { module, state } = initState();
     const legal = module.listLegalActions(state, "p1");
-    expect(legal.map((it) => it.actionType)).toEqual(["insert_tile"]);
+    expect(legal.map((it) => it.actionType)).toEqual(["rotate_spare", "insert_tile"]);
+  });
+
+  test("rotates the spare tile without advancing the turn", () => {
+    const { module, state } = initState();
+    const before = state.spareTile;
+    const rotationDeg = ((before.rotationDeg + 90) % 360) as 0 | 90 | 180 | 270;
+
+    const result = module.applyAction({
+      sessionId: "lab-1",
+      seq: 0,
+      actorPlayerId: "p1",
+      actionType: "rotate_spare",
+      payload: { rotationDeg },
+      state,
+      seed: "seed-1"
+    });
+
+    expect(result.accepted).toBe(true);
+    expect(result.nextState.spareTile.rotationDeg).toBe(rotationDeg);
+    expect(result.nextState.spareTile.openings).not.toEqual(before.openings);
+    expect(result.nextState.turnStage).toBe("insert");
+    expect(result.nextState.currentPlayerId).toBe("p1");
+    expect(result.emittedEvents).toEqual([{ eventType: "spare.rotated", payload: { rotationDeg } }]);
+  });
+
+  test("rejects invalid spare rotations and rotations after insertion", () => {
+    const { module, state } = initState();
+    const invalid = module.applyAction({
+      sessionId: "lab-1",
+      seq: 0,
+      actorPlayerId: "p1",
+      actionType: "rotate_spare",
+      payload: { rotationDeg: 45 },
+      state,
+      seed: "seed-1"
+    });
+    expect(invalid.accepted).toBe(false);
+    expect(invalid.reason).toBe("invalid_rotation");
+    expect(invalid.nextState).toEqual(state);
+
+    const inserted = module.applyAction({
+      sessionId: "lab-1",
+      seq: 0,
+      actorPlayerId: "p1",
+      actionType: "insert_tile",
+      payload: { edge: "top", index: 1 },
+      state,
+      seed: "seed-1"
+    });
+    const late = module.applyAction({
+      sessionId: "lab-1",
+      seq: 1,
+      actorPlayerId: "p1",
+      actionType: "rotate_spare",
+      payload: { rotationDeg: 90 },
+      state: inserted.nextState,
+      seed: "seed-1"
+    });
+    expect(late.accepted).toBe(false);
+    expect(late.reason).toBe("unexpected_turn_stage");
   });
 
   test("rejects insertion from illegal slot", () => {

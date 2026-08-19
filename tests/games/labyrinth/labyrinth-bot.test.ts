@@ -8,6 +8,10 @@ function openTile(id: string, objectiveId: string | null = null): Tile {
   return { id, shape: "tee", rotationDeg: 0, openings: { N: true, E: true, S: true, W: true }, objectiveId };
 }
 
+function closedTile(id: string, objectiveId: string | null = null): Tile {
+  return { id, shape: "tee", rotationDeg: 0, openings: { N: false, E: false, S: false, W: false }, objectiveId };
+}
+
 /** Real game state, then rewire the board to be fully open so paths are known. */
 function openBoardState(): LabyrinthState {
   const state = mod.initGame({
@@ -50,6 +54,54 @@ function act(state: LabyrinthState, playerId: string) {
 }
 
 describe("labyrinth bot quality bar", () => {
+  it("rotates the spare before inserting when that opens the route to its objective", () => {
+    const state = openBoardState();
+    state.board = state.board.map((row, r) => row.map((_, c) => closedTile(`c${r}-${c}`)));
+    state.board[0]![0] = openTile("start");
+    state.board[0]![2] = openTile("target", "gem");
+    state.spareTile = {
+      id: "spare",
+      shape: "straight",
+      rotationDeg: 0,
+      openings: { N: true, E: false, S: true, W: false },
+      objectiveId: null
+    };
+    const me = state.players.find((p) => p.playerId === "me")!;
+    me.position = { row: 0, col: 0 };
+    me.remainingObjectives = [{ id: "gem" }];
+
+    const action = labyrinthBot({
+      view: viewFor(state, "me") as never,
+      definition: definition as never,
+      playerId: "me",
+      rng: () => 0.5
+    });
+
+    expect(action?.actionType).toBe("rotate_spare");
+    expect([90, 270]).toContain((action?.payload as { rotationDeg?: number }).rotationDeg);
+  });
+
+  it("inserts instead of switching between equally useful spare rotations", () => {
+    const state = openBoardState();
+    state.spareTile = {
+      id: "spare",
+      shape: "straight",
+      rotationDeg: 90,
+      openings: { N: false, E: true, S: false, W: true },
+      objectiveId: null
+    };
+    state.players.find((player) => player.playerId === "me")!.remainingObjectives = [];
+    let call = 0;
+    const action = labyrinthBot({
+      view: viewFor(state, "me") as never,
+      definition: definition as never,
+      playerId: "me",
+      rng: () => call++ < 36 ? 0 : 0.99
+    });
+
+    expect(action?.actionType).toBe("insert_tile");
+  });
+
   it("takes the winning move: all objectives done → goes straight home", () => {
     let state = openBoardState();
     const me = state.players.find((p) => p.playerId === "me")!;

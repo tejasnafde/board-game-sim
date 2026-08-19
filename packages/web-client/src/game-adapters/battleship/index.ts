@@ -175,7 +175,7 @@ function BattleshipControllerView(input: {
     mySeat,
     seatNames: state.seatNames,
     lastError: state.lastError,
-    lastEvents: state.lastEvents,
+    acceptedActions: state.acceptedActions,
     logs: input.context.logs,
     boardMarkup: input.runtime.renderer.render(view),
     pending: state.pendingActionId !== null,

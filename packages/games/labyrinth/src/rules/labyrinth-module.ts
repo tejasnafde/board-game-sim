@@ -21,10 +21,12 @@ import type {
   LabyrinthPlayerState,
   LabyrinthState,
   MovePawnPayload,
+  RotateSparePayload,
+  RotationDeg,
   Tile,
   TileShape
 } from "./types";
-import { findObjectiveTile, findReachable as findReachableOnBoard, shiftBoard, shiftPosition } from "./board";
+import { findObjectiveTile, findReachable as findReachableOnBoard, rotateTile, shiftBoard, shiftPosition } from "./board";
 
 type LabyrinthDefinition = {
   board?: {
@@ -195,6 +197,10 @@ function oppositeEdge(edge: Edge): Edge {
 function isReverseInsertion(last: Insertion | null, next: InsertTilePayload): boolean {
   if (!last) return false;
   return oppositeEdge(last.edge) === next.edge && last.index === next.index;
+}
+
+function isRotationDeg(value: unknown): value is RotationDeg {
+  return value === 0 || value === 90 || value === 180 || value === 270;
 }
 
 function applyInsertionShift(state: LabyrinthState, insertion: Insertion): void {
@@ -380,7 +386,10 @@ export class LabyrinthModule implements GameModule<LabyrinthState> {
     if (state.currentPlayerId !== playerId) return [];
 
     if (state.turnStage === "insert") {
-      return [{ actionType: "insert_tile", description: "Insert spare tile from a legal edge slot" }];
+      return [
+        { actionType: "rotate_spare", description: "Rotate the spare tile" },
+        { actionType: "insert_tile", description: "Insert spare tile from a legal edge slot" }
+      ];
     }
 
     return [{ actionType: "move_pawn", description: "Move pawn to any reachable cell" }];
@@ -406,6 +415,40 @@ export class LabyrinthModule implements GameModule<LabyrinthState> {
         reason: "not_your_turn",
         nextState: state,
         emittedEvents: [],
+        nextTurnInfo: { currentPlayerId: state.currentPlayerId, phase: state.phase },
+        integrityHash: deterministicHash(state)
+      };
+    }
+
+    if (input.actionType === "rotate_spare") {
+      if (state.turnStage !== "insert") {
+        return {
+          accepted: false,
+          reason: "unexpected_turn_stage",
+          nextState: state,
+          emittedEvents: [],
+          nextTurnInfo: { currentPlayerId: state.currentPlayerId, phase: state.phase },
+          integrityHash: deterministicHash(state)
+        };
+      }
+
+      const rotationDeg = (input.payload as Partial<RotateSparePayload> | null)?.rotationDeg;
+      if (!isRotationDeg(rotationDeg)) {
+        return {
+          accepted: false,
+          reason: "invalid_rotation",
+          nextState: state,
+          emittedEvents: [],
+          nextTurnInfo: { currentPlayerId: state.currentPlayerId, phase: state.phase },
+          integrityHash: deterministicHash(state)
+        };
+      }
+
+      state.spareTile = rotateTile(state.spareTile, rotationDeg);
+      return {
+        accepted: true,
+        nextState: state,
+        emittedEvents: [{ eventType: "spare.rotated", payload: { rotationDeg } }],
         nextTurnInfo: { currentPlayerId: state.currentPlayerId, phase: state.phase },
         integrityHash: deterministicHash(state)
       };

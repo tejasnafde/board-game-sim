@@ -55,4 +55,10 @@ export type LabyrinthState = {
 
 export type InsertTilePayload = Insertion;
 
+export type RotationDeg = 0 | 90 | 180 | 270;
+
+export type RotateSparePayload = {
+  rotationDeg: RotationDeg;
+};
+
 export type MovePawnPayload = Coord;

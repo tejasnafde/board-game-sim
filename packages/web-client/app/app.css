@@ -1249,7 +1249,7 @@ input::placeholder {
      LABYRINTH BOARD
   ============================================================ */
 .labyrinth-screen {
-  --maze-size: min(560px, calc(100vh - 335px), calc(100vw - 410px));
+  --maze-size: min(560px, calc(100vh - 339px), calc(100vw - 410px));
   padding: 18px 24px 24px;
 }
 
@@ -1336,8 +1336,9 @@ input::placeholder {
 .labyrinth-board-panel {
   min-width: 0;
   padding: 12px;
+  border-color: color-mix(in srgb, var(--pos) 25%, var(--line));
   background:
-    linear-gradient(135deg, color-mix(in srgb, var(--pos) 5%, transparent), transparent 55%),
+    radial-gradient(circle at 50% 38%, color-mix(in srgb, var(--pos) 8%, transparent), transparent 52%),
     var(--surface);
 }
 
@@ -1352,21 +1353,25 @@ input::placeholder {
   width: var(--maze-size);
   max-width: 100%;
   margin: 0 auto;
-  background: rgba(0, 10, 20, 0.8);
-  padding: 4px;
+  background:
+    linear-gradient(145deg, rgba(77, 53, 28, 0.52), rgba(17, 19, 17, 0.94)),
+    var(--raised);
+  padding: 6px;
   border-radius: var(--r);
-  border: 1px solid var(--line);
+  border: 1px solid color-mix(in srgb, var(--warn) 30%, var(--line));
+  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.025), 0 12px 28px rgba(0, 0, 0, 0.22);
 }
 
 .labyrinth-cell {
   aspect-ratio: 1;
   border-radius: 5px;
-  background: rgba(20, 35, 20, 0.8);
-  border: 1px solid rgba(60, 90, 60, 0.4);
+  background: #132717;
+  border: 1px solid rgba(94, 132, 88, 0.42);
   position: relative;
   overflow: hidden;
   cursor: default;
-  transition: transform var(--dur-1) var(--ease), box-shadow var(--dur-1) var(--ease), border-color var(--dur-1) var(--ease), filter var(--dur-1) var(--ease);
+  box-shadow: inset 0 1px rgba(255, 255, 255, 0.06), inset 0 -2px rgba(0, 0, 0, 0.28);
+  transition: transform 180ms cubic-bezier(0.2, 0, 0, 1), box-shadow 180ms cubic-bezier(0.2, 0, 0, 1), border-color 180ms cubic-bezier(0.2, 0, 0, 1), filter 180ms cubic-bezier(0.2, 0, 0, 1);
   padding: 0;
   display: block;
 }
@@ -1381,17 +1386,17 @@ input::placeholder {
 /* Reachable cell highlight */
 .labyrinth-cell.reachable {
   border-color: var(--pos);
-  box-shadow: none;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--pos) 56%, transparent), 0 0 12px color-mix(in srgb, var(--pos) 18%, transparent);
   cursor: pointer;
 }
 
 .labyrinth-cell.reachable:hover {
-  transform: scale(0.96);
-  box-shadow: none;
+  transform: translateY(-2px);
+  box-shadow: inset 0 0 0 1px var(--pos), 0 6px 14px rgba(0, 0, 0, 0.28);
 }
 
 .labyrinth-cell.reachable:active {
-  transform: scale(0.96);
+  transform: translateY(0);
 }
 
 .labyrinth-cell:focus-visible,
@@ -1507,7 +1512,7 @@ input::placeholder {
   background: var(--accent-subtle);
   border-color: var(--line-2);
   color: var(--accent);
-  transform: scale(1.04);
+  transform: translateY(-1px);
 }
 
 .insert-btn:disabled {
@@ -1533,10 +1538,70 @@ input::placeholder {
   height: 48px;
   border: 2px solid var(--warn);
   border-radius: var(--r-sm);
-  box-shadow: none;
+  box-shadow: inset 0 1px rgba(255, 255, 255, 0.08), 0 5px 14px rgba(0, 0, 0, 0.28);
   overflow: hidden;
   flex-shrink: 0;
   background: rgba(20, 35, 20, 0.8);
+  animation: spare-turn 180ms cubic-bezier(0.2, 0, 0, 1);
+}
+
+@keyframes spare-turn {
+  from { opacity: 0.7; transform: rotate(-12deg) scale(0.94); }
+  to { opacity: 1; transform: rotate(0) scale(1); }
+}
+
+.spare-tile-copy {
+  display: grid;
+  gap: 5px;
+}
+
+.spare-rotate-controls {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.spare-rotate-btn {
+  display: grid;
+  width: 30px;
+  height: 30px;
+  place-items: center;
+  padding: 0;
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-sm);
+  background: var(--raised);
+  color: var(--ink);
+  cursor: pointer;
+  transition: transform 160ms cubic-bezier(0.2, 0, 0, 1), border-color 160ms cubic-bezier(0.2, 0, 0, 1), color 160ms cubic-bezier(0.2, 0, 0, 1);
+}
+
+.spare-rotate-btn:hover:not(:disabled) {
+  border-color: var(--warn);
+  color: var(--warn);
+  transform: translateY(-1px);
+}
+
+.spare-rotate-btn:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.spare-rotate-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.spare-rotate-btn:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.spare-rotation-readout {
+  min-width: 30px;
+  color: var(--ink-3);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
 }
 
 .spare-tile-label {
@@ -1572,6 +1637,32 @@ input::placeholder {
   font-weight: 600;
   color: var(--ink-2);
 }
+
+.objective-item > span:last-child {
+  display: grid;
+  gap: 2px;
+  text-transform: capitalize;
+}
+
+.objective-item small {
+  color: var(--ink-3);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.labyrinth-cell.insertion-preview {
+  z-index: 1;
+  border-color: color-mix(in srgb, var(--warn) 72%, var(--line));
+  filter: brightness(1.14);
+}
+
+.labyrinth-board-center[data-preview-edge="top"] .insertion-preview { transform: translateY(2px); }
+.labyrinth-board-center[data-preview-edge="bottom"] .insertion-preview { transform: translateY(-2px); }
+.labyrinth-board-center[data-preview-edge="left"] .insertion-preview { transform: translateX(2px); }
+.labyrinth-board-center[data-preview-edge="right"] .insertion-preview { transform: translateX(-2px); }
 
 .objective-item:first-child {
   background: color-mix(in srgb, var(--warn) 14%, transparent);
@@ -1886,6 +1977,7 @@ input::placeholder {
   }
 
   .spare-tile-box.spare-changed,
+  .spare-tile-box,
   .labyrinth-cell.lane-shifted::before,
   .labyrinth-cell.trail::after,
   .player-token.just-moved,
@@ -2577,6 +2669,15 @@ input::placeholder {
 .salvo-result strong {
   color: var(--ink);
   font-size: 12px;
+}
+
+.incoming-salvo-heading {
+  margin-top: 14px;
+}
+
+.incoming-salvo {
+  border-left-color: var(--neg);
+  background: color-mix(in srgb, var(--neg) 6%, transparent);
 }
 
 .salvo-result span {

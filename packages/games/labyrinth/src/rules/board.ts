@@ -1,9 +1,18 @@
-import type { Coord, Direction, Insertion, LabyrinthConfig, Tile } from "./types";
+import type { Coord, Direction, Insertion, LabyrinthConfig, RotationDeg, Tile } from "./types";
 
 type BoardSize = Pick<LabyrinthConfig, "rows" | "cols">;
 
 export const DIRS: Direction[] = ["N", "E", "S", "W"];
 export const OPPOSITE: Record<Direction, Direction> = { N: "S", S: "N", E: "W", W: "E" };
+
+export function rotateTile(tile: Tile, rotationDeg: RotationDeg): Tile {
+  const turns = ((rotationDeg - tile.rotationDeg + 360) % 360) / 90;
+  let openings = { ...tile.openings };
+  for (let turn = 0; turn < turns; turn += 1) {
+    openings = { N: openings.W, E: openings.N, S: openings.E, W: openings.S };
+  }
+  return { ...tile, rotationDeg, openings };
+}
 
 export function coordKey(c: Coord): string {
   return `${c.row}:${c.col}`;

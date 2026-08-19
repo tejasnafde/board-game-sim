@@ -46,10 +46,16 @@ describe("web-client realtime state", () => {
       type: "session.action_accepted",
       sessionId: "s1",
       seq: 2,
+      actorPlayerId: "p1",
       events: []
     });
     expect(accepted.seq).toBe(2);
     expect(accepted.pendingActionId).toBeNull();
+    expect(accepted.acceptedActions).toEqual([{
+      seq: 2,
+      actorPlayerId: "p1",
+      events: []
+    }]);
 
     const patched = applyServerEvent(accepted, {
       type: "session.state_patch",
@@ -103,5 +109,22 @@ describe("web-client realtime state", () => {
     } as ServerEvent);
 
     expect(next.seq).toBe(1);
+  });
+
+  test("keeps the twenty most recent accepted actions", () => {
+    let state = createInitialClientState();
+    for (let seq = 1; seq <= 25; seq += 1) {
+      state = applyServerEvent(state, {
+        type: "session.action_accepted",
+        sessionId: "s1",
+        seq,
+        actorPlayerId: seq % 2 ? "p1" : "p2",
+        events: [{ eventType: "shot.miss", payload: { at: { row: 0, col: seq } } }]
+      });
+    }
+
+    expect(state.acceptedActions).toHaveLength(20);
+    expect(state.acceptedActions[0]?.seq).toBe(6);
+    expect(state.acceptedActions.at(-1)?.seq).toBe(25);
   });
 });

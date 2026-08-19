@@ -5,6 +5,9 @@ import type { LabyrinthView } from "../../packages/web-client/src/game-adapters/
 
 function view(): LabyrinthView {
   const tile = {
+    id: "tile",
+    shape: "straight" as const,
+    rotationDeg: 90 as const,
     openings: { N: false, E: true, S: false, W: true },
     objectiveId: null
   };
@@ -14,7 +17,7 @@ function view(): LabyrinthView {
     currentPlayerId: "player-1",
     config: { rows: 7, cols: 7, insertionIndexes: [1, 3, 5] },
     board: Array.from({ length: 7 }, () => Array.from({ length: 7 }, () => ({ ...tile }))),
-    spareTile: tile,
+    spareTile: { ...tile, rotationDeg: 0 },
     players: [{
       playerId: "player-1",
       position: { row: 0, col: 0 },
@@ -23,7 +26,7 @@ function view(): LabyrinthView {
     }],
     myState: {
       position: { row: 0, col: 0 },
-      remainingObjectives: [{ id: "owl" }],
+      remainingObjectives: [{ id: "owl", position: { row: 0, col: 2 } }],
       reachableCells: [{ row: 0, col: 0 }]
     }
   };
@@ -35,9 +38,14 @@ describe("Labyrinth React game view", () => {
       view={view()}
       mySeat="player-1"
       seatNames={{ "player-1": "Tejas" }}
-      lastEvents={[]}
+      acceptedActions={[{
+        seq: 1,
+        actorPlayerId: "player-1",
+        events: [{ eventType: "tile.inserted", payload: { edge: "top", index: 1 } }]
+      }]}
       logs={[]}
       pending={false}
+      onRotate={() => {}}
       onInsert={() => {}}
       onMove={() => {}}
       onRematch={() => {}}
@@ -46,8 +54,12 @@ describe("Labyrinth React game view", () => {
     expect(html).toContain('class="labyrinth-play-header"');
     expect(html).toContain('aria-label="Maze board"');
     expect(html).toContain('aria-label="Insert spare tile from top into column 2"');
+    expect(html).toContain('aria-label="Rotate spare tile counterclockwise"');
+    expect(html).toContain('aria-label="Rotate spare tile clockwise"');
     expect(html).toContain('aria-label="Row 1, column 1,');
     expect(html).toContain("Your objective");
+    expect(html).toContain("Row 1 · Column 3");
+    expect(html).toContain("You shifted column 2 down");
     expect(html).toContain('role="log"');
   });
 
@@ -59,9 +71,10 @@ describe("Labyrinth React game view", () => {
       view={moveView}
       mySeat="player-1"
       seatNames={{}}
-      lastEvents={[]}
+      acceptedActions={[]}
       logs={[]}
       pending={false}
+      onRotate={() => {}}
       onInsert={() => {}}
       onMove={() => {}}
       onRematch={() => {}}

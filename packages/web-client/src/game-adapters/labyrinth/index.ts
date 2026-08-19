@@ -33,6 +33,13 @@ function LabyrinthControllerView(input: {
   );
   const view = (state.view ?? {}) as LabyrinthView;
   const mySeat = state.seatId ?? input.context.playerId;
+  const rotate = (rotationDeg: 0 | 90 | 180 | 270): void => {
+    if (view.phase !== "play" || view.currentPlayerId !== mySeat || view.turnStage !== "insert" || state.pendingActionId) {
+      input.context.pushLog("click_ignored labyrinth_rotate_not_allowed");
+      return;
+    }
+    input.runtime.controller.submitAction("rotate_spare", { rotationDeg });
+  };
   const insert = (edge: "top" | "bottom" | "left" | "right", index: number): void => {
     if (view.phase !== "play" || view.currentPlayerId !== mySeat || view.turnStage !== "insert" || state.pendingActionId) {
       input.context.pushLog("click_ignored labyrinth_insert_not_allowed");
@@ -53,9 +60,10 @@ function LabyrinthControllerView(input: {
     mySeat,
     seatNames: state.seatNames,
     lastError: state.lastError,
-    lastEvents: state.lastEvents,
+    acceptedActions: state.acceptedActions,
     logs: input.context.logs,
     pending: state.pendingActionId !== null,
+    onRotate: rotate,
     onInsert: insert,
     onMove: move,
     onRematch: input.context.rematch

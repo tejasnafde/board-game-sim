@@ -2,6 +2,12 @@ import type { EngineActionEnvelope, JsonValue } from "@board-game-sim/shared";
 import type { ServerEvent } from "./realtime-client";
 export type { ServerEvent } from "./realtime-client";
 
+export type AcceptedAction = {
+  seq: number;
+  actorPlayerId: string | null;
+  events: JsonValue[];
+};
+
 export type ClientState = {
   sessionId: string | null;
   playerId: string | null;
@@ -18,6 +24,7 @@ export type ClientState = {
   lastError: string | null;
   /** Domain events from the most recent action_accepted (hit/miss/sunk feedback). */
   lastEvents: JsonValue[];
+  acceptedActions: AcceptedAction[];
   terminal: { winnerPlayerId: string | null; reason: string } | null;
 };
 
@@ -34,6 +41,7 @@ export function createInitialClientState(): ClientState {
     pendingActionId: null,
     lastError: null,
     lastEvents: [],
+    acceptedActions: [],
     terminal: null
   };
 }
@@ -74,12 +82,18 @@ export function applyServerEvent(state: ClientState, event: ServerEvent): Client
   }
 
   if (event.type === "session.action_accepted") {
+    const acceptedAction: AcceptedAction = {
+      seq: event.seq,
+      actorPlayerId: event.actorPlayerId ?? null,
+      events: event.events
+    };
     return {
       ...state,
       seq: event.seq,
       pendingActionId: null,
       lastError: null,
-      lastEvents: event.events
+      lastEvents: event.events,
+      acceptedActions: [...state.acceptedActions, acceptedAction].slice(-20)
     };
   }
 

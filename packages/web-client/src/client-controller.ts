@@ -68,7 +68,8 @@ export function createClientController(transport: ControllerTransport): ClientCo
       view: null,
       terminal: null,
       lastError: null,
-      lastEvents: []
+      lastEvents: [],
+      acceptedActions: []
     };
     notify();
     if (gameId) {
