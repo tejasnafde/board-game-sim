@@ -1,50 +1,68 @@
+import { createElement, useSyncExternalStore } from "react";
 import type { WebClientRuntime } from "../../runtime";
-import type { PlayableGameUiAdapter } from "../playable-game-ui";
-import { bindLabyrinthEvents } from "./bind-events";
-import {
-  createLabyrinthPresentationState,
-  renderLabyrinthGameplay,
-  renderLabyrinthLobby
-} from "./render";
+import type { PlayableGameBindContext, PlayableGameUiAdapter } from "../playable-game-ui";
+import { createReactGameUiAdapter } from "../react-game-ui-adapter";
+import { LabyrinthGameView } from "./game-view";
+import { renderLabyrinthLobby } from "./render";
 import { inferLabyrinthScreen } from "./selectors";
 import type { LabyrinthView } from "./types";
 
 export function createLabyrinthUiAdapter(runtime: WebClientRuntime): PlayableGameUiAdapter {
-  let presentation = createLabyrinthPresentationState();
-
-  return {
+  return createReactGameUiAdapter({
     gameId: "labyrinth",
     runtime,
-    resetSession() {
-      presentation = createLabyrinthPresentationState();
-    },
-    render(context) {
+    renderStaticScreen(context) {
       const state = runtime.controller.getState();
-      const view = (state.view ?? {}) as LabyrinthView;
       if (inferLabyrinthScreen(context.confirmed) === "lobby") {
         return renderLabyrinthLobby(context.sessionId, context.playerId, state.lastError);
       }
-      return renderLabyrinthGameplay(
-        view,
-        state.seatId ?? context.playerId,
-        context.logs,
-        JSON.stringify(state, null, 2),
-        { seatNames: state.seatNames, lastError: state.lastError, lastEvents: state.lastEvents },
-        presentation
-      );
+      return null;
     },
-    bind(context) {
-      bindLabyrinthEvents(context.root, {
-        runtime,
-        playerId: context.playerId,
-        render: context.render,
-        pushLog: context.pushLog
-      });
+    renderGameView: (context) => createElement(LabyrinthControllerView, { context, runtime })
+  });
+}
+
+function LabyrinthControllerView(input: {
+  context: PlayableGameBindContext;
+  runtime: WebClientRuntime;
+}) {
+  const state = useSyncExternalStore(
+    input.runtime.controller.subscribe,
+    input.runtime.controller.getState,
+    input.runtime.controller.getState
+  );
+  const view = (state.view ?? {}) as LabyrinthView;
+  const mySeat = state.seatId ?? input.context.playerId;
+  const insert = (edge: "top" | "bottom" | "left" | "right", index: number): void => {
+    if (view.phase !== "play" || view.currentPlayerId !== mySeat || view.turnStage !== "insert" || state.pendingActionId) {
+      input.context.pushLog("click_ignored labyrinth_insert_not_allowed");
+      return;
     }
+    input.runtime.controller.submitAction("insert_tile", { edge, index });
   };
+  const move = (row: number, col: number): void => {
+    if (view.phase !== "play" || view.currentPlayerId !== mySeat || view.turnStage !== "move" || state.pendingActionId) {
+      input.context.pushLog("click_ignored labyrinth_move_not_allowed");
+      return;
+    }
+    input.runtime.controller.submitAction("move_pawn", { row, col });
+  };
+
+  return createElement(LabyrinthGameView, {
+    view,
+    mySeat,
+    seatNames: state.seatNames,
+    lastError: state.lastError,
+    lastEvents: state.lastEvents,
+    logs: input.context.logs,
+    pending: state.pendingActionId !== null,
+    onInsert: insert,
+    onMove: move,
+    onRematch: input.context.rematch
+  });
 }
 
 export { inferLabyrinthScreen } from "./selectors";
-export { createLabyrinthPresentationState, renderLabyrinthLobby, renderLabyrinthGameplay } from "./render";
-export { bindLabyrinthEvents, type LabyrinthBindContext } from "./bind-events";
+export { LabyrinthGameView } from "./game-view";
+export { renderLabyrinthLobby } from "./render";
 export type { LabyrinthView } from "./types";

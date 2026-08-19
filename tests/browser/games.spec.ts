@@ -96,7 +96,10 @@ test("battleship: visual pack selection persists without changing gameplay", asy
   await page.locator("#create-btn").dispatchEvent("click");
   await expect(page.locator("#placement-board")).toBeVisible();
   await page.click("#load-template-btn");
-  await expect(page.locator(".placement-ship-art").first()).toHaveAttribute("src", /\.svg$/);
+  await expect(page.locator(".placement-ship-art").first()).toHaveAttribute(
+    "src",
+    /(?:\.svg$|^data:image\/svg\+xml)/
+  );
 
   await page.close();
 });

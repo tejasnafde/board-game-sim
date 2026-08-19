@@ -966,6 +966,10 @@ input::placeholder {
   box-shadow: none;
 }
 
+.setup-submit-actions {
+  margin-top: 12px;
+}
+
 /* Golden selection ring shown as an inset pseudo-element */
 .ship-selected-ring {
   position: absolute;
@@ -1923,6 +1927,11 @@ input::placeholder {
   height: 12px;
   border-radius: 50%;
   display: inline-block;
+}
+
+.c4-title-disc {
+  width: 18px;
+  height: 18px;
 }
 
 .c4-drop-row {
