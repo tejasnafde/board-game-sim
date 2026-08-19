@@ -8,7 +8,10 @@
 - `realtime-state.ts`: client-side event reducer and action envelope builder.
 - `client-controller.ts`: join/rejoin plus generic `submitAction` API (with Battleship helpers preserved).
 - `runtime.ts`: binds presentation definition, asset manager, renderer, and controller.
-- `browser-app.ts`: route-aware app shell with game-hub and per-game UI adapters.
+- `browser-app.ts`: route-aware shell and session host; it has no game-specific render or event knowledge.
+- `game-adapters/playable-game-ui.ts`: the shared Playable Game UI adapter interface.
+- `game-adapters/<game>/index.ts`: adapter implementation that owns that game's screens, rendering, event binding, and ephemeral UI state.
+- `game-adapters/index.ts`: creates the current adapter set and their runtimes.
 - `grid-renderer.ts`: default renderer for grid board games.
 
 ## Screens

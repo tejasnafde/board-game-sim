@@ -85,6 +85,11 @@ test("labyrinth vs computer: bot takes full turns and the human is never stuck",
   await expect(page.locator(".labyrinth-cell").first()).toBeVisible();
   await expect(page.locator("text=Computer")).toBeVisible();
 
+  const controlsBottom = await page.locator("#labyrinth-insert-controls").evaluate(
+    (element) => element.getBoundingClientRect().bottom
+  );
+  expect(controlsBottom).toBeLessThanOrEqual(660);
+
   // Three full human turns; after each, the bot must insert+move and hand
   // the turn straight back — the UI must never sit on "waiting" for us.
   for (let round = 0; round < 3; round += 1) {
@@ -126,4 +131,26 @@ test("labyrinth: two-player game is not deadlocked, insert+move passes the turn"
 
   await alice.close();
   await bob.close();
+});
+
+test("labyrinth mobile keeps the full maze and controls inside the viewport", async ({ browser }) => {
+  const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.goto("/#/games/labyrinth");
+  await page.fill("#player-id", "tejas");
+  await page.check("#vs-bot");
+  await page.locator("#create-btn").dispatchEvent("click");
+  await expect(page.locator("#labyrinth-board")).toBeVisible();
+
+  const bounds = await page.locator("#labyrinth-board").evaluate((element) => {
+    const rect = element.getBoundingClientRect();
+    return { left: rect.left, right: rect.right, viewportWidth: window.innerWidth };
+  });
+  expect(bounds.left).toBeGreaterThanOrEqual(0);
+  expect(bounds.right).toBeLessThanOrEqual(bounds.viewportWidth);
+  await expect(page.locator(".labyrinth-insert-btn:not([disabled])").first()).toHaveAccessibleName(
+    "Insert spare tile from top into column 2"
+  );
+
+  await page.close();
 });

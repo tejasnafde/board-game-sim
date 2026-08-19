@@ -27,7 +27,9 @@
 - `RendererRegistry` maps board type (`grid`/`hex`/`graph`) to concrete renderer implementation.
 - `RealtimeClient` transports websocket protocol events.
 - `ClientController` maps UI interactions to intent submissions using sequence-safe envelopes and generic `submitAction(actionType, payload)` support.
-- `browser-app.ts` uses a lightweight per-game UI adapter map (`battleship`, `labyrinth`) for route-specific interactions.
+- `browser-app.ts` is the shared shell and session host. It owns routing, transport, identity persistence, and session lifecycle.
+- Each Playable Game UI adapter owns screen selection, rendering, event binding, and ephemeral UI state behind one interface.
+- `game-adapters/index.ts` creates the three real adapters (`battleship`, `labyrinth`, `connect4`) and their runtimes.
 - `ClientState` reducer applies `state_sync`, `action_accepted/rejected`, `state_patch`, and `terminal` events.
 
 ## Runtime Flow
