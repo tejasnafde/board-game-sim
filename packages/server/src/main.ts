@@ -4,6 +4,7 @@ import { RealtimeGateway } from "./realtime-gateway";
 import { SessionService } from "./session-service";
 import { createWsRealtimeServer } from "./ws-server";
 import { registerBuiltInGames } from "./game-registration";
+import { createGamingAnalytics } from "./analytics";
 
 export type StartServerOptions = {
   port?: number;
@@ -50,7 +51,8 @@ export async function startServer(options: StartServerOptions = {}): Promise<{
 
   // Paced bot replies (ms between moves) so games feel turn-based, not instant.
   const botMoveDelayMs = Number(process.env.BOT_MOVE_DELAY_MS ?? "1500");
-  const gateway = new RealtimeGateway(service, botMoveDelayMs);
+  const analytics = createGamingAnalytics(process.env.K_SERVICE ? "production" : "development");
+  const gateway = new RealtimeGateway(service, botMoveDelayMs, analytics);
   const httpServer = createServer((req, res) => {
     if (req.url === "/health") {
       res.statusCode = 200;
