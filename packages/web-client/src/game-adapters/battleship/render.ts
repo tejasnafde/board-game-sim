@@ -53,16 +53,14 @@ export function renderPlacementBoardMarkup(
       const heightCells = isHorizontal ? 1 : spec.size;
       const isSelected = selectedShipId === spec.id;
 
-      // The div spans its exact footprint via the CSS grid vars below, so a
-      // solid block always fits the cells. (Sprite art was overflowing its
-      // slot; a labelled block is correct and legible - polish later.)
       return `<div
-        class="placement-ship ${isSelected ? "selected" : ""}"
+        class="placement-ship ${isHorizontal ? "is-horizontal" : "is-vertical"} ${isSelected ? "selected" : ""}"
         data-ship-id="${spec.id}"
-        style="--ship-row:${draft.row};--ship-col:${draft.col};--ship-width:${widthCells};--ship-height:${heightCells};"
+        style="--ship-row:${draft.row};--ship-col:${draft.col};--ship-width:${widthCells};--ship-height:${heightCells};--ship-size:${spec.size};"
         title="${spec.id} - click to select, right-click board to rotate"
       >
-        <span class="placement-ship-label" style="${isHorizontal ? "" : "writing-mode:vertical-rl;"}">${spec.id}</span>
+        <img class="placement-ship-art" src="${shipPreview[spec.id] ?? ""}" alt="" />
+        <span class="placement-ship-label">${spec.id}</span>
         ${isSelected ? `<div class="ship-selected-ring"></div>` : ""}
       </div>`;
     })
@@ -206,6 +204,39 @@ function lastShotText(events: unknown[]): string {
   return text;
 }
 
+function recentSalvoMarkup(events: unknown[]): string {
+  let result = "No salvos recorded";
+  let detail = "Select a coordinate on the targeting grid.";
+
+  for (const raw of events) {
+    const event = raw as {
+      eventType?: string;
+      payload?: { at?: { row?: number; col?: number }; shipId?: string };
+    };
+    const at = event.payload?.at;
+    const coordinate = at && at.row !== undefined && at.col !== undefined
+      ? `${String.fromCharCode(65 + at.col)}${at.row + 1}`
+      : "";
+    if (event.eventType === "shot.miss") {
+      result = "Water only";
+      detail = coordinate ? `${coordinate} was a miss.` : "The last salvo missed.";
+    }
+    if (event.eventType === "shot.hit") {
+      result = "Hit confirmed";
+      detail = `${coordinate ? `${coordinate} struck` : "Impact on"} ${event.payload?.shipId ?? "a ship"}.`;
+    }
+    if (event.eventType === "ship.sunk") {
+      result = "Vessel destroyed";
+      detail = `${event.payload?.shipId ?? "Enemy ship"} is beneath the waves.`;
+    }
+  }
+
+  return `<div class="salvo-result">
+    <strong>${result}</strong>
+    <span>${detail}</span>
+  </div>`;
+}
+
 export function renderBattleshipGameplay(
   phase: string,
   view: ClientView,
@@ -213,7 +244,12 @@ export function renderBattleshipGameplay(
   boardMarkup: string,
   logs: string[],
   _stateDump: string,
-  status: { seatNames?: Record<string, string>; lastError?: string | null; lastEvents?: unknown[] } = {}
+  status: {
+    seatNames?: Record<string, string>;
+    lastError?: string | null;
+    lastEvents?: unknown[];
+    mySeat?: string;
+  } = {}
 ): string {
   const isTerminal = phase === "terminal";
   const winner = view.winnerPlayerId;
@@ -230,32 +266,54 @@ export function renderBattleshipGameplay(
       : `${icon("hourglass", 13)} Waiting for <strong>${currentName || "opponent"}</strong>`;
   const errorText = humanizeError(status.lastError);
   const resultText = lastShotText(status.lastEvents ?? []);
+  const ownShips = view.ownBoard?.ships ?? [];
+  const totalHullCells = ownShips.reduce((count, ship) => count + ship.cells.length, 0);
+  const hitsTaken = view.ownBoard?.hitsTaken?.length ?? 0;
+  const intactHullCells = Math.max(0, totalHullCells - hitsTaken);
+  const fleetPercent = totalHullCells > 0 ? Math.round((intactHullCells / totalHullCells) * 100) : 100;
+  const opponentName = Object.entries(status.seatNames ?? {}).find(([seat]) => seat !== status.mySeat)?.[1]
+    ?? "Opponent";
 
   return `
     <section class="screen battleship-screen">
-      <div class="section-head">
-        <h1>${icon("anchor", 22)} Live Battle</h1>
+      <header class="battle-command-header">
+        <div class="battle-title-block">
+          <span class="battle-kicker">Naval command · ${opponentName}</span>
+          <h1>${icon("anchor", 22)} Live Battle</h1>
+        </div>
         ${isTerminal
           ? terminalBannerMarkup(
               winner === null ? "It's a draw!" : `${nameOf(winner)} wins the battle!`,
               "The enemy fleet is revealed on the opponent board.",
               winner !== null
             )
-          : `<div class="status-banner ${statusClass}">
+          : `<div class="status-banner battle-turn-status ${statusClass}" aria-live="polite">
           <span>${statusText}</span>
         </div>`}
-        ${resultText ? `<div class="status-banner last-result"><span>${resultText}</span></div>` : ""}
+        ${resultText ? `<div class="battle-result-chip last-result"><span>${resultText}</span></div>` : ""}
         ${errorText ? `<div class="error-text" role="alert">${errorText}</div>` : ""}
-      </div>
-      <div class="gameplay-screen">
-        <div class="card board-panel" id="render-view">
+      </header>
+      <div class="gameplay-screen battleship-gameplay">
+        <div class="card board-panel battle-board-panel" id="render-view">
           ${boardMarkup}
         </div>
-        <aside class="side-stack">
-          <div class="card side-card">
-            <h3>Battle Log</h3>
-            <pre class="log-pre">${logs.slice(0, 20).join("\n") || "No events yet"}</pre>
+        <aside class="side-stack battle-side-stack">
+          <div class="card side-card fleet-integrity-card">
+            <div class="side-card-heading">
+              <h2>Fleet integrity</h2>
+              <strong class="num">${fleetPercent}%</strong>
+            </div>
+            <div class="fleet-integrity-track"><span style="width:${fleetPercent}%"></span></div>
+            <p><span class="num">${intactHullCells}</span> of <span class="num">${totalHullCells}</span> hull cells intact</p>
           </div>
+          <div class="card side-card salvo-card">
+            <h2>Recent salvo</h2>
+            ${recentSalvoMarkup(status.lastEvents ?? [])}
+          </div>
+          <details class="card debug-panel">
+            <summary>Diagnostics</summary>
+            <pre class="log-pre">${logs.slice(0, 20).join("\n") || "No events yet"}</pre>
+          </details>
         </aside>
       </div>
     </section>

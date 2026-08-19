@@ -483,7 +483,7 @@ input::placeholder {
 .join-panel {
   display: grid;
   gap: var(--sp-4);
-  max-width: 500px;
+  max-width: 760px;
 }
 
 .join-panel h2 {
@@ -493,12 +493,115 @@ input::placeholder {
 
 .lobby-fields {
   display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--sp-4);
 }
 
 .lobby-field-group {
   display: grid;
   gap: 4px;
+}
+
+.game-mode-picker {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.game-mode-picker legend {
+  grid-column: 1 / -1;
+  margin-bottom: 2px;
+  color: var(--ink-2);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.game-mode-card {
+  position: relative;
+  display: grid;
+  grid-template-columns: 30px 1fr 18px;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  background: var(--raised);
+  color: var(--ink-2);
+  cursor: pointer;
+  transition: transform var(--dur-1) var(--ease), background-color var(--dur-1) var(--ease), border-color var(--dur-1) var(--ease), color var(--dur-1) var(--ease);
+}
+
+.game-mode-card:has(input:checked) {
+  border-color: var(--accent);
+  background: var(--accent-subtle);
+  color: var(--ink);
+}
+
+.game-mode-card:active {
+  transform: scale(0.96);
+}
+
+.game-mode-card input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.game-mode-card:has(input:focus-visible) {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.game-mode-icon {
+  display: grid;
+  width: 30px;
+  height: 30px;
+  place-items: center;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+}
+
+.game-mode-copy {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.game-mode-copy strong {
+  font-size: 12px;
+}
+
+.game-mode-copy small {
+  color: var(--ink-3);
+  font-size: 10px;
+  line-height: 1.35;
+}
+
+.game-mode-check {
+  display: grid;
+  width: 18px;
+  height: 18px;
+  place-items: center;
+  border: 1px solid var(--line-2);
+  border-radius: 50%;
+  color: transparent;
+  font-size: 10px;
+}
+
+.game-mode-card:has(input:checked) .game-mode-check {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--surface);
 }
 
 .lobby-input-row {
@@ -509,6 +612,12 @@ input::placeholder {
 
 .lobby-input-row input {
   flex: 1;
+  min-width: 0;
+}
+
+.lobby-input-row .btn {
+  align-self: stretch;
+  padding-inline: 12px;
 }
 
 .field-hint {
@@ -771,22 +880,41 @@ input::placeholder {
   align-items: center;
   justify-content: center;
   transition: box-shadow var(--dur-1), border-color var(--dur-1);
-  overflow: hidden;
+  overflow: visible;
   cursor: pointer;
   pointer-events: auto;
-  background: linear-gradient(135deg, #4a5568 0%, #2d3748 100%);
+  background: color-mix(in srgb, var(--accent) 9%, transparent);
+}
+
+.placement-ship-art {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: 1;
+  display: block;
+  width: auto;
+  max-width: none;
+  pointer-events: none;
+  image-rendering: auto;
+  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.45));
+}
+
+.placement-ship.is-vertical .placement-ship-art {
+  height: calc(100% - 6px);
+  transform: translate(-50%, -50%);
+}
+
+.placement-ship.is-horizontal .placement-ship-art {
+  height: calc(100% * var(--ship-size) - 8px);
+  transform: translate(-50%, -50%) rotate(90deg);
 }
 
 .placement-ship-label {
-  font-size: 9px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: rgba(255, 255, 255, 0.85);
-  white-space: nowrap;
+  position: absolute;
+  width: 1px;
+  height: 1px;
   overflow: hidden;
-  text-overflow: ellipsis;
-  pointer-events: none;
+  clip-path: inset(50%);
 }
 
 .placement-ship:hover {
@@ -804,6 +932,7 @@ input::placeholder {
   inset: 0;
   border: 2px solid var(--warn);
   border-radius: 3px;
+  z-index: 2;
   pointer-events: none;
   animation: ring-pulse 1.2s ease-in-out infinite;
 }
@@ -2096,3 +2225,383 @@ input::placeholder {
 .home-marker.owner-1 { color: var(--accent); }
 .home-marker.owner-2 { color: var(--warn); }
 .home-marker.owner-3 { color: var(--pos); }
+
+/* ============================================================
+     BATTLESHIP COMMAND TABLE
+  ============================================================ */
+.battleship-screen {
+  padding: 18px 24px 24px;
+}
+
+.battle-command-header {
+  display: grid;
+  grid-template-columns: minmax(190px, 0.7fr) minmax(340px, 1.5fr) auto;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.battle-title-block h1 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 2px 0 0;
+  font-size: clamp(22px, 2vw, 28px);
+  letter-spacing: -0.035em;
+}
+
+.battle-kicker {
+  color: var(--ink-3);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.battle-turn-status {
+  min-height: 42px;
+  justify-content: flex-start;
+  padding: 9px 12px;
+}
+
+.battle-result-chip {
+  display: inline-flex;
+  min-height: 36px;
+  align-items: center;
+  padding: 8px 12px;
+  border: 1px solid var(--warn);
+  border-radius: var(--r-sm);
+  background: color-mix(in srgb, var(--warn) 10%, transparent);
+  color: var(--warn);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.battleship-gameplay {
+  grid-template-columns: minmax(0, 1fr) 238px;
+  gap: 12px;
+}
+
+.battle-board-panel {
+  min-width: 0;
+  padding: 16px;
+  border-color: color-mix(in srgb, var(--accent) 28%, var(--line));
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--accent) 7%, transparent), transparent 42%),
+    var(--surface);
+}
+
+.battle-board-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.battle-board-heading h2 {
+  margin: 0;
+  color: var(--ink-2);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.battle-board-state {
+  color: var(--ink-3);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-variant-numeric: tabular-nums;
+}
+
+.battle-board-state strong {
+  color: var(--ink);
+  font-size: 11px;
+}
+
+.battle-board {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr);
+  grid-template-rows: 16px minmax(0, 1fr);
+  gap: 3px;
+  width: 100%;
+}
+
+.battle-corner {
+  grid-column: 1;
+  grid-row: 1;
+}
+
+.battle-column-labels {
+  grid-column: 2;
+  grid-row: 1;
+  display: grid;
+  grid-template-columns: repeat(var(--battle-cols), minmax(0, 1fr));
+  align-items: center;
+}
+
+.battle-row-labels {
+  grid-column: 1;
+  grid-row: 2;
+  display: grid;
+  grid-template-rows: repeat(var(--battle-rows), minmax(0, 1fr));
+  align-items: center;
+}
+
+.battle-column-labels span,
+.battle-row-labels span {
+  color: var(--ink-3);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+.battle-cell-grid {
+  position: relative;
+  isolation: isolate;
+  grid-column: 2;
+  grid-row: 2;
+  display: grid;
+  grid-template-columns: repeat(var(--battle-cols), minmax(0, 1fr));
+  grid-template-rows: repeat(var(--battle-rows), minmax(0, 1fr));
+  gap: 2px;
+  min-width: 0;
+  aspect-ratio: var(--battle-cols) / var(--battle-rows);
+  padding: 3px;
+  border: 1px solid color-mix(in srgb, var(--accent) 28%, var(--line));
+  border-radius: var(--r-sm);
+  background: #061421;
+  box-shadow: inset 0 0 28px rgba(25, 127, 178, 0.12);
+}
+
+.battle-cell-grid .cell {
+  min-width: 0;
+  min-height: 0;
+  border-radius: 2px;
+}
+
+.battle-cell-grid .cell.water {
+  background:
+    radial-gradient(circle at 28% 24%, rgba(111, 210, 255, 0.13), transparent 34%),
+    linear-gradient(145deg, #0b3f61, #082d49);
+  border-color: rgba(73, 170, 216, 0.22);
+}
+
+.battle-cell-grid .cell.ship {
+  background: linear-gradient(145deg, rgba(38, 100, 132, 0.84), rgba(12, 48, 70, 0.88));
+  border-color: rgba(93, 189, 230, 0.48);
+}
+
+.battle-cell-grid .cell.taken-hit::after,
+.battle-cell-grid .cell.attack-hit::after,
+.battle-cell-grid .cell.attack-miss::after {
+  content: none;
+}
+
+.battle-cell-effect {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: 3;
+  display: block;
+  width: auto;
+  max-width: 80%;
+  height: 80%;
+  object-fit: contain;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+  filter: drop-shadow(0 0 5px rgba(255, 130, 54, 0.7));
+}
+
+.battle-cell-effect.is-miss {
+  height: 44%;
+  opacity: 0.8;
+  filter: drop-shadow(0 0 4px rgba(152, 214, 241, 0.5));
+}
+
+.battle-ship-sprite {
+  position: relative;
+  z-index: 1;
+  grid-row: calc(var(--ship-row) + 1) / span var(--ship-height);
+  grid-column: calc(var(--ship-col) + 1) / span var(--ship-width);
+  min-width: 0;
+  min-height: 0;
+  pointer-events: none;
+}
+
+.battle-ship-sprite img {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  display: block;
+  width: auto;
+  max-width: none;
+  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.55));
+}
+
+.battle-ship-sprite.is-vertical img {
+  height: calc(100% - 5px);
+  transform: translate(-50%, -50%);
+}
+
+.battle-ship-sprite.is-horizontal img {
+  height: calc(100% * var(--ship-size) - 7px);
+  transform: translate(-50%, -50%) rotate(90deg);
+}
+
+.battle-cell-grid .opponent-cell:hover {
+  z-index: 4;
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 22%, #082d49);
+  transform: scale(0.96);
+}
+
+.battle-cell-grid .opponent-cell:focus-visible {
+  z-index: 4;
+  outline: 3px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.battle-stat-hit {
+  color: var(--pos);
+}
+
+.battle-side-stack .side-card,
+.battle-side-stack .debug-panel {
+  padding: 12px;
+}
+
+.side-card-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.side-card-heading strong {
+  color: var(--pos);
+  font-size: 15px;
+}
+
+.fleet-integrity-track {
+  height: 5px;
+  margin-top: 10px;
+  overflow: hidden;
+  border-radius: var(--r-pill);
+  background: var(--raised);
+}
+
+.fleet-integrity-track span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--pos);
+}
+
+.fleet-integrity-card p {
+  margin: 8px 0 0;
+  color: var(--ink-3);
+  font-size: 10px;
+}
+
+.salvo-result {
+  display: grid;
+  gap: 4px;
+  padding: 10px;
+  border-left: 2px solid var(--warn);
+  background: color-mix(in srgb, var(--warn) 6%, transparent);
+}
+
+.salvo-result strong {
+  color: var(--ink);
+  font-size: 12px;
+}
+
+.salvo-result span {
+  color: var(--ink-3);
+  font-size: 10px;
+  line-height: 1.45;
+}
+
+/* ============================================================
+     CONNECT FOUR TABLE
+  ============================================================ */
+.connect4-gameplay {
+  padding-bottom: 32px;
+}
+
+.connect4-board-frame {
+  width: min(560px, calc(100vh - 330px), 100%);
+  margin: 0 auto;
+  padding: 14px;
+  border: 1px solid color-mix(in srgb, var(--accent) 38%, var(--line));
+  border-radius: calc(var(--r) + 6px);
+  background:
+    linear-gradient(145deg, rgba(39, 97, 157, 0.2), transparent 42%),
+    #0b1727;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 18px 42px rgba(0, 0, 0, 0.24);
+}
+
+.connect4-board-frame .c4-board {
+  border-radius: var(--r);
+  border-color: rgba(91, 141, 239, 0.5);
+  background: linear-gradient(145deg, #224f89, #163963 64%, #102e52);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12), inset 0 -8px 18px rgba(0, 0, 0, 0.18);
+}
+
+.connect4-board-frame .c4-cell {
+  border: 1px solid rgba(134, 182, 224, 0.18);
+  background: radial-gradient(circle at 46% 42%, #06101d 52%, #0d2944 72%, #316a9e 100%);
+}
+
+@media (max-width: 980px) {
+  .battle-command-header {
+    grid-template-columns: minmax(170px, 0.7fr) minmax(300px, 1.3fr);
+  }
+
+  .battle-result-chip {
+    display: none;
+  }
+
+  .battleship-gameplay {
+    grid-template-columns: 1fr;
+  }
+
+  .battle-side-stack {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .battle-side-stack .debug-panel {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 700px) {
+  .battleship-screen {
+    padding: 12px;
+  }
+
+  .battle-command-header {
+    grid-template-columns: 1fr;
+  }
+
+  .board-columns,
+  .battle-side-stack {
+    grid-template-columns: 1fr;
+  }
+
+  .battle-side-stack .debug-panel {
+    grid-column: auto;
+  }
+
+  .game-mode-picker {
+    grid-template-columns: 1fr;
+  }
+
+  .lobby-fields {
+    grid-template-columns: 1fr;
+  }
+}

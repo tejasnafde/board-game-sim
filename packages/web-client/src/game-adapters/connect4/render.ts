@@ -66,7 +66,7 @@ export function renderConnect4Gameplay(
   }).join("");
 
   return `
-    <section class="screen connect4-screen">
+    <section class="screen connect4-screen connect4-gameplay">
       <div class="section-head">
         <h1><span class="c4-disc-mini c4-p1" style="width:18px;height:18px;"></span> Connect Four</h1>
         ${isTerminal
@@ -74,7 +74,7 @@ export function renderConnect4Gameplay(
           : `<div class="status-banner ${isMyTurn ? "your-turn" : "their-turn"}"><span>${statusText}</span></div>`}
         ${status.lastError ? `<div class="error-text" role="alert">${humanizeError(status.lastError)}</div>` : ""}
       </div>
-      <div class="card board-panel" style="max-width:560px;margin:0 auto;">
+      <div class="connect4-board-frame">
         <div class="c4-seats">${seatBadges}</div>
         <div class="c4-drop-row" id="connect4-drop-row" style="grid-template-columns:repeat(${cols},1fr)">${dropButtons}</div>
         <div class="c4-board" id="connect4-board">${boardMarkup(grid, cols, discClassOf, winning, last)}</div>

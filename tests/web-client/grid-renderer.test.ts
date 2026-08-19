@@ -26,7 +26,7 @@ describe("grid renderer", () => {
 
     expect(html).toContain("board-root");
     expect(html).toContain("cell ship");
-    expect(html).toContain("cell taken-hit");
-    expect(html).toContain("cell attack-hit");
+    expect(html).toContain("taken-hit");
+    expect(html).toContain("attack-hit");
   });
 });

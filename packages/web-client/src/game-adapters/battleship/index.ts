@@ -60,7 +60,12 @@ export function createBattleshipUiAdapter(runtime: WebClientRuntime): PlayableGa
         runtime.renderer.render(view),
         context.logs,
         JSON.stringify(state, null, 2),
-        { seatNames: state.seatNames, lastError: state.lastError, lastEvents: state.lastEvents }
+        {
+          seatNames: state.seatNames,
+          lastError: state.lastError,
+          lastEvents: state.lastEvents,
+          mySeat
+        }
       );
     },
     bind(context) {

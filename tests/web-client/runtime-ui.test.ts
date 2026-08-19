@@ -1,5 +1,6 @@
 import { describe, expect, test } from "vitest";
 import battleshipPresentation from "../../packages/games/battleship/presentation.json";
+import connect4Presentation from "../../packages/games/connect4/presentation.json";
 import { createWebClientRuntime } from "../../packages/web-client/src/runtime";
 import type { ClientEvent, ServerEvent } from "../../packages/web-client/src/realtime-client";
 
@@ -56,5 +57,40 @@ describe("web client runtime", () => {
 
     expect(transport.sent).toHaveLength(2);
     expect(transport.sent[1]).toEqual({ type: "session.join", sessionId: "s2", playerId: "p2" });
+  });
+
+  test("grid renderer resolves presentation-owned naval art", () => {
+    const runtime = createWebClientRuntime({
+      presentation: battleshipPresentation,
+      baseAssetPath: "/games/battleship",
+      transport: new FakeTransport()
+    });
+
+    const html = runtime.renderer.render({
+      ownBoard: {
+        rows: 2,
+        cols: 2,
+        ships: [{ shipId: "destroyer", cells: [{ row: 0, col: 0 }, { row: 0, col: 1 }] }],
+        hitsTaken: [{ row: 0, col: 0 }]
+      },
+      opponentBoard: {
+        rows: 2,
+        cols: 2,
+        shotsFired: [{ row: 1, col: 1 }],
+        knownHits: []
+      }
+    });
+
+    expect(html).toContain("/games/battleship/assets/external/sea-warfare-set/ships/destroyer.png");
+    expect(html).toContain("/games/battleship/assets/external/sea-warfare-set/effects/hit.png");
+    expect(html).toContain("/games/battleship/assets/external/sea-warfare-set/effects/miss.png");
+  });
+
+  test("creates runtimes for presentations without optional art maps", () => {
+    expect(() => createWebClientRuntime({
+      presentation: connect4Presentation,
+      baseAssetPath: "/games/connect4",
+      transport: new FakeTransport()
+    })).not.toThrow();
   });
 });

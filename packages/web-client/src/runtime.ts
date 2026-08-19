@@ -22,7 +22,20 @@ export function createWebClientRuntime(input: {
   const assetManager = new AssetManager(presentation, input.baseAssetPath);
 
   const rendererRegistry = new RendererRegistry();
-  rendererRegistry.register("grid", () => new GridRenderer());
+  rendererRegistry.register("grid", () => new GridRenderer({
+    shipUrlById: Object.fromEntries(
+      Object.entries(presentation.pieceSprites).map(([pieceId, assetId]) => [
+        pieceId,
+        assetManager.resolveAssetUrl(assetId)
+      ])
+    ),
+    hitUrl: presentation.effects["shot.hit"]
+      ? assetManager.resolveAssetUrl(presentation.effects["shot.hit"])
+      : undefined,
+    missUrl: presentation.effects["shot.miss"]
+      ? assetManager.resolveAssetUrl(presentation.effects["shot.miss"])
+      : undefined
+  }));
   const renderer = rendererRegistry.create(presentation.board.boardType);
 
   const controller = createClientController(input.transport);
