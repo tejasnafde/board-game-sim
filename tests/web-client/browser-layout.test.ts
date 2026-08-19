@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 import { getGameplayPanelOrder } from "../../packages/web-client/src/browser-app";
 import { renderAppShell } from "../../packages/web-client/src/app-shell";
+import { lobbyPanelMarkup } from "../../packages/web-client/src/templates/lobby";
 
 describe("browser gameplay layout", () => {
   test("keeps debug panel before state panel", () => {
@@ -14,5 +15,18 @@ describe("browser gameplay layout", () => {
     expect(html).toContain('href="#main-content"');
     expect(html).toContain('<main id="main-content" tabindex="-1">');
     expect(html).toContain('<button class="top-chip" id="copy-session-btn"');
+  });
+
+  test("playable lobbies make the computer the explicit default opponent", () => {
+    const html = lobbyPanelMarkup("S1", "P1", {
+      title: "Table",
+      joinLabel: "Join",
+      vsBot: true
+    });
+
+    expect(html).toContain('id="mode-bot"');
+    expect(html).toMatch(/id="mode-bot"[^>]*checked/);
+    expect(html).toContain('id="mode-private"');
+    expect(html).toContain("The server plays every opponent seat");
   });
 });

@@ -21,6 +21,7 @@ test("battleship: two players join, deploy fleets, fire with feedback", async ({
 
   await alice.goto("/#/games/battleship");
   await alice.fill("#player-id", "alice");
+  await alice.check("#mode-private");
   await alice.click("#create-btn");
   await expect(alice.locator("#placement-board")).toBeVisible();
   const code = await codeFrom(alice);
@@ -55,13 +56,16 @@ test("connect4 vs computer: solo player gets instant bot replies to a finished g
   const page = await browser.newPage();
   await page.goto("/#/games/connect4");
   await page.fill("#player-id", "tejas");
-  await page.check("#vs-bot");
-  // dispatchEvent, not click: checking the box causes a brief layout shift
-  // that races coordinate-based clicks (humans click later; the bot doesn't).
+  await expect(page.locator("#mode-bot")).toBeChecked();
   await page.locator("#create-btn").dispatchEvent("click");
 
   await expect(page.locator("#connect4-board")).toBeVisible();
   await expect(page.locator(".c4-seats")).toContainText("Computer");
+
+  const frameBottom = await page.locator(".connect4-board-frame").evaluate(
+    (element) => element.getBoundingClientRect().bottom
+  );
+  expect(frameBottom).toBeLessThanOrEqual(660);
 
   // Drop into the first enabled column; the bot answers before the next sync,
   // so each round adds exactly two discs and it's immediately our turn again.
@@ -79,7 +83,11 @@ test("labyrinth vs computer: bot takes full turns and the human is never stuck",
   const page = await browser.newPage();
   await page.goto("/#/games/labyrinth");
   await page.fill("#player-id", "tejas");
-  await page.check("#vs-bot");
+  await expect(page.locator("#mode-bot")).toBeChecked();
+  const lobbyActionsBottom = await page.locator("#create-btn").evaluate(
+    (element) => element.getBoundingClientRect().bottom
+  );
+  expect(lobbyActionsBottom).toBeLessThanOrEqual(660);
   await page.locator("#create-btn").dispatchEvent("click");
 
   await expect(page.locator(".labyrinth-cell").first()).toBeVisible();
@@ -109,6 +117,7 @@ test("labyrinth: two-player game is not deadlocked, insert+move passes the turn"
 
   await alice.goto("/#/games/labyrinth");
   await alice.fill("#player-id", "alice");
+  await alice.check("#mode-private");
   // Default seat count is 2 — the fix for the old hardcoded 4-seat deadlock.
   await alice.click("#create-btn");
   await expect(alice.locator(".labyrinth-insert-btn").first()).toBeVisible();
@@ -138,7 +147,7 @@ test("labyrinth mobile keeps the full maze and controls inside the viewport", as
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto("/#/games/labyrinth");
   await page.fill("#player-id", "tejas");
-  await page.check("#vs-bot");
+  await expect(page.locator("#mode-bot")).toBeChecked();
   await page.locator("#create-btn").dispatchEvent("click");
   await expect(page.locator("#labyrinth-board")).toBeVisible();
 

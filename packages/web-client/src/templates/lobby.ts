@@ -72,7 +72,7 @@ export function lobbyPanelMarkup(
           <label for="session-id">Game Code</label>
           <div class="lobby-input-row">
             <input id="session-id" value="${sessionId}" placeholder="e.g. my-game-123" autocomplete="off" spellcheck="false" />
-            <button class="btn btn-ghost" id="new-session-btn" type="button" aria-label="Generate a new random game code" title="Generate a new random game code" style="padding:0 10px;">New</button>
+            <button class="btn btn-ghost" id="new-session-btn" type="button" aria-label="Generate a new random game code" title="Generate a new random game code">New</button>
           </div>
           <span class="field-hint">Share this code with a friend to play together</span>
         </div>
@@ -83,15 +83,32 @@ export function lobbyPanelMarkup(
         </div>
         ${seatPicker}
         ${options.vsBot
-          ? `<label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;color:var(--ink-2);">
-              <input type="checkbox" id="vs-bot" style="width:16px;height:16px;accent-color:var(--accent);" />
-              ${icon("robot", 15)} Play vs computer
-            </label>`
+          ? `<fieldset class="game-mode-picker">
+              <legend>Choose your table</legend>
+              <label class="game-mode-card">
+                <input type="radio" id="mode-bot" name="game-mode" value="bot" checked />
+                <span class="game-mode-icon">${icon("robot", 18)}</span>
+                <span class="game-mode-copy">
+                  <strong>Vs Computer</strong>
+                  <small>The server plays every opponent seat</small>
+                </span>
+                <span class="game-mode-check" aria-hidden="true">✓</span>
+              </label>
+              <label class="game-mode-card">
+                <input type="radio" id="mode-private" name="game-mode" value="private" />
+                <span class="game-mode-icon">${icon("dice", 18)}</span>
+                <span class="game-mode-copy">
+                  <strong>Private Table</strong>
+                  <small>Friends join with your game code</small>
+                </span>
+                <span class="game-mode-check" aria-hidden="true">✓</span>
+              </label>
+            </fieldset>`
           : ""}
       </div>
       ${options.error ? `<div class="error-text lobby-error" role="alert" style="margin-top:var(--sp-3)">${humanizeError(options.error)}</div>` : ""}
       <div class="row-actions" style="margin-top:var(--sp-4)">
-        <button class="btn btn-primary" id="create-btn" style="flex:1">Create game</button>
+        <button class="btn btn-primary" id="create-btn" style="flex:1">Start game</button>
         <button class="btn btn-secondary" id="join-btn" style="flex:1">${options.joinLabel}</button>
         <button class="btn btn-ghost" id="back-home-btn">Back</button>
       </div>

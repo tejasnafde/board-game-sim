@@ -21,6 +21,8 @@ const count = (haystack: string, needle: RegExp): number => (haystack.match(need
 describe("connect4 adapter", () => {
   it("renders drop buttons enabled only on my turn", () => {
     const mine = renderConnect4Gameplay(makeView(), "player-1", {});
+    expect(mine).toContain("connect4-gameplay");
+    expect(mine).toContain('class="connect4-board-frame"');
     expect(count(mine, /c4-drop-btn/g)).toBe(7);
     expect(count(mine, /c4-drop-btn[^>]*disabled/g)).toBe(0);
 

@@ -211,13 +211,12 @@ export function mountPlayableClient(
 
     const createBtn = root.querySelector<HTMLButtonElement>("#create-btn");
     createBtn?.addEventListener("click", () => {
-      const vsBot = root.querySelector<HTMLInputElement>("#vs-bot")?.checked ?? false;
+      const gameMode = root.querySelector<HTMLInputElement>('input[name="game-mode"]:checked')?.value;
       const seatCount = seatCountSelect ? Number(seatCountSelect.value) || 2 : undefined;
       startSession(generateSessionId(), {
         create: true,
         seatCount,
-        // vs computer: every seat except the creator's is played by the server
-        bots: vsBot ? (seatCount ?? 2) - 1 : undefined
+        bots: gameMode === "bot" ? (seatCount ?? 2) - 1 : undefined
       });
     });
 

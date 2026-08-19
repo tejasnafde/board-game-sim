@@ -1,6 +1,6 @@
 # Web Client
 
-`packages/web-client` now contains playable browser flows for Battleship and Labyrinth.
+`packages/web-client` contains playable browser flows for Battleship, Labyrinth, and Connect Four.
 
 ## Modules
 
@@ -19,6 +19,9 @@
 - Landing: game hub with playable entries.
 - Battleship: session lobby, fleet setup, and turn-based firing board.
 - Labyrinth: session lobby, spare-tile insertion controls, and reachable-cell pawn movement.
+- Connect Four: session lobby, column controls, and a tactile drop board.
+
+Each playable lobby defaults to a server-backed computer game. Private tables are an explicit mode for people joining with the same game code.
 
 ## Runtime Flow
 
@@ -39,3 +42,8 @@ The websocket factory should return an object compatible with `SocketLike`.
   https://opengameart.org/content/sea-warfare-set-ships-and-more
 - Repository copy and attribution are stored in:
   `packages/games/battleship/assets/external/sea-warfare-set/`
+- Approved CC0 sources for future game-specific additions:
+  - Kenney Board Game Pack: https://kenney.nl/assets/boardgame-pack
+  - Kenney Board Game Icons: https://kenney.nl/assets/board-game-icons
+
+External packs are evaluated asset by asset. A CC0 license is necessary, but the art must also match the game's established visual language and earn the added bundle weight.

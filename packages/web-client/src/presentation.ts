@@ -51,5 +51,10 @@ export function validatePresentationDefinition(input: unknown): PresentationDefi
     }
   }
 
-  return candidate;
+  return {
+    ...candidate,
+    assets,
+    pieceSprites: candidate.pieceSprites ?? {},
+    effects: candidate.effects ?? {}
+  };
 }

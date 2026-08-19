@@ -4,7 +4,17 @@ export type ClientView = {
   phase?: "setup" | "play" | "terminal";
   currentPlayerId?: string;
   winnerPlayerId?: string | null;
-  ownBoard?: { ships?: unknown[] };
+  ownBoard?: {
+    ships?: Array<{ shipId: string; cells: Coord[] }>;
+    hitsTaken?: Coord[];
+    sunkShipIds?: string[];
+    shotsFired?: Coord[];
+  };
+  opponentBoard?: {
+    shotsFired?: Coord[];
+    knownHits?: Coord[];
+    sunkShips?: Array<{ shipId: string; cells: Coord[] }>;
+  };
 };
 
 export type Orientation = "horizontal" | "vertical";
