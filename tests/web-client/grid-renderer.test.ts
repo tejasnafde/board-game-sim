@@ -28,5 +28,6 @@ describe("grid renderer", () => {
     expect(html).toContain("cell ship");
     expect(html).toContain("taken-hit");
     expect(html).toContain("attack-hit");
+    expect(html).toContain('data-r="1" data-c="1" type="button" style="grid-row:2;grid-column:2"');
   });
 });

@@ -1,4 +1,6 @@
 import { test, expect, type Page } from "@playwright/test";
+import { readFileSync } from "node:fs";
+import { GridRenderer } from "../../packages/web-client/src/grid-renderer";
 
 /**
  * Browser smoke: drives the REAL client+server through the paths unit tests
@@ -13,6 +15,38 @@ async function codeFrom(page: Page): Promise<string> {
   const code = page.locator("#copy-session-btn .num");
   await expect(code).toBeVisible();
   return (await code.innerText()).trim();
+}
+
+async function expectBattleSpritesAligned(page: Page, panel: ".own-panel" | ".opponent-panel"): Promise<void> {
+  const deltas = await page.locator(`${panel} .battle-ship-sprite`).evaluateAll((sprites) => {
+    return sprites.map((sprite) => {
+      const panelElement = sprite.closest(".own-panel, .opponent-panel");
+      if (!panelElement) throw new Error("battle_panel_missing");
+      const style = getComputedStyle(sprite);
+      const row = Number(style.getPropertyValue("--ship-row"));
+      const col = Number(style.getPropertyValue("--ship-col"));
+      const height = Number(style.getPropertyValue("--ship-height"));
+      const width = Number(style.getPropertyValue("--ship-width"));
+      const cells = Array.from(panelElement.querySelectorAll<HTMLElement>(".cell")).filter((cell) => {
+        const cellRow = Number(cell.dataset.r);
+        const cellCol = Number(cell.dataset.c);
+        return cellRow >= row && cellRow < row + height && cellCol >= col && cellCol < col + width;
+      });
+      const spriteRect = sprite.getBoundingClientRect();
+      const cellRects = cells.map((cell) => cell.getBoundingClientRect());
+      return {
+        left: spriteRect.left - Math.min(...cellRects.map((rect) => rect.left)),
+        top: spriteRect.top - Math.min(...cellRects.map((rect) => rect.top)),
+        right: spriteRect.right - Math.max(...cellRects.map((rect) => rect.right)),
+        bottom: spriteRect.bottom - Math.max(...cellRects.map((rect) => rect.bottom))
+      };
+    });
+  });
+
+  expect(deltas.length).toBeGreaterThan(0);
+  for (const delta of deltas.flatMap(Object.values)) {
+    expect(Math.abs(delta)).toBeLessThan(0.1);
+  }
 }
 
 test("battleship: two players join, deploy fleets, fire with feedback", async ({ browser }) => {
@@ -38,6 +72,8 @@ test("battleship: two players join, deploy fleets, fire with feedback", async ({
     await expect(submit).toBeEnabled();
     await submit.click();
   }
+
+  await expectBattleSpritesAligned(alice, ".own-panel");
 
   // Both fleets in → play phase. First seat (alice) fires the first shot.
   const opponentCell = alice.locator('.opponent-cell[data-board="opponent"]').first();
@@ -85,6 +121,26 @@ test("battleship: selected ship art stays on its cells through every rotation", 
   }
 
   await page.close();
+});
+
+test("battleship: sunk opponent art stays on its hit coordinates", async ({ page }) => {
+  const cells = [5, 6, 7, 8].map((col) => ({ row: 1, col }));
+  const renderer = new GridRenderer({
+    shipById: { battleship: { url: "", nativeFacing: "east" } }
+  });
+  const markup = renderer.render({
+    ownBoard: { rows: 10, cols: 10, ships: [], hitsTaken: [] },
+    opponentBoard: {
+      rows: 10,
+      cols: 10,
+      shotsFired: cells,
+      knownHits: cells,
+      sunkShips: [{ shipId: "battleship", cells }]
+    }
+  });
+
+  await page.setContent(`<style>${readFileSync("packages/web-client/app/app.css", "utf8")}</style>${markup}`);
+  await expectBattleSpritesAligned(page, ".opponent-panel");
 });
 
 test("battleship: visual pack selection persists without changing gameplay", async ({ browser }) => {

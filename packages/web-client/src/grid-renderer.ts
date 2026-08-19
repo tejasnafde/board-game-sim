@@ -115,7 +115,8 @@ function boardFrame(input: {
         classes.push("water", "opponent-cell");
       }
 
-      cells.push(`<button class="${classes.join(" ")}" data-board="${kind}" data-r="${row}" data-c="${col}" type="button" aria-label="${kind === "own" ? "Own" : "Target"} ${coordinateLabel(row, col)}, ${state}">${effect}</button>`);
+      const position = `grid-row:${row + 1};grid-column:${col + 1}`;
+      cells.push(`<button class="${classes.join(" ")}" data-board="${kind}" data-r="${row}" data-c="${col}" type="button" style="${position}" aria-label="${kind === "own" ? "Own" : "Target"} ${coordinateLabel(row, col)}, ${state}">${effect}</button>`);
     }
   }
 
