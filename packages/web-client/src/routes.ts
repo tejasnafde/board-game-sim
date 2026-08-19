@@ -1,16 +1,9 @@
-export type GameId = "battleship" | "labyrinth" | "connect4" | "catan";
+export type GameId = string;
 
 export type AppRoute = { name: "landing" } | { name: "game"; gameId: GameId };
 
 type LocationLike = {
   hash: string;
-};
-
-const gameRouteByPath: Record<string, GameId> = {
-  "/games/battleship": "battleship",
-  "/games/labyrinth": "labyrinth",
-  "/games/connect4": "connect4",
-  "/games/catan": "catan"
 };
 
 export function parseHashRoute(hash: string): AppRoute {
@@ -21,9 +14,9 @@ export function parseHashRoute(hash: string): AppRoute {
     return { name: "landing" };
   }
 
-  const gameId = gameRouteByPath[path];
-  if (gameId) {
-    return { name: "game", gameId };
+  const match = path.match(/^\/games\/([a-z0-9-]+)$/);
+  if (match) {
+    return { name: "game", gameId: match[1] };
   }
 
   return { name: "landing" };

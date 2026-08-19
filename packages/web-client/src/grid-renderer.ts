@@ -20,7 +20,10 @@ type ClientView = {
 };
 
 export type GridRendererAssets = {
-  shipUrlById?: Record<string, string>;
+  shipById?: Record<string, {
+    url: string;
+    nativeFacing?: "north" | "east" | "south" | "west";
+  }>;
   hitUrl?: string;
   missUrl?: string;
 };
@@ -35,7 +38,7 @@ function coordinateLabel(row: number, col: number): string {
   return `${COL_LABELS[col] ?? col + 1}${row + 1}`;
 }
 
-function shipOverlay(ship: ShipView, url: string): string {
+function shipOverlay(ship: ShipView, asset: { url: string; nativeFacing?: "north" | "east" | "south" | "west" }): string {
   const rows = ship.cells.map((cell) => cell.row);
   const cols = ship.cells.map((cell) => cell.col);
   const row = Math.min(...rows);
@@ -43,11 +46,17 @@ function shipOverlay(ship: ShipView, url: string): string {
   const horizontal = new Set(rows).size === 1;
   const width = horizontal ? ship.cells.length : 1;
   const height = horizontal ? 1 : ship.cells.length;
+  const nativeAngle = { north: 270, east: 0, south: 90, west: 180 }[asset.nativeFacing ?? "north"];
+  const targetAngle = horizontal ? 0 : 90;
+  const rotation = (targetAngle - nativeAngle + 360) % 360;
+  const nativeAxis = asset.nativeFacing === "east" || asset.nativeFacing === "west"
+    ? "native-horizontal"
+    : "native-vertical";
 
-  return `<div class="battle-ship-sprite ${horizontal ? "is-horizontal" : "is-vertical"}"
-    style="--ship-row:${row};--ship-col:${col};--ship-width:${width};--ship-height:${height};--ship-size:${ship.cells.length}"
+  return `<div class="battle-ship-sprite ${horizontal ? "is-horizontal" : "is-vertical"} ${nativeAxis}"
+    style="--ship-row:${row};--ship-col:${col};--ship-width:${width};--ship-height:${height};--ship-size:${ship.cells.length};--ship-art-rotation:${rotation}deg"
     aria-hidden="true">
-      <img src="${url}" alt="" />
+      <img src="${asset.url}" alt="" />
     </div>`;
 }
 
@@ -121,8 +130,8 @@ function boardFrame(input: {
       return true;
     })
     .map((ship) => {
-      const url = assets.shipUrlById?.[ship.shipId];
-      return url ? shipOverlay(ship, url) : "";
+      const asset = assets.shipById?.[ship.shipId];
+      return asset ? shipOverlay(ship, asset) : "";
     })
     .join("");
   const columnLabels = Array.from({ length: board.cols }, (_, col) =>

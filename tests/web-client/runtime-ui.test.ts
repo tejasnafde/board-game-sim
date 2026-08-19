@@ -59,31 +59,17 @@ describe("web client runtime", () => {
     expect(transport.sent[1]).toEqual({ type: "session.join", sessionId: "s2", playerId: "p2" });
   });
 
-  test("grid renderer resolves presentation-owned naval art", () => {
+  test("lets a game module own renderer-specific visual wiring", () => {
     const runtime = createWebClientRuntime({
       presentation: battleshipPresentation,
       baseAssetPath: "/games/battleship",
-      transport: new FakeTransport()
+      transport: new FakeTransport(),
+      createRenderer: ({ presentation }) => ({
+        render: () => `renderer:${presentation.gameId}`
+      })
     });
 
-    const html = runtime.renderer.render({
-      ownBoard: {
-        rows: 2,
-        cols: 2,
-        ships: [{ shipId: "destroyer", cells: [{ row: 0, col: 0 }, { row: 0, col: 1 }] }],
-        hitsTaken: [{ row: 0, col: 0 }]
-      },
-      opponentBoard: {
-        rows: 2,
-        cols: 2,
-        shotsFired: [{ row: 1, col: 1 }],
-        knownHits: []
-      }
-    });
-
-    expect(html).toContain("/games/battleship/assets/external/sea-warfare-set/ships/destroyer.png");
-    expect(html).toContain("/games/battleship/assets/external/sea-warfare-set/effects/hit.png");
-    expect(html).toContain("/games/battleship/assets/external/sea-warfare-set/effects/miss.png");
+    expect(runtime.renderer.render({})).toBe("renderer:battleship");
   });
 
   test("creates runtimes for presentations without optional art maps", () => {

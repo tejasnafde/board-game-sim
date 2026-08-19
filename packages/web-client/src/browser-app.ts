@@ -6,8 +6,13 @@ import { GAME_HUB_CARDS, resolveGameHubNavigation } from "./game-hub";
 import { nextSessionId } from "./templates/lobby";
 import { navigate, parseHashRoute, toHashRoute, type AppRoute, type GameId } from "./routes";
 import { gamingAnalytics } from "./analytics";
+import { gameCatalog } from "./registered-games";
 
 export { GAME_HUB_CARDS, resolveGameHubNavigation };
+
+function titleFromId(id: string): string {
+  return id.split("-").map((word) => `${word.charAt(0).toUpperCase()}${word.slice(1)}`).join(" ");
+}
 
 // ─────────────────────────────────────────────────────────────
 // Persist session + player IDs across page reloads per game,
@@ -64,7 +69,11 @@ export function mountPlayableClient(
 
   const gameUiAdapters = createPlayableGameUiAdapters({
     transport,
-    baseAssetPath: options.assetBasePath ?? "/"
+    baseAssetPath: options.assetBasePath ?? "/",
+    assetPackByGame: Object.fromEntries(gameCatalog.listPlayable().map((entry) => [
+      entry.manifest.gameId,
+      loadStored(`assetPack:${entry.manifest.gameId}`, entry.manifest.defaultAssetPackId)
+    ]))
   });
 
   let joined = false;
@@ -83,9 +92,12 @@ export function mountPlayableClient(
 
   const getCurrentRoute = (): AppRoute => parseHashRoute(window.location.hash);
   const getAdapterForRoute = (route: AppRoute): PlayableGameUiAdapter => {
-    if (route.name === "game" && route.gameId === "labyrinth") return gameUiAdapters.labyrinth;
-    if (route.name === "game" && route.gameId === "connect4") return gameUiAdapters.connect4;
-    return gameUiAdapters.battleship;
+    const gameId = route.name === "game" ? route.gameId : "battleship";
+    const adapter = gameUiAdapters.get(gameId) ?? gameUiAdapters.get("battleship");
+    if (!adapter) {
+      throw new Error("default_game_adapter_not_found:battleship");
+    }
+    return adapter;
   };
   const goHome = (): void => {
     if (joined && sessionId && playerId) {
@@ -104,12 +116,27 @@ export function mountPlayableClient(
     const adapter = getAdapterForRoute(route);
     const runtime = adapter.runtime;
     const state = runtime.controller.getState();
+    const catalogEntry = route.name === "game" ? gameCatalog.resolve(route.gameId) : undefined;
+    const appearance = catalogEntry?.client?.assetPacks && runtime.assets
+      ? {
+          selected: runtime.assets.packId,
+          packs: catalogEntry.client.assetPacks.list().map((pack) => ({
+            id: pack.packId,
+            label: titleFromId(pack.packId)
+          })),
+          credit: runtime.assets.credits()[0]
+        }
+      : undefined;
+
+    for (const [name, value] of Object.entries(runtime.assets?.themeVariables() ?? {})) {
+      root.style.setProperty(name, value);
+    }
 
     let mainContent = "";
 
     if (route.name === "landing") {
       mainContent = renderHubLanding();
-    } else if (route.name === "game" && route.gameId === "catan") {
+    } else if (route.name === "game" && gameCatalog.resolve(route.gameId)?.manifest.status !== "live") {
       mainContent = renderComingSoon(route.gameId);
     } else {
       // Only server evidence moves us off the lobby: a state_sync for the
@@ -123,7 +150,7 @@ export function mountPlayableClient(
       });
     }
 
-    root.innerHTML = renderAppShell(mainContent, route, sessionId, playerId);
+    root.innerHTML = renderAppShell(mainContent, route, sessionId, playerId, appearance);
 
     const gameHubGrid = root.querySelector<HTMLElement>("#game-hub-grid");
     const sessionInput = root.querySelector<HTMLInputElement>("#session-id");
@@ -132,6 +159,13 @@ export function mountPlayableClient(
     const navBackBtn = root.querySelector<HTMLButtonElement>("#nav-back-btn");
     const backHomeBtn = root.querySelector<HTMLButtonElement>("#back-home-btn");
     const copySessionBtn = root.querySelector<HTMLElement>("#copy-session-btn");
+    const assetPackSelect = root.querySelector<HTMLSelectElement>("#asset-pack-select");
+
+    assetPackSelect?.addEventListener("change", () => {
+      if (route.name !== "game") return;
+      saveStored(`assetPack:${route.gameId}`, assetPackSelect.value);
+      window.location.reload();
+    });
 
     navBackBtn?.addEventListener("click", () => goHome());
     backHomeBtn?.addEventListener("click", () => goHome());
@@ -154,7 +188,7 @@ export function mountPlayableClient(
       }
       const gameId = button.dataset.gameId as GameId;
       const nextRoute = resolveGameHubNavigation(gameId);
-      if (nextRoute && gameId !== "catan") {
+      if (nextRoute) {
         gamingAnalytics.gameSelected(gameId);
         joined = false;
         joinedGameId = null;
@@ -239,7 +273,7 @@ export function mountPlayableClient(
       });
     });
 
-    if (route.name === "game" && route.gameId !== "catan") {
+    if (route.name === "game" && gameCatalog.resolvePlayable(route.gameId)) {
       adapter.bind({ root, playerId, render, pushLog });
     }
   };
@@ -275,7 +309,7 @@ export function mountPlayableClient(
   render();
 
   return {
-    runtime: gameUiAdapters.battleship.runtime,
+    runtime: getAdapterForRoute({ name: "game", gameId: "battleship" }).runtime,
     dispose: () => {
       disposeTransportSubscription();
       window.removeEventListener("hashchange", onHashChange);

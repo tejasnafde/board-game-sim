@@ -125,6 +125,36 @@ button.top-chip {
   user-select: none;
 }
 
+.appearance-picker {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 32px;
+  padding-block: 3px;
+  text-transform: uppercase;
+}
+
+.appearance-picker select {
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font: 600 11px/1 var(--font-mono);
+  cursor: pointer;
+}
+
+.art-credit {
+  color: var(--ink-3);
+  font: 500 10px/1 var(--font-mono);
+  letter-spacing: 0.03em;
+  text-decoration: none;
+  transition: color var(--dur-1) var(--ease);
+}
+
+.art-credit:hover,
+.art-credit:focus-visible {
+  color: var(--ink);
+}
+
 .skip-link {
   position: fixed;
   top: 8px;
@@ -907,6 +937,16 @@ input::placeholder {
 .placement-ship.is-horizontal .placement-ship-art {
   height: calc(100% * var(--ship-size) - 8px);
   transform: translate(-50%, -50%) rotate(var(--ship-art-rotation));
+}
+
+.placement-ship.native-horizontal.is-horizontal .placement-ship-art {
+  width: calc(100% - 6px);
+  height: auto;
+}
+
+.placement-ship.native-horizontal.is-vertical .placement-ship-art {
+  width: calc(100% * var(--ship-size) - 8px);
+  height: auto;
 }
 
 .placement-ship-label {
@@ -2373,7 +2413,7 @@ input::placeholder {
   padding: 3px;
   border: 1px solid color-mix(in srgb, var(--accent) 28%, var(--line));
   border-radius: var(--r-sm);
-  background: #061421;
+  background: var(--game-board, #061421);
   box-shadow: inset 0 0 28px rgba(25, 127, 178, 0.12);
 }
 
@@ -2386,7 +2426,7 @@ input::placeholder {
 .battle-cell-grid .cell.water {
   background:
     radial-gradient(circle at 28% 24%, rgba(111, 210, 255, 0.13), transparent 34%),
-    linear-gradient(145deg, #0b3f61, #082d49);
+    linear-gradient(145deg, color-mix(in srgb, var(--game-grid, #0b3f61) 82%, white), var(--game-board, #082d49));
   border-color: rgba(73, 170, 216, 0.22);
 }
 
@@ -2444,12 +2484,22 @@ input::placeholder {
 
 .battle-ship-sprite.is-vertical img {
   height: calc(100% - 5px);
-  transform: translate(-50%, -50%);
+  transform: translate(-50%, -50%) rotate(var(--ship-art-rotation));
 }
 
 .battle-ship-sprite.is-horizontal img {
   height: calc(100% * var(--ship-size) - 7px);
-  transform: translate(-50%, -50%) rotate(90deg);
+  transform: translate(-50%, -50%) rotate(var(--ship-art-rotation));
+}
+
+.battle-ship-sprite.native-horizontal.is-horizontal img {
+  width: calc(100% - 5px);
+  height: auto;
+}
+
+.battle-ship-sprite.native-horizontal.is-vertical img {
+  width: calc(100% * var(--ship-size) - 7px);
+  height: auto;
 }
 
 .battle-cell-grid .opponent-cell:hover {

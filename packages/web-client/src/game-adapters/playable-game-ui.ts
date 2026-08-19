@@ -16,7 +16,7 @@ export type PlayableGameBindContext = {
 };
 
 export type PlayableGameUiAdapter = {
-  gameId: Exclude<GameId, "catan">;
+  gameId: GameId;
   runtime: WebClientRuntime;
   render(context: PlayableGameRenderContext): string;
   bind(context: PlayableGameBindContext): void;

@@ -15,7 +15,15 @@ export function createBattleshipUiAdapter(runtime: WebClientRuntime): PlayableGa
   const definition = battleshipManifest.definition as BattleshipDefinition;
   const shipSpecs = definition.ships;
   const shipPreview = Object.fromEntries(
-    shipSpecs.map((ship) => [ship.id, runtime.assetManager.resolveAssetUrl(`ship-${ship.id}`)])
+    shipSpecs.map((ship) => {
+      const asset = runtime.assets?.resolve(`piece.${ship.id}`);
+      return [
+        ship.id,
+        asset
+          ? { url: asset.url, nativeFacing: asset.nativeFacing }
+          : runtime.assetManager.resolveAssetUrl(`ship-${ship.id}`)
+      ];
+    })
   );
   let placementDraftMap: Record<string, PlacementDraft> = {};
   let selectedShipId = shipSpecs[0]?.id ?? "";

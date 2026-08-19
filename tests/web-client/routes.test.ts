@@ -7,6 +7,7 @@ describe("hash routes", () => {
     expect(parseHashRoute("#/games/battleship")).toEqual({ name: "game", gameId: "battleship" });
     expect(parseHashRoute("#/games/labyrinth")).toEqual({ name: "game", gameId: "labyrinth" });
     expect(parseHashRoute("#/games/catan")).toEqual({ name: "game", gameId: "catan" });
+    expect(parseHashRoute("#/games/chess")).toEqual({ name: "game", gameId: "chess" });
     expect(parseHashRoute("#/unknown")).toEqual({ name: "landing" });
   });
 

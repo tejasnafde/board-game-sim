@@ -22,6 +22,7 @@ export type ClientController = {
   submitPlaceShips(placements: ShipPlacement[]): void;
   submitFire(target: Coord): void;
   getState(): ClientState;
+  subscribe(listener: () => void): () => void;
 };
 
 export function createClientController(transport: ControllerTransport): ClientController {
@@ -30,9 +31,17 @@ export function createClientController(transport: ControllerTransport): ClientCo
   let lastGameId: string | null = null;
   let lastSeatCount: number | undefined;
   let lastBots: number | undefined;
+  const listeners = new Set<() => void>();
+
+  const notify = (): void => {
+    for (const listener of listeners) {
+      listener();
+    }
+  };
 
   transport.subscribe((event) => {
     state = applyServerEvent(state, event);
+    notify();
   });
 
   function nextActionId(): string {
@@ -61,6 +70,7 @@ export function createClientController(transport: ControllerTransport): ClientCo
       lastError: null,
       lastEvents: []
     };
+    notify();
     if (gameId) {
       lastGameId = gameId;
       lastSeatCount = seatCount;
@@ -89,6 +99,7 @@ export function createClientController(transport: ControllerTransport): ClientCo
     log.debug(`submit ${actionType}`, payload);
     const actionId = nextActionId();
     state = { ...state, pendingActionId: actionId };
+    notify();
     transport.send({
       type: "action.submit",
       envelope: createActionEnvelope(state, actionType, payload, actionId)
@@ -107,12 +118,20 @@ export function createClientController(transport: ControllerTransport): ClientCo
     return state;
   }
 
+  function subscribe(listener: () => void): () => void {
+    listeners.add(listener);
+    return () => {
+      listeners.delete(listener);
+    };
+  }
+
   return {
     join,
     rejoin,
     submitAction,
     submitPlaceShips,
     submitFire,
-    getState
+    getState,
+    subscribe
   };
 }

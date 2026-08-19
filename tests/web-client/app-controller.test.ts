@@ -29,6 +29,32 @@ class FakeTransport implements ControllerTransport {
 }
 
 describe("client controller", () => {
+  test("notifies external-store subscribers and supports cleanup", () => {
+    const transport = new FakeTransport();
+    const controller = createClientController(transport);
+    const snapshots: number[] = [];
+    const unsubscribe = controller.subscribe(() => {
+      snapshots.push(controller.getState().seq);
+    });
+
+    controller.join("s1", "p1");
+    transport.emit({
+      type: "session.state_sync",
+      sessionId: "s1",
+      seq: 4,
+      view: { phase: "play" }
+    });
+    unsubscribe();
+    transport.emit({
+      type: "session.state_sync",
+      sessionId: "s1",
+      seq: 5,
+      view: { phase: "play" }
+    });
+
+    expect(snapshots).toEqual([0, 4]);
+  });
+
   test("joins, sends setup and fire intents with expected seq", () => {
     const transport = new FakeTransport();
     const controller: ClientController = createClientController(transport);

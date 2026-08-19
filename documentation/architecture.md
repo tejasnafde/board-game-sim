@@ -23,13 +23,22 @@
 - Produces redacted state per player.
 
 7. Client Rendering Layer
-- `AssetManager` resolves per-game asset IDs to URLs.
+- `GameCatalog` validates unique game IDs and is the source for hub cards,
+  playable routes, and client-module creation.
+- `AssetResolver` maps semantic visual roles to Vite-managed URLs, orientation
+  metadata, theme variables, and license credits.
+- `AssetManager` remains as compatibility for presentation files while game
+  adapters migrate to semantic asset roles.
 - `RendererRegistry` maps board type (`grid`/`hex`/`graph`) to concrete renderer implementation.
 - `RealtimeClient` transports websocket protocol events.
 - `ClientController` maps UI interactions to intent submissions using sequence-safe envelopes and generic `submitAction(actionType, payload)` support.
-- `browser-app.ts` is the shared shell and session host. It owns routing, transport, identity persistence, and session lifecycle.
+- React owns the browser mount and cleanup. `browser-app.ts` remains the shared
+  session host during the incremental native-view migration.
 - Each Playable Game UI adapter owns screen selection, rendering, event binding, and ephemeral UI state behind one interface.
-- `game-adapters/index.ts` creates the three real adapters (`battleship`, `labyrinth`, `connect4`) and their runtimes.
+- `registered-games.ts` is the single explicit registration point for the three
+  playable clients and roadmap entries. The adapter map is derived from it.
+- Battleship proves the asset-pack seam with `sea-command` and
+  `classic-vector`; the selected pack is persisted without touching game state.
 - `ClientState` reducer applies `state_sync`, `action_accepted/rejected`, `state_patch`, and `terminal` events.
 
 ## Runtime Flow
