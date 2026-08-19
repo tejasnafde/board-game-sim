@@ -1,4 +1,5 @@
 import type { CSSProperties, MouseEvent } from "react";
+import type { AcceptedAction } from "../../realtime-state";
 import { humanizeError } from "../../templates/lobby";
 import { renderPlacementBoardMarkup, type ShipPreview } from "./render";
 import type { BattleshipDefinition, ClientView, PlacementDraft } from "./types";
@@ -16,7 +17,7 @@ export type BattleshipGameViewProps = {
   mySeat: string;
   seatNames: Record<string, string>;
   lastError?: string | null;
-  lastEvents: unknown[];
+  acceptedActions: AcceptedAction[];
   logs: string[];
   boardMarkup: string;
   pending: boolean;
@@ -170,9 +171,15 @@ export function BattleshipSetupView({
   </section>;
 }
 
-function latestShot(events: unknown[]): { label: string; detail: string; chip: string } {
-  let label = "No salvos recorded";
-  let detail = "Select a coordinate on the targeting grid.";
+function shotSummary(
+  events: unknown[],
+  perspective: "outgoing" | "incoming",
+  opponentName: string
+): { label: string; detail: string; chip: string } {
+  let label = perspective === "outgoing" ? "No salvos fired" : "No incoming fire";
+  let detail = perspective === "outgoing"
+    ? "Select a coordinate on the targeting grid."
+    : "Your fleet has not been targeted yet.";
   let chip = "";
 
   for (const raw of events) {
@@ -182,23 +189,40 @@ function latestShot(events: unknown[]): { label: string; detail: string; chip: s
       ? `${String.fromCharCode(65 + at.col)}${at.row + 1}`
       : "";
     if (event.eventType === "shot.miss") {
-      label = "Water only";
-      detail = coordinate ? `${coordinate} was a miss.` : "The last salvo missed.";
-      if (!chip) chip = "Miss";
+      label = perspective === "outgoing" ? "Water only" : "Incoming salvo missed";
+      detail = perspective === "outgoing"
+        ? coordinate ? `${coordinate} was a miss.` : "Your last salvo missed."
+        : coordinate ? `${opponentName} missed at ${coordinate}.` : `${opponentName} missed your fleet.`;
+      if (perspective === "outgoing" && !chip) chip = "Miss";
     }
     if (event.eventType === "shot.hit") {
-      label = "Hit confirmed";
-      detail = `${coordinate ? `${coordinate} struck` : "Impact on"} ${event.payload?.shipId ?? "a ship"}.`;
-      chip = "Hit!";
+      label = perspective === "outgoing" ? "Hit confirmed" : "Hull struck";
+      detail = perspective === "outgoing"
+        ? `${coordinate ? `${coordinate} struck` : "Impact on"} ${event.payload?.shipId ?? "a ship"}.`
+        : `${opponentName} hit your ${event.payload?.shipId ?? "fleet"}${coordinate ? ` at ${coordinate}` : ""}.`;
+      if (perspective === "outgoing") chip = "Hit!";
     }
     if (event.eventType === "ship.sunk") {
-      label = "Vessel destroyed";
-      detail = `${event.payload?.shipId ?? "Enemy ship"} is beneath the waves.`;
-      chip = `Sunk their ${event.payload?.shipId ?? "ship"}!`;
+      label = perspective === "outgoing" ? "Vessel destroyed" : "Ship lost";
+      detail = perspective === "outgoing"
+        ? `${event.payload?.shipId ?? "Enemy ship"} is beneath the waves.`
+        : `${opponentName} sank your ${event.payload?.shipId ?? "ship"}.`;
+      if (perspective === "outgoing") chip = `Sunk their ${event.payload?.shipId ?? "ship"}!`;
     }
   }
 
   return { label, detail, chip };
+}
+
+function lastAcceptedAction(
+  actions: AcceptedAction[],
+  predicate: (action: AcceptedAction) => boolean
+): AcceptedAction | undefined {
+  for (let index = actions.length - 1; index >= 0; index -= 1) {
+    const action = actions[index];
+    if (action && predicate(action)) return action;
+  }
+  return undefined;
 }
 
 export function BattleshipGameView({
@@ -206,7 +230,7 @@ export function BattleshipGameView({
   mySeat,
   seatNames,
   lastError,
-  lastEvents,
+  acceptedActions,
   logs,
   boardMarkup,
   pending,
@@ -223,7 +247,13 @@ export function BattleshipGameView({
   const hitsTaken = view.ownBoard?.hitsTaken?.length ?? 0;
   const intactHullCells = Math.max(0, totalHullCells - hitsTaken);
   const fleetPercent = totalHullCells > 0 ? Math.round((intactHullCells / totalHullCells) * 100) : 100;
-  const shot = latestShot(lastEvents);
+  const outgoingAction = lastAcceptedAction(acceptedActions, (action) => action.actorPlayerId === mySeat);
+  const incomingAction = lastAcceptedAction(
+    acceptedActions,
+    (action) => action.actorPlayerId !== null && action.actorPlayerId !== mySeat
+  );
+  const outgoingShot = shotSummary(outgoingAction?.events ?? [], "outgoing", opponentName);
+  const incomingShot = shotSummary(incomingAction?.events ?? [], "incoming", opponentName);
 
   const fire = (event: MouseEvent<HTMLDivElement>): void => {
     const target = event.target as HTMLElement;
@@ -259,7 +289,7 @@ export function BattleshipGameView({
                 : <>Waiting for <strong>{currentName || "opponent"}</strong></>}
             </span>
           </div>}
-      {shot.chip && <div className="battle-result-chip last-result"><span>{shot.chip}</span></div>}
+      {!terminal && outgoingShot.chip && <div className="battle-result-chip last-result"><span>{outgoingShot.chip}</span></div>}
       {lastError && <div className="error-text" role="alert">{humanizeError(lastError)}</div>}
     </header>
     <div className="gameplay-screen battleship-gameplay">
@@ -279,8 +309,10 @@ export function BattleshipGameView({
           <p><span className="num">{intactHullCells}</span> of <span className="num">{totalHullCells}</span> hull cells intact</p>
         </div>
         <div className="card side-card salvo-card">
-          <h2>Recent salvo</h2>
-          <div className="salvo-result"><strong>{shot.label}</strong><span>{shot.detail}</span></div>
+          <h2>Your last salvo</h2>
+          <div className="salvo-result outgoing-salvo"><strong>{outgoingShot.label}</strong><span>{outgoingShot.detail}</span></div>
+          <h2 className="incoming-salvo-heading">Incoming fire</h2>
+          <div className="salvo-result incoming-salvo"><strong>{incomingShot.label}</strong><span>{incomingShot.detail}</span></div>
         </div>
         <details className="card debug-panel">
           <summary>Diagnostics</summary>

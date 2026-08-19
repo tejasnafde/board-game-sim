@@ -138,7 +138,10 @@ describe("realtime gateway", () => {
     });
 
     expect(events).toHaveLength(2);
-    expect(events[0]?.type).toBe("session.action_accepted");
+    expect(events[0]).toMatchObject({
+      type: "session.action_accepted",
+      actorPlayerId: "p1"
+    });
     expect(events[1]?.type).toBe("session.state_patch");
   });
 
@@ -244,6 +247,10 @@ describe("vs-computer seats", () => {
       track(event) { analyticsEvents.push(event); }
     });
 
+    const botActors: string[] = [];
+    gateway.onSessionChanged = (_sessionId, action) => {
+      botActors.push(action.actorPlayerId);
+    };
     const created = await gateway.handleClientEvent({
       type: "session.create",
       sessionId: "gw-bot",
@@ -282,5 +289,6 @@ describe("vs-computer seats", () => {
     expect(analyticsEvents).toContain("session_created");
     expect(analyticsEvents).toContain("gameplay_started");
     expect(analyticsEvents).toContain("game_completed");
+    expect(botActors).toContain("player-2");
   });
 });

@@ -53,7 +53,7 @@ describe("Battleship React game view", () => {
       view={view}
       mySeat="player-1"
       seatNames={{ "player-1": "tejas", "player-2": "Computer" }}
-      lastEvents={[]}
+      acceptedActions={[]}
       logs={[]}
       boardMarkup='<div class="board-root">board</div>'
       pending={false}
@@ -67,12 +67,50 @@ describe("Battleship React game view", () => {
     expect(html).toContain("Computer");
   });
 
+  test("keeps outgoing and incoming salvo feedback in the correct perspective", () => {
+    const html = renderToStaticMarkup(<BattleshipGameView
+      view={view}
+      mySeat="player-1"
+      seatNames={{ "player-1": "tejas", "player-2": "Computer" }}
+      acceptedActions={[
+        {
+          seq: 10,
+          actorPlayerId: "player-1",
+          events: [{ eventType: "shot.hit", payload: { at: { row: 2, col: 3 }, shipId: "carrier" } }]
+        },
+        {
+          seq: 11,
+          actorPlayerId: "player-2",
+          events: [
+            { eventType: "shot.hit", payload: { at: { row: 0, col: 1 }, shipId: "destroyer" } },
+            { eventType: "ship.sunk", payload: { shipId: "destroyer", ownerPlayerId: "player-1" } }
+          ]
+        }
+      ]}
+      logs={[]}
+      boardMarkup='<div class="board-root">board</div>'
+      pending={false}
+      onFire={() => {}}
+      onRematch={() => {}}
+    />);
+
+    expect(html).toContain("Your last salvo");
+    expect(html).toContain("D3 struck carrier");
+    expect(html).toContain("Incoming fire");
+    expect(html).toContain("Computer sank your destroyer");
+    expect(html).not.toContain("Sunk their destroyer");
+  });
+
   test("keeps the revealed board and rematch action at terminal state", () => {
     const html = renderToStaticMarkup(<BattleshipGameView
       view={{ ...view, phase: "terminal", winnerPlayerId: "player-1" }}
       mySeat="player-1"
       seatNames={{ "player-1": "tejas" }}
-      lastEvents={[]}
+      acceptedActions={[{
+        seq: 12,
+        actorPlayerId: "player-1",
+        events: [{ eventType: "ship.sunk", payload: { shipId: "destroyer" } }]
+      }]}
       logs={[]}
       boardMarkup='<div class="board-root">revealed</div>'
       pending={false}
@@ -83,5 +121,6 @@ describe("Battleship React game view", () => {
     expect(html).toContain("tejas wins the battle!");
     expect(html).toContain("revealed");
     expect(html).toContain('id="rematch-btn"');
+    expect(html).not.toContain("last-result");
   });
 });

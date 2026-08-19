@@ -88,6 +88,39 @@ test("battleship: two players join, deploy fleets, fire with feedback", async ({
   await bob.close();
 });
 
+test("battleship vs computer: a complete match preserves board and salvo semantics", async ({ browser }) => {
+  test.setTimeout(90_000);
+  const page = await browser.newPage({ viewport: { width: 1360, height: 900 } });
+  await page.goto("/#/games/battleship");
+  await page.fill("#player-id", "fleet-check");
+  await page.locator("#create-btn").dispatchEvent("click");
+  await page.click("#load-template-btn");
+  await page.click("#submit-setup-btn");
+
+  await expect(page.locator(".own-panel .cell")).toHaveCount(100);
+  await expect(page.locator(".opponent-panel .cell")).toHaveCount(100);
+
+  let salvos = 0;
+  while (await page.locator("#rematch-btn").count() === 0 && salvos < 100) {
+    await expect(page.locator(".status-banner.your-turn")).toBeVisible();
+    await page.locator('.opponent-cell[data-board="opponent"]:not([disabled])').first().click();
+    salvos += 1;
+    await page.waitForFunction(() => {
+      return Boolean(document.querySelector("#rematch-btn, .status-banner.your-turn"));
+    });
+  }
+
+  expect(salvos).toBeLessThanOrEqual(100);
+  await expect(page.locator("#rematch-btn")).toBeVisible();
+  await expect(page.locator(".outgoing-salvo")).toBeVisible();
+  await expect(page.locator(".incoming-salvo")).toBeVisible();
+  await expect(page.locator(".error-text")).toHaveCount(0);
+  await expectBattleSpritesAligned(page, ".own-panel");
+  await expectBattleSpritesAligned(page, ".opponent-panel");
+  await page.screenshot({ path: "test-results/battleship-complete-match.png", fullPage: true });
+  await page.close();
+});
+
 test("battleship: selected ship art stays on its cells through every rotation", async ({ browser }) => {
   const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
   await page.goto("/#/games/battleship");
@@ -201,6 +234,17 @@ test("labyrinth vs computer: bot takes full turns and the human is never stuck",
   await expect(page.locator(".labyrinth-cell").first()).toBeVisible();
   await expect(page.locator("text=Computer")).toBeVisible();
 
+  const rotation = page.locator(".spare-rotation-readout");
+  const beforeRotation = await rotation.innerText();
+  await page.getByRole("button", { name: "Rotate spare tile clockwise" }).click();
+  await expect(rotation).not.toHaveText(beforeRotation);
+  await expect(page.locator(".status-banner.your-turn")).toBeVisible();
+
+  const previewArrow = page.locator(".labyrinth-insert-btn:not([disabled])").first();
+  await previewArrow.hover();
+  await expect(page.locator(".labyrinth-cell.insertion-preview")).toHaveCount(7);
+  await page.mouse.move(0, 0);
+
   const controlsBottom = await page.locator("#labyrinth-insert-controls").evaluate(
     (element) => element.getBoundingClientRect().bottom
   );
@@ -268,6 +312,7 @@ test("labyrinth mobile keeps the full maze and controls inside the viewport", as
   await expect(page.locator(".labyrinth-insert-btn:not([disabled])").first()).toHaveAccessibleName(
     "Insert spare tile from top into column 2"
   );
+  await expect(page.getByRole("button", { name: "Rotate spare tile clockwise" })).toBeVisible();
 
   await page.close();
 });

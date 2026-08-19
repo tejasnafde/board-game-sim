@@ -1,6 +1,6 @@
 import type { GameBot } from "@board-game-sim/shared";
-import type { Coord, Edge, Insertion, LabyrinthConfig, Tile } from "./rules/types";
-import { coordKey, findObjectiveTile, findReachable, shiftBoard, shiftPosition } from "./rules/board";
+import type { Coord, Edge, Insertion, LabyrinthConfig, RotationDeg, Tile } from "./rules/types";
+import { coordKey, findObjectiveTile, findReachable, rotateTile, shiftBoard, shiftPosition } from "./rules/board";
 
 // Shapes the bot reads from getPlayerView.
 type LabyrinthView = {
@@ -20,6 +20,7 @@ type LabyrinthView = {
 };
 
 const EDGES: Edge[] = ["top", "bottom", "left", "right"];
+const ROTATIONS: RotationDeg[] = [0, 90, 180, 270];
 const OPPOSITE_EDGE: Record<Edge, Edge> = { top: "bottom", bottom: "top", left: "right", right: "left" };
 
 function manhattan(a: Coord, b: Coord): number {
@@ -60,35 +61,41 @@ export const labyrinthBot: GameBot = ({ view, playerId, rng }) => {
   const targetId = v.myState.remainingObjectives[0]?.id ?? null;
 
   if (v.turnStage === "insert") {
-    let best: Insertion | null = null;
+    const best: Array<{ insertion: Insertion; rotationDeg: RotationDeg }> = [];
     let bestScore = -Infinity;
 
-    for (const slot of legalInsertions(v.config, v.lastInsertion)) {
-      const shifted = shiftBoard(v.board, v.spareTile, slot, v.config);
-      const myPos = shiftPosition(v.myState.position, slot, v.config);
-      // the objective is a TILE: find where this insertion leaves it (null =
-      // we would eject our own target onto the spare - heavily penalized)
-      const targetPos = targetId
-        ? findObjectiveTile(shifted.board, targetId)
-        : shiftPosition(v.myState.home, slot, v.config);
-      if (!targetPos) continue;
-      const reachable = findReachable(shifted.board, v.config, myPos);
+    for (const rotationDeg of ROTATIONS) {
+      const spareTile = rotateTile(v.spareTile, rotationDeg);
+      for (const insertion of legalInsertions(v.config, v.lastInsertion)) {
+        const shifted = shiftBoard(v.board, spareTile, insertion, v.config);
+        const myPos = shiftPosition(v.myState.position, insertion, v.config);
+        const targetPos = targetId
+          ? findObjectiveTile(shifted.board, targetId)
+          : shiftPosition(v.myState.home, insertion, v.config);
+        if (!targetPos) continue;
+        const reachable = findReachable(shifted.board, v.config, myPos);
+        const score = reachable.has(coordKey(targetPos))
+          ? 1000 - manhattan(myPos, targetPos)
+          : -closestDistance(reachable, targetPos);
 
-      // rng jitter breaks ties AND deterministic bot-vs-bot board cycles
-      // (self-play livelocked without it); small enough to never outweigh
-      // a real reachability difference.
-      const score = (reachable.has(coordKey(targetPos))
-        ? 1000 - manhattan(myPos, targetPos) // reachable: prefer shorter trips
-        : -closestDistance(reachable, targetPos)) + rng() * 0.9;
-
-      if (score > bestScore) {
-        bestScore = score;
-        best = slot;
+        if (score > bestScore) {
+          bestScore = score;
+          best.length = 0;
+          best.push({ insertion, rotationDeg });
+        } else if (score === bestScore) {
+          best.push({ insertion, rotationDeg });
+        }
       }
     }
 
-    if (!best) return null;
-    return { actionType: "insert_tile", payload: best };
+    if (best.length === 0) return null;
+    const currentRotation = best.filter((candidate) => candidate.rotationDeg === v.spareTile.rotationDeg);
+    const candidates = currentRotation.length > 0 ? currentRotation : best;
+    const selected = candidates[Math.min(candidates.length - 1, Math.floor(rng() * candidates.length))]!;
+    if (selected.rotationDeg !== v.spareTile.rotationDeg) {
+      return { actionType: "rotate_spare", payload: { rotationDeg: selected.rotationDeg } };
+    }
+    return { actionType: "insert_tile", payload: selected.insertion };
   }
 
   // move stage: the view's reachableCells reflect the post-insert board.

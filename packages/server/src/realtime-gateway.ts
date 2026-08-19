@@ -46,7 +46,7 @@ export class RealtimeGateway {
 
   /** Set by the transport layer to push room-wide syncs after paced bot moves. */
   onSessionChanged:
-    | ((sessionId: string, events: { seq: number; items: JsonValue[] }) => Promise<void> | void)
+    | ((sessionId: string, action: { seq: number; actorPlayerId: string; items: JsonValue[] }) => Promise<void> | void)
     | null = null;
 
   constructor(
@@ -105,6 +105,7 @@ export class RealtimeGateway {
         log.info(`${sessionId} 🤖 ${seat} → ${action.actionType} ${JSON.stringify(action.payload)}`);
         await this.onSessionChanged?.(sessionId, {
           seq: result.seq,
+          actorPlayerId: seat,
           items: result.events.map((e) => ({ eventType: e.eventType, payload: e.payload })) as JsonValue[]
         });
         acted = true;
@@ -309,6 +310,7 @@ export class RealtimeGateway {
           type: "session.action_accepted",
           sessionId: event.envelope.sessionId,
           seq: result.seq,
+          actorPlayerId: seat,
           events: result.events.map((item) => ({
             eventType: item.eventType,
             payload: item.payload

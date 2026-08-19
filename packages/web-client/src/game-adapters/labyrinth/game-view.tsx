@@ -1,6 +1,7 @@
-import { findPath, type Tile } from "@board-game-sim/labyrinth";
+import { findPath, shiftBoard, shiftPosition, type Tile } from "@board-game-sim/labyrinth";
 import { useMemo, useState } from "react";
 import { objectiveIcon } from "../../icons";
+import type { AcceptedAction } from "../../realtime-state";
 import { humanizeError } from "../../templates/lobby";
 import type { LabyrinthView } from "./types";
 
@@ -23,9 +24,10 @@ export type LabyrinthGameViewProps = {
   mySeat: string;
   seatNames: Record<string, string>;
   lastError?: string | null;
-  lastEvents: unknown[];
+  acceptedActions: AcceptedAction[];
   logs: string[];
   pending: boolean;
+  onRotate(rotationDeg: 0 | 90 | 180 | 270): void;
   onInsert(edge: Edge, index: number): void;
   onMove(row: number, col: number): void;
   onRematch(): void;
@@ -56,6 +58,7 @@ function InsertControls(input: {
   enabled: boolean;
   lastInsertion?: { edge: string; index: number } | null;
   pending: boolean;
+  onPreview(insertion: { edge: Edge; index: number } | null): void;
   onInsert(edge: Edge, index: number): void;
 }) {
   const vertical = input.edge === "left" || input.edge === "right";
@@ -80,29 +83,41 @@ function InsertControls(input: {
         disabled={!input.enabled || input.pending || reverse}
         key={index}
         onClick={() => input.onInsert(input.edge, index)}
+        onBlur={() => input.onPreview(null)}
+        onFocus={() => input.onPreview({ edge: input.edge, index })}
+        onMouseEnter={() => input.onPreview({ edge: input.edge, index })}
+        onMouseLeave={() => input.onPreview(null)}
       >{arrow}</button>;
     })}
   </div>;
 }
 
 function activityItems(
-  events: unknown[],
+  actions: AcceptedAction[],
   view: LabyrinthView,
   mySeat: string,
   nameOf: (seat?: string | null) => string
 ): Array<{ key: string; text: string; danger?: boolean }> {
   const items: Array<{ key: string; text: string; danger?: boolean }> = [];
-  for (const raw of events) {
-    const event = raw as {
-      eventType?: string;
-      payload?: { playerId?: string; objectiveId?: string; rank?: number };
-    };
-    const who = event.payload?.playerId === mySeat ? "You" : nameOf(event.payload?.playerId) || "Someone";
-    if (event.eventType === "objective.collected" && event.payload?.objectiveId) {
-      items.push({ key: `objective-${event.payload.playerId}-${event.payload.objectiveId}`, text: `${who} collected the ${event.payload.objectiveId}` });
-    }
-    if (event.eventType === "player.finished" && event.payload?.rank) {
-      items.push({ key: `finish-${event.payload.playerId}`, text: `${who} finished ${ORDINALS[event.payload.rank - 1] ?? `#${event.payload.rank}`}!` });
+  for (const action of actions.slice(-6).reverse()) {
+    for (const [eventIndex, raw] of action.events.entries()) {
+      const event = raw as {
+        eventType?: string;
+        payload?: { playerId?: string; objectiveId?: string; rank?: number; edge?: Edge; index?: number };
+      };
+      const actor = event.payload?.playerId ?? action.actorPlayerId;
+      const who = actor === mySeat ? "You" : nameOf(actor) || "Someone";
+      if (event.eventType === "tile.inserted" && event.payload?.edge && event.payload.index !== undefined) {
+        const direction = { top: "down", bottom: "up", left: "right", right: "left" }[event.payload.edge];
+        const axis = event.payload.edge === "top" || event.payload.edge === "bottom" ? "column" : "row";
+        items.push({ key: `${action.seq}-${eventIndex}`, text: `${who} shifted ${axis} ${event.payload.index + 1} ${direction}` });
+      }
+      if (event.eventType === "objective.collected" && event.payload?.objectiveId) {
+        items.push({ key: `${action.seq}-${eventIndex}`, text: `${who} collected the ${event.payload.objectiveId}` });
+      }
+      if (event.eventType === "player.finished" && event.payload?.rank) {
+        items.push({ key: `${action.seq}-${eventIndex}`, text: `${who} finished ${ORDINALS[event.payload.rank - 1] ?? `#${event.payload.rank}`}!` });
+      }
     }
   }
   for (const player of view.players ?? []) {
@@ -122,14 +137,16 @@ export function LabyrinthGameView({
   mySeat,
   seatNames,
   lastError,
-  lastEvents,
+  acceptedActions,
   logs,
   pending,
+  onRotate,
   onInsert,
   onMove,
   onRematch
 }: LabyrinthGameViewProps) {
   const [hovered, setHovered] = useState<Coord | null>(null);
+  const [previewInsertion, setPreviewInsertion] = useState<{ edge: Edge; index: number } | null>(null);
   const board = view.board ?? [];
   const players = view.players ?? [];
   const nameOf = (seat?: string | null) => seat ? seatNames[seat] ?? seat : "";
@@ -141,6 +158,18 @@ export function LabyrinthGameView({
   const myObjectives = view.myState?.remainingObjectives ?? [];
   const rows = board.length || view.config?.rows || 7;
   const cols = board[0]?.length || view.config?.cols || 7;
+  const preview = useMemo(() => {
+    if (!previewInsertion || !view.spareTile?.openings || board.length === 0) return null;
+    const shifted = shiftBoard(board as Tile[][], view.spareTile as Tile, previewInsertion, { rows, cols });
+    return {
+      board: shifted.board,
+      positions: new Map(players.map((player) => [
+        player.playerId,
+        shiftPosition(player.position, previewInsertion, { rows, cols })
+      ]))
+    };
+  }, [board, cols, players, previewInsertion, rows, view.spareTile]);
+  const displayBoard = preview?.board ?? board;
   const reachable = new Set<string>((view.myState?.reachableCells ?? []).map((cell) => `${cell.row}:${cell.col}`));
   const nextObjective = view.myState?.remainingObjectives?.[0]?.id;
   const playerIndex = new Map(players.map((player, index) => [player.playerId, index]));
@@ -157,7 +186,7 @@ export function LabyrinthGameView({
     );
     return new Set((path ?? []).map((cell) => `${cell.row}:${cell.col}`));
   }, [board, cols, hovered, moveStage, rows, view.myState?.position]);
-  const items = activityItems(lastEvents, view, mySeat, nameOf);
+  const items = activityItems(acceptedActions, view, mySeat, nameOf);
 
   if (board.length === 0) {
     return <section className="screen labyrinth-screen">
@@ -214,24 +243,35 @@ export function LabyrinthGameView({
         <div id="labyrinth-insert-controls">
           <div className="labyrinth-insert-ring">
             <div className="spare-tile-wrap">
-              <div className="spare-tile-box">
+              <div className="spare-tile-box" key={view.spareTile?.rotationDeg ?? 0}>
                 <TileCorridors openings={view.spareTile?.openings ?? { N: false, E: false, S: false, W: false }} />
                 {view.spareTile?.objectiveId && <div className="objective-marker"><ObjectiveIcon id={view.spareTile.objectiveId} size={13} /></div>}
               </div>
-              <div><div className="label spare-tile-label">Spare Tile</div><div className="spare-tile-hint">Insert from any arrow</div></div>
+              <div className="spare-tile-copy">
+                <div className="label spare-tile-label">Spare Tile</div>
+                <div className="spare-rotate-controls">
+                  <button aria-label="Rotate spare tile counterclockwise" className="spare-rotate-btn" disabled={!myTurn || !insertStage || pending} onClick={() => onRotate((((view.spareTile?.rotationDeg ?? 0) + 270) % 360) as 0 | 90 | 180 | 270)}>↺</button>
+                  <span className="spare-rotation-readout">{view.spareTile?.rotationDeg ?? 0}°</span>
+                  <button aria-label="Rotate spare tile clockwise" className="spare-rotate-btn" disabled={!myTurn || !insertStage || pending} onClick={() => onRotate((((view.spareTile?.rotationDeg ?? 0) + 90) % 360) as 0 | 90 | 180 | 270)}>↻</button>
+                </div>
+              </div>
             </div>
-            <InsertControls edge="top" count={cols} indexes={insertionIndexes} enabled={myTurn && insertStage} lastInsertion={view.lastInsertion} pending={pending} onInsert={onInsert} />
-            <InsertControls edge="left" count={rows} indexes={insertionIndexes} enabled={myTurn && insertStage} lastInsertion={view.lastInsertion} pending={pending} onInsert={onInsert} />
-            <div className="labyrinth-board-center" id="labyrinth-board" role="group" aria-label="Maze board" onMouseLeave={() => setHovered(null)}>
+            <InsertControls edge="top" count={cols} indexes={insertionIndexes} enabled={myTurn && insertStage} lastInsertion={view.lastInsertion} pending={pending} onPreview={setPreviewInsertion} onInsert={onInsert} />
+            <InsertControls edge="left" count={rows} indexes={insertionIndexes} enabled={myTurn && insertStage} lastInsertion={view.lastInsertion} pending={pending} onPreview={setPreviewInsertion} onInsert={onInsert} />
+            <div className="labyrinth-board-center" data-preview-edge={previewInsertion?.edge} id="labyrinth-board" role="group" aria-label="Maze board" onMouseLeave={() => setHovered(null)}>
               <div className="labyrinth-grid" style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}>
-                {board.flatMap((row, rowIndex) => row.map((tile, colIndex) => {
+                {displayBoard.flatMap((row, rowIndex) => row.map((tile, colIndex) => {
                   const key = `${rowIndex}:${colIndex}`;
-                  const playersHere = players.filter((player) => player.position.row === rowIndex && player.position.col === colIndex);
+                  const playersHere = players.filter((player) => {
+                    const position = preview?.positions.get(player.playerId) ?? player.position;
+                    return position.row === rowIndex && position.col === colIndex;
+                  });
                   const actionable = myTurn && moveStage && reachable.has(key) && !pending;
                   const next = tile.objectiveId === nextObjective;
                   const classes = ["labyrinth-cell"];
                   if (actionable) classes.push("reachable");
                   if (next) classes.push("next-objective");
+                  if (previewInsertion && ((previewInsertion.edge === "top" || previewInsertion.edge === "bottom") ? previewInsertion.index === colIndex : previewInsertion.index === rowIndex)) classes.push("insertion-preview");
                   if (previewPath.has(key) && hovered) classes.push(key === `${hovered.row}:${hovered.col}` ? "path-target" : "path-step");
                   const label = [
                     `Row ${rowIndex + 1}, column ${colIndex + 1}`,
@@ -262,8 +302,8 @@ export function LabyrinthGameView({
                 }))}
               </div>
             </div>
-            <InsertControls edge="right" count={rows} indexes={insertionIndexes} enabled={myTurn && insertStage} lastInsertion={view.lastInsertion} pending={pending} onInsert={onInsert} />
-            <InsertControls edge="bottom" count={cols} indexes={insertionIndexes} enabled={myTurn && insertStage} lastInsertion={view.lastInsertion} pending={pending} onInsert={onInsert} />
+            <InsertControls edge="right" count={rows} indexes={insertionIndexes} enabled={myTurn && insertStage} lastInsertion={view.lastInsertion} pending={pending} onPreview={setPreviewInsertion} onInsert={onInsert} />
+            <InsertControls edge="bottom" count={cols} indexes={insertionIndexes} enabled={myTurn && insertStage} lastInsertion={view.lastInsertion} pending={pending} onPreview={setPreviewInsertion} onInsert={onInsert} />
           </div>
         </div>
       </div>
@@ -271,7 +311,7 @@ export function LabyrinthGameView({
         <div className="card side-card">
           <h2>Your objective</h2>
           {myObjectives.length
-            ? <div className="objectives-list">{myObjectives.map((objective, index) => <div className={`objective-item ${index ? "is-upcoming" : "is-next"}`} key={objective.id}><ObjectiveIcon id={objective.id} /> {index === 0 ? "Next: " : ""}{objective.id}</div>)}</div>
+            ? <div className="objectives-list">{myObjectives.map((objective, index) => <div className={`objective-item ${index ? "is-upcoming" : "is-next"}`} key={objective.id}><ObjectiveIcon id={objective.id} /><span>{index === 0 ? "Find " : "Then "}{objective.id}{index === 0 && objective.position ? <small>Row {objective.position.row + 1} · Column {objective.position.col + 1}</small> : null}</span></div>)}</div>
             : <div className="objectives-complete">All collected! Return home!</div>}
         </div>
         <div className="card side-card">

@@ -53,7 +53,7 @@ export function createWsRealtimeServer(options: WsServerOptions) {
   const sessionRooms = new Map<string, Set<WebSocket>>();
 
   // Paced bot moves land outside any request; push fresh views to the room.
-  options.gateway.onSessionChanged = async (sessionId: string, events: { seq: number; items: unknown[] }) => {
+  options.gateway.onSessionChanged = async (sessionId: string, action: { seq: number; actorPlayerId: string; items: unknown[] }) => {
     const room = sessionRooms.get(sessionId);
     if (!room || room.size === 0) return;
     for (const peer of room) {
@@ -63,8 +63,9 @@ export function createWsRealtimeServer(options: WsServerOptions) {
       send(peer, {
         type: "session.action_accepted",
         sessionId,
-        seq: events.seq,
-        events: events.items as never[]
+        seq: action.seq,
+        actorPlayerId: action.actorPlayerId,
+        events: action.items as never[]
       });
       send(peer, await options.gateway.createStateSyncEvent(sessionId, playerId));
     }
