@@ -5,6 +5,7 @@ import { createPlayableGameUiAdapters, type PlayableGameUiAdapter } from "./game
 import { GAME_HUB_CARDS, resolveGameHubNavigation } from "./game-hub";
 import { nextSessionId } from "./templates/lobby";
 import { navigate, parseHashRoute, toHashRoute, type AppRoute, type GameId } from "./routes";
+import { gamingAnalytics } from "./analytics";
 
 export { GAME_HUB_CARDS, resolveGameHubNavigation };
 
@@ -153,7 +154,8 @@ export function mountPlayableClient(
       }
       const gameId = button.dataset.gameId as GameId;
       const nextRoute = resolveGameHubNavigation(gameId);
-      if (nextRoute) {
+      if (nextRoute && gameId !== "catan") {
+        gamingAnalytics.gameSelected(gameId);
         joined = false;
         joinedGameId = null;
         // When entering a game from the hub, load the stored session for that game

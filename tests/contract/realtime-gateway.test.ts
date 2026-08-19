@@ -14,7 +14,7 @@ const miniDefinition = {
   ships: [{ id: "destroyer", size: 2 }]
 };
 
-function build() {
+function build(analytics?: { track(event: string, surface: string, properties: Record<string, string>): void }) {
   const registry = new InMemoryGameRegistry();
   registry.register({
     gameId: "battleship",
@@ -30,10 +30,36 @@ function build() {
     new InMemorySnapshotRepository()
   );
 
-  return { service, gateway: new RealtimeGateway(service) };
+  return { service, gateway: new RealtimeGateway(service, 0, analytics) };
 }
 
 describe("realtime gateway", () => {
+  test("reports authoritative session and first-action milestones", async () => {
+    const calls: unknown[][] = [];
+    const { service, gateway } = build({ track: (...args) => calls.push(args) });
+    await gateway.handleClientEvent({
+      type: "session.create",
+      sessionId: "gw-analytics",
+      gameId: "battleship",
+      playerId: "p1"
+    });
+    await gateway.handleClientEvent({
+      type: "action.submit",
+      envelope: {
+        sessionId: "gw-analytics",
+        expectedSeq: service.getSessionSeq("gw-analytics"),
+        actorPlayerId: "p1",
+        actionType: "place_ships",
+        payload: { placements: [{ shipId: "destroyer", cells: [{ row: 0, col: 0 }, { row: 0, col: 1 }] }] },
+        clientActionId: "analytics-1"
+      }
+    });
+    expect(calls).toEqual([
+      ["session_created", "lobby", { variant: "battleship" }],
+      ["gameplay_started", "gameplay", { variant: "battleship" }]
+    ]);
+  });
+
   test("returns state sync on join", async () => {
     const { service, gateway } = build();
     await service.createSession({
@@ -213,7 +239,10 @@ describe("vs-computer seats", () => {
       new InMemorySessionRepository(),
       new InMemorySnapshotRepository()
     );
-    const gateway = new RealtimeGateway(service);
+    const analyticsEvents: string[] = [];
+    const gateway = new RealtimeGateway(service, 0, {
+      track(event) { analyticsEvents.push(event); }
+    });
 
     const created = await gateway.handleClientEvent({
       type: "session.create",
@@ -250,5 +279,8 @@ describe("vs-computer seats", () => {
     }
 
     expect(service.getTerminalResult("gw-bot")).not.toBeNull();
+    expect(analyticsEvents).toContain("session_created");
+    expect(analyticsEvents).toContain("gameplay_started");
+    expect(analyticsEvents).toContain("game_completed");
   });
 });

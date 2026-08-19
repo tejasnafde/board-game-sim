@@ -7,6 +7,7 @@ import labyrinthDefinition from "../../games/labyrinth/definition.json";
 import connect4Definition from "../../games/connect4/definition.json";
 import type { ClientEvent, ServerEvent } from "./protocol";
 import { SessionService } from "./session-service";
+import { noAnalytics, type GamingAnalytics } from "./analytics";
 
 // Supported games for on-demand session creation. New game? Add a row.
 const GAMES: Record<
@@ -51,7 +52,8 @@ export class RealtimeGateway {
   constructor(
     private readonly sessions: SessionService,
     // 0 = bots reply inside the request (tests); >0 = paced, pushed via onSessionChanged
-    private readonly botMoveDelayMs = 0
+    private readonly botMoveDelayMs = 0,
+    private readonly analytics: GamingAnalytics = noAnalytics
   ) { }
 
   /** Let bot seats act until it's a human's turn (or terminal / nothing to do). */
@@ -241,6 +243,8 @@ export class RealtimeGateway {
         await this.kickBots(event.sessionId);
       }
 
+      this.analytics.track("session_created", "lobby", { variant: event.gameId });
+
       // Return created confirmation + initial state sync for creator
       return [
         {
@@ -295,6 +299,11 @@ export class RealtimeGateway {
 
       await this.kickBots(event.envelope.sessionId);
 
+      const meta = this.sessions.getSessionMeta(event.envelope.sessionId);
+      if (result.seq === 1 && meta) {
+        this.analytics.track("gameplay_started", "gameplay", { variant: meta.gameId });
+      }
+
       const outbound: ServerEvent[] = [
         {
           type: "session.action_accepted",
@@ -315,6 +324,9 @@ export class RealtimeGateway {
 
       const terminal = this.sessions.getTerminalResult(event.envelope.sessionId);
       if (terminal) {
+        if (meta) {
+          this.analytics.track("game_completed", "gameplay", { variant: meta.gameId });
+        }
         outbound.push({
           type: "session.terminal",
           sessionId: event.envelope.sessionId,

@@ -1,0 +1,8 @@
+# Board Game Simulator
+
+> A browser collection of multiplayer board games with server-authoritative rules.
+
+## Canonical resources
+
+- [Play](https://gaming.tn07.dev/)
+- [Source](https://github.com/tejasnafde/board-game-sim)

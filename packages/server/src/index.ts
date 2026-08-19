@@ -1,4 +1,5 @@
 export * from "./main";
+export * from "./analytics";
 export * from "./game-registration";
 export * from "./protocol";
 export * from "./realtime-gateway";
