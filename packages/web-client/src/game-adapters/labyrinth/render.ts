@@ -4,8 +4,7 @@ import { lobbyPanelMarkup } from "../../templates/lobby";
 export function renderLabyrinthLobby(
   sessionId: string,
   playerId: string,
-  error?: string | null,
-  seatCount = 2
+  error?: string | null
 ): string {
   return `
     <section class="screen labyrinth-screen">
@@ -17,8 +16,7 @@ export function renderLabyrinthLobby(
     title: "Maze Lobby",
     joinLabel: "Enter Maze",
     error,
-    seatCount,
-    vsBot: true
+    tablePlan: { humanSeats: 1, botSeats: 1 }
   })}
     </section>
   `;

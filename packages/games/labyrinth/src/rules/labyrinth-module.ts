@@ -225,6 +225,7 @@ function collectObjectiveIfPresent(state: LabyrinthState, player: LabyrinthPlaye
   const tile = state.board[player.position.row]?.[player.position.col];
   if (tile?.objectiveId !== currentObjective.id) return null;
 
+  tile.objectiveId = null;
   player.collectedObjectiveIds.push(currentObjective.id);
   player.remainingObjectives = player.remainingObjectives.slice(1);
   return currentObjective.id;
@@ -327,6 +328,16 @@ function createInitialBoardAndPlayers(input: InitGameInput, config: LabyrinthCon
   const homes = input.players.map((_, idx) => pickHome(idx, config));
   const homeKeys = new Set(homes.map(coordKey));
   const availableSlots = objectiveSlots.filter((slot) => !homeKeys.has(coordKey(slot)));
+  const requiredObjectives = input.players.length * config.objectivesPerPlayer;
+  if (new Set(objectiveCatalog).size !== objectiveCatalog.length) {
+    throw new Error("objective_catalog_contains_duplicates");
+  }
+  if (objectiveCatalog.length < requiredObjectives) {
+    throw new Error("objective_catalog_too_small");
+  }
+  if (objectiveCatalog.length > availableSlots.length) {
+    throw new Error("objective_catalog_exceeds_board_capacity");
+  }
   for (let i = availableSlots.length - 1; i > 0; i -= 1) {
     const j = randomInt(rng, i + 1);
     const tmp = availableSlots[i] as Coord;
@@ -334,13 +345,23 @@ function createInitialBoardAndPlayers(input: InitGameInput, config: LabyrinthCon
     availableSlots[j] = tmp;
   }
 
+  const shuffledObjectives = [...objectiveCatalog];
+  for (let i = shuffledObjectives.length - 1; i > 0; i -= 1) {
+    const j = randomInt(rng, i + 1);
+    const tmp = shuffledObjectives[i] as string;
+    shuffledObjectives[i] = shuffledObjectives[j] as string;
+    shuffledObjectives[j] = tmp;
+  }
+  shuffledObjectives.forEach((objectiveId, index) => {
+    const slot = availableSlots[index] as Coord;
+    board[slot.row]![slot.col]!.objectiveId = objectiveId;
+  });
+
   const players: LabyrinthPlayerState[] = input.players.map((playerId, index) => {
     const home = homes[index] as Coord;
     const objectives = Array.from({ length: config.objectivesPerPlayer }).map((_, objIndex) => {
-      const objectiveId = objectiveCatalog[(index * config.objectivesPerPlayer + objIndex) % objectiveCatalog.length] as string;
-      const slot = availableSlots.shift() as Coord;
-      board[slot.row][slot.col].objectiveId = objectiveId;
-      return { id: objectiveId, position: slot };
+      const objectiveId = shuffledObjectives[index * config.objectivesPerPlayer + objIndex] as string;
+      return { id: objectiveId };
     });
 
     return {
@@ -632,10 +653,13 @@ export class LabyrinthModule implements GameModule<LabyrinthState> {
           playerId: me.playerId,
           position: me.position,
           home: me.home,
-          remainingObjectives: me.remainingObjectives.map((objective) => ({
-            id: objective.id,
-            position: findObjectiveTile(state.board, objective.id)
-          })),
+          currentObjective: me.remainingObjectives[0]
+            ? {
+                id: me.remainingObjectives[0].id,
+                position: findObjectiveTile(state.board, me.remainingObjectives[0].id)
+              }
+            : null,
+          objectivesRemainingCount: me.remainingObjectives.length,
           collectedObjectiveIds: me.collectedObjectiveIds,
           reachableCells: reachable
         }

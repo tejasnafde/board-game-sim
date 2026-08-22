@@ -68,6 +68,16 @@ export type TerminalResult = {
   reason: string;
 };
 
+export type TablePlan = {
+  humanSeats: number;
+  botSeats: number;
+};
+
+export type TableSummary = TablePlan & {
+  claimedHumanSeats: number;
+  ready: boolean;
+};
+
 export interface GameModule<State = JsonValue> {
   initGame(input: InitGameInput): InitResult<State>;
   listLegalActions(state: State, playerId: string): LegalAction[];

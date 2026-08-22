@@ -25,7 +25,8 @@ export type LabyrinthView = {
   myState?: {
     position?: Coord;
     home?: Coord;
-    remainingObjectives?: Array<{ id: string; position?: Coord | null }>;
+    currentObjective?: { id: string; position?: Coord | null } | null;
+    objectivesRemainingCount?: number;
     reachableCells?: Coord[];
   };
 };

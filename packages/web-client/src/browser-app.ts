@@ -228,9 +228,25 @@ export function mountPlayableClient(
       saveStored("playerId", playerId);
     });
 
-    const seatCountSelect = root.querySelector<HTMLSelectElement>("#seat-count");
+    const humanSeatsSelect = root.querySelector<HTMLSelectElement>("#human-seats");
+    const botSeatsSelect = root.querySelector<HTMLSelectElement>("#bot-seats");
+    const syncTablePlan = (): void => {
+      if (!humanSeatsSelect || !botSeatsSelect) return;
+      const humanSeats = Number(humanSeatsSelect.value);
+      const minBots = humanSeats === 1 ? 1 : 0;
+      const maxBots = 4 - humanSeats;
+      const botSeats = Math.min(maxBots, Math.max(minBots, Number(botSeatsSelect.value)));
+      botSeatsSelect.value = String(botSeats);
+      for (const option of Array.from(botSeatsSelect.options)) {
+        const count = Number(option.value);
+        option.disabled = count < minBots || count > maxBots;
+      }
+    };
+    humanSeatsSelect?.addEventListener("change", syncTablePlan);
+    botSeatsSelect?.addEventListener("change", syncTablePlan);
+    syncTablePlan();
 
-    const startSession = (id: string, options: { create: boolean; seatCount?: number; bots?: number }): void => {
+    const startSession = (id: string, options: { create: boolean; tablePlan?: { humanSeats: number; botSeats: number } }): void => {
       sessionId = id;
       if (route.name === "game") {
         saveStored(`sessionId:${route.gameId}`, sessionId);
@@ -239,7 +255,10 @@ export function mountPlayableClient(
       joinedGameId = route.name === "game" ? route.gameId : null;
       adapter.resetSession();
       if (options.create && joinedGameId) {
-        runtime.controller.join(sessionId, playerId, joinedGameId, options.seatCount, options.bots);
+        runtime.controller.join(sessionId, playerId, {
+          gameId: joinedGameId,
+          tablePlan: options.tablePlan ?? { humanSeats: 2, botSeats: 0 }
+        });
       } else {
         // No gameId: a typo'd code errors with session_not_found instead of
         // silently creating a fresh game.
@@ -251,11 +270,14 @@ export function mountPlayableClient(
     const createBtn = root.querySelector<HTMLButtonElement>("#create-btn");
     createBtn?.addEventListener("click", () => {
       const gameMode = root.querySelector<HTMLInputElement>('input[name="game-mode"]:checked')?.value;
-      const seatCount = seatCountSelect ? Number(seatCountSelect.value) || 2 : undefined;
+      const tablePlan = humanSeatsSelect && botSeatsSelect
+        ? { humanSeats: Number(humanSeatsSelect.value), botSeats: Number(botSeatsSelect.value) }
+        : gameMode === "bot"
+          ? { humanSeats: 1, botSeats: 1 }
+          : { humanSeats: 2, botSeats: 0 };
       startSession(generateSessionId(), {
         create: true,
-        seatCount,
-        bots: gameMode === "bot" ? (seatCount ?? 2) - 1 : undefined
+        tablePlan
       });
     });
 
@@ -269,8 +291,9 @@ export function mountPlayableClient(
       const bots = Object.values(state.seatNames).filter((n) => n.startsWith("Computer")).length;
       startSession(nextSessionId(sessionId), {
         create: true,
-        seatCount: seats > 0 ? seats : undefined,
-        bots: bots > 0 ? bots : undefined
+        tablePlan: state.table
+          ? { humanSeats: state.table.humanSeats, botSeats: state.table.botSeats }
+          : { humanSeats: Math.max(1, seats - bots), botSeats: bots }
       });
     };
     const rematchBtn = root.querySelector<HTMLButtonElement>("#rematch-btn");

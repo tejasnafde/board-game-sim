@@ -50,4 +50,18 @@ describe("browser gameplay layout", () => {
     expect(html).toContain('id="mode-private"');
     expect(html).toContain("The server plays every opponent seat");
   });
+
+  test("mixed-table lobbies choose human and computer seats explicitly", () => {
+    const html = lobbyPanelMarkup("S1", "P1", {
+      title: "Maze",
+      joinLabel: "Join",
+      tablePlan: { humanSeats: 2, botSeats: 1 }
+    });
+
+    expect(html).toContain('id="human-seats"');
+    expect(html).toMatch(/id="human-seats"[\s\S]*value="2" selected/);
+    expect(html).toContain('id="bot-seats"');
+    expect(html).toMatch(/id="bot-seats"[\s\S]*value="1" selected/);
+    expect(html).toContain("Game waits for every human seat");
+  });
 });

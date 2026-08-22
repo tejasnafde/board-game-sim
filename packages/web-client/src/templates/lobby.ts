@@ -46,23 +46,30 @@ export function lobbyPanelMarkup(
     joinLabel: string;
     hint?: string;
     error?: string | null;
-    seatCount?: number; // shown as a picker only when provided (labyrinth)
-    vsBot?: boolean; // offer a "play vs computer" toggle for game creation
+    vsBot?: boolean;
+    tablePlan?: { humanSeats: number; botSeats: number };
   }
 ): string {
-  const seatPicker =
-    options.seatCount !== undefined
-      ? `
-        <div class="lobby-field-group">
-          <label for="seat-count">Players</label>
-          <select id="seat-count">
-            ${[2, 3, 4]
-              .map((n) => `<option value="${n}" ${n === options.seatCount ? "selected" : ""}>${n} players</option>`)
-              .join("")}
-          </select>
-          <span class="field-hint">Only used when creating a new game</span>
-        </div>`
-      : "";
+  const tablePlanPicker = options.tablePlan
+    ? `<fieldset class="table-plan-picker">
+        <legend>Choose your table</legend>
+        <div class="table-plan-fields">
+          <div class="lobby-field-group">
+            <label for="human-seats">Human players</label>
+            <select id="human-seats">
+              ${[1, 2, 3, 4].map((count) => `<option value="${count}" ${count === options.tablePlan?.humanSeats ? "selected" : ""}>${count}</option>`).join("")}
+            </select>
+          </div>
+          <div class="lobby-field-group">
+            <label for="bot-seats">Computer players</label>
+            <select id="bot-seats">
+              ${[0, 1, 2, 3].map((count) => `<option value="${count}" ${count === options.tablePlan?.botSeats ? "selected" : ""}>${count}</option>`).join("")}
+            </select>
+          </div>
+        </div>
+        <span class="field-hint">2–4 seats total. Game waits for every human seat; computers fill their reserved seats automatically.</span>
+      </fieldset>`
+    : "";
 
   return `
     <div class="card panel join-panel">
@@ -81,7 +88,7 @@ export function lobbyPanelMarkup(
           <input id="player-id" value="${playerId}" placeholder="e.g. alice" autocomplete="off" spellcheck="false" />
           <span class="field-hint">Any name works - just use a different one in each tab</span>
         </div>
-        ${seatPicker}
+        ${tablePlanPicker}
         ${options.vsBot
           ? `<fieldset class="game-mode-picker">
               <legend>Choose your table</legend>

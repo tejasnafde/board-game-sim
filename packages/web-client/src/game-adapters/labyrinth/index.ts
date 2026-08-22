@@ -57,12 +57,13 @@ function LabyrinthControllerView(input: {
 
   return createElement(LabyrinthGameView, {
     view,
+    table: state.table,
     mySeat,
     seatNames: state.seatNames,
     lastError: state.lastError,
     acceptedActions: state.acceptedActions,
     logs: input.context.logs,
-    pending: state.pendingActionId !== null,
+    pending: state.pendingActionId !== null || state.table?.ready === false,
     onRotate: rotate,
     onInsert: insert,
     onMove: move,

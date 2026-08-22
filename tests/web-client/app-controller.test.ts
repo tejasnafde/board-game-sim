@@ -105,6 +105,26 @@ describe("client controller", () => {
     expect(transport.sent[1]).toEqual({ type: "session.join", sessionId: "s2", playerId: "p2" });
   });
 
+  test("creates and rejoins with a canonical table plan", () => {
+    const transport = new FakeTransport();
+    const controller = createClientController(transport);
+
+    controller.join("mixed", "tejas", {
+      gameId: "labyrinth",
+      tablePlan: { humanSeats: 2, botSeats: 1 }
+    });
+    controller.rejoin();
+
+    const create = {
+      type: "session.create",
+      sessionId: "mixed",
+      gameId: "labyrinth",
+      playerId: "tejas",
+      tablePlan: { humanSeats: 2, botSeats: 1 }
+    };
+    expect(transport.sent).toEqual([create, create]);
+  });
+
   test("generic submitAction forwards custom payload", () => {
     const transport = new FakeTransport();
     const controller = createClientController(transport);

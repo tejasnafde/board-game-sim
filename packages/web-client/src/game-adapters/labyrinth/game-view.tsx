@@ -1,4 +1,5 @@
 import { findPath, shiftBoard, shiftPosition, type Tile } from "@board-game-sim/labyrinth";
+import type { TableSummary } from "@board-game-sim/shared";
 import { useMemo, useState } from "react";
 import { objectiveIcon } from "../../icons";
 import type { AcceptedAction } from "../../realtime-state";
@@ -21,6 +22,7 @@ const ORDINALS = ["1st", "2nd", "3rd", "4th"];
 
 export type LabyrinthGameViewProps = {
   view: LabyrinthView;
+  table?: TableSummary | null;
   mySeat: string;
   seatNames: Record<string, string>;
   lastError?: string | null;
@@ -134,6 +136,7 @@ function activityItems(
 
 export function LabyrinthGameView({
   view,
+  table,
   mySeat,
   seatNames,
   lastError,
@@ -151,11 +154,12 @@ export function LabyrinthGameView({
   const players = view.players ?? [];
   const nameOf = (seat?: string | null) => seat ? seatNames[seat] ?? seat : "";
   const terminal = view.phase === "terminal";
-  const myTurn = !terminal && view.currentPlayerId === mySeat;
+  const tableReady = table?.ready !== false;
+  const myTurn = tableReady && !terminal && view.currentPlayerId === mySeat;
   const insertStage = view.turnStage === "insert";
   const moveStage = view.turnStage === "move";
   const insertionIndexes = view.config?.insertionIndexes ?? [1, 3, 5];
-  const myObjectives = view.myState?.remainingObjectives ?? [];
+  const currentObjective = view.myState?.currentObjective ?? null;
   const rows = board.length || view.config?.rows || 7;
   const cols = board[0]?.length || view.config?.cols || 7;
   const preview = useMemo(() => {
@@ -171,7 +175,7 @@ export function LabyrinthGameView({
   }, [board, cols, players, previewInsertion, rows, view.spareTile]);
   const displayBoard = preview?.board ?? board;
   const reachable = new Set<string>((view.myState?.reachableCells ?? []).map((cell) => `${cell.row}:${cell.col}`));
-  const nextObjective = view.myState?.remainingObjectives?.[0]?.id;
+  const nextObjective = currentObjective?.id;
   const playerIndex = new Map(players.map((player, index) => [player.playerId, index]));
   const homeOwners = new Map<string, number>(players.flatMap((player, index) => player.home
     ? [[`${player.home.row}:${player.home.col}`, index] as const]
@@ -204,9 +208,12 @@ export function LabyrinthGameView({
   }
 
   const currentName = nameOf(view.currentPlayerId);
-  const status = myTurn && insertStage
-    ? "Your turn - insert the spare tile using an arrow button"
-    : myTurn && moveStage
+  const missingHumans = table ? table.humanSeats - table.claimedHumanSeats : 0;
+  const status = !tableReady
+    ? `Waiting for ${missingHumans} more player${missingHumans === 1 ? "" : "s"}`
+    : myTurn && insertStage
+      ? "Your turn - insert the spare tile using an arrow button"
+      : myTurn && moveStage
       ? "Now move your pawn - click a highlighted cell"
       : currentName.startsWith("Computer")
         ? `${currentName} is thinking`
@@ -310,8 +317,8 @@ export function LabyrinthGameView({
       <aside className="side-stack">
         <div className="card side-card">
           <h2>Your objective</h2>
-          {myObjectives.length
-            ? <div className="objectives-list">{myObjectives.map((objective, index) => <div className={`objective-item ${index ? "is-upcoming" : "is-next"}`} key={objective.id}><ObjectiveIcon id={objective.id} /><span>{index === 0 ? "Find " : "Then "}{objective.id}{index === 0 && objective.position ? <small>Row {objective.position.row + 1} · Column {objective.position.col + 1}</small> : null}</span></div>)}</div>
+          {currentObjective
+            ? <div className="objectives-list"><div className="objective-item is-next"><ObjectiveIcon id={currentObjective.id} /><span>Find {currentObjective.id}{currentObjective.position ? <small>Row {currentObjective.position.row + 1} · Column {currentObjective.position.col + 1}</small> : null}</span></div></div>
             : <div className="objectives-complete">All collected! Return home!</div>}
         </div>
         <div className="card side-card">
@@ -321,6 +328,9 @@ export function LabyrinthGameView({
             <div className="labyrinth-player-copy">
               <div className="labyrinth-player-name">{nameOf(player.playerId)}{player.playerId === mySeat ? " (you)" : ""}</div>
               <div className="labyrinth-player-meta"><span className="num">{player.objectivesRemainingCount}</span> objective{player.objectivesRemainingCount === 1 ? "" : "s"} left</div>
+              {!!player.collectedObjectiveIds?.length && <div className="labyrinth-player-trophies" aria-label={`${player.collectedObjectiveIds.length} collected treasure${player.collectedObjectiveIds.length === 1 ? "" : "s"}`}>
+                {player.collectedObjectiveIds.map((objectiveId) => <span aria-label={`Collected ${objectiveId}`} className="labyrinth-player-trophy" key={objectiveId} title={objectiveId}><ObjectiveIcon id={objectiveId} size={12} /></span>)}
+              </div>}
             </div>
           </div>)}</div>
         </div>

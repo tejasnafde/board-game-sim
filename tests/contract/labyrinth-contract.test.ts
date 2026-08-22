@@ -76,11 +76,13 @@ describe("labyrinth contract", () => {
     );
 
     const view = runtime.getPlayerView("lab-c-3", "p1") as {
-      myState: { remainingObjectives: unknown[] };
+      myState: { remainingObjectives?: unknown[]; currentObjective: { id: string } | null; objectivesRemainingCount: number };
       players: Array<{ playerId: string; remainingObjectives?: unknown[] }>;
     };
 
-    expect(Array.isArray(view.myState.remainingObjectives)).toBe(true);
+    expect(view.myState.remainingObjectives).toBeUndefined();
+    expect(view.myState.currentObjective?.id).toBeTypeOf("string");
+    expect(view.myState.objectivesRemainingCount).toBe(3);
     const p2 = view.players.find((p) => p.playerId === "p2");
     expect(p2?.remainingObjectives).toBeUndefined();
   });

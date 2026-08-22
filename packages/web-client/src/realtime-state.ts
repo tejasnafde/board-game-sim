@@ -1,4 +1,4 @@
-import type { EngineActionEnvelope, JsonValue } from "@board-game-sim/shared";
+import type { EngineActionEnvelope, JsonValue, TableSummary } from "@board-game-sim/shared";
 import type { ServerEvent } from "./realtime-client";
 export type { ServerEvent } from "./realtime-client";
 
@@ -15,6 +15,7 @@ export type ClientState = {
   seatId: string | null;
   /** seatId → display name, from the latest state_sync. */
   seatNames: Record<string, string>;
+  table: TableSummary | null;
   /** True once a state_sync for the current sessionId has arrived (join confirmed). */
   synced: boolean;
   seq: number;
@@ -34,6 +35,7 @@ export function createInitialClientState(): ClientState {
     playerId: null,
     seatId: null,
     seatNames: {},
+    table: null,
     synced: false,
     seq: 0,
     view: null,
@@ -73,6 +75,7 @@ export function applyServerEvent(state: ClientState, event: ServerEvent): Client
       sessionId: event.sessionId,
       seatId: event.youAre ?? state.seatId,
       seatNames: event.seats ?? state.seatNames,
+      table: event.table ?? state.table,
       synced: true,
       seq: event.seq,
       view: event.view,

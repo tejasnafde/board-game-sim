@@ -7,6 +7,9 @@
 
 2. Realtime Session Runtime
 - Room membership, sequencing, action intake, authoritative state updates.
+- `TableRoster` owns canonical human/computer seat reservation, name claims,
+  and readiness. The realtime gateway blocks actions and bot pacing until the
+  roster is ready.
 
 3. Engine Core
 - Contract enforcement, deterministic transitions, turn/phase helpers.
@@ -43,7 +46,9 @@
   playable clients and roadmap entries. The adapter map is derived from it.
 - Battleship proves the asset-pack seam with `sea-command` and
   `classic-vector`; the selected pack is persisted without touching game state.
-- `ClientState` reducer applies `state_sync`, `action_accepted/rejected`, `state_patch`, and `terminal` events.
+- `ClientState` reducer applies `state_sync`, including authoritative table
+  readiness, plus `action_accepted/rejected`, `state_patch`, and `terminal`
+  events.
 
 ## Runtime Flow
 
