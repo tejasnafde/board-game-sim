@@ -26,7 +26,8 @@ function view(): LabyrinthView {
     }],
     myState: {
       position: { row: 0, col: 0 },
-      remainingObjectives: [{ id: "owl", position: { row: 0, col: 2 } }],
+      currentObjective: { id: "owl", position: { row: 0, col: 2 } },
+      objectivesRemainingCount: 1,
       reachableCells: [{ row: 0, col: 0 }]
     }
   };
@@ -83,5 +84,46 @@ describe("Labyrinth React game view", () => {
     expect(html).toContain("Now move your pawn");
     expect(html).toMatch(/aria-label="Insert spare tile from top into column 2"[^>]*disabled/);
     expect(html).toContain("02 Move");
+  });
+
+  test("shows collected treasures in the player who claimed them", () => {
+    const collectedView = view();
+    collectedView.players![0]!.collectedObjectiveIds = ["owl", "gem"];
+    const html = renderToStaticMarkup(<LabyrinthGameView
+      view={collectedView}
+      mySeat="player-1"
+      seatNames={{ "player-1": "Tejas" }}
+      acceptedActions={[]}
+      logs={[]}
+      pending={false}
+      onRotate={() => {}}
+      onInsert={() => {}}
+      onMove={() => {}}
+      onRematch={() => {}}
+    />);
+
+    expect(html).toContain('class="labyrinth-player-trophies"');
+    expect(html).toContain('aria-label="Collected owl"');
+    expect(html).toContain('aria-label="Collected gem"');
+  });
+
+  test("locks play while reserved human seats are still empty", () => {
+    const html = renderToStaticMarkup(<LabyrinthGameView
+      view={view()}
+      table={{ humanSeats: 2, botSeats: 1, claimedHumanSeats: 1, ready: false }}
+      mySeat="player-1"
+      seatNames={{ "player-1": "Tejas", "player-3": "Computer" }}
+      acceptedActions={[]}
+      logs={[]}
+      pending={false}
+      onRotate={() => {}}
+      onInsert={() => {}}
+      onMove={() => {}}
+      onRematch={() => {}}
+    />);
+
+    expect(html).toContain("Waiting for 1 more player");
+    expect(html).toMatch(/aria-label="Rotate spare tile clockwise"[^>]*disabled/);
+    expect(html).toMatch(/aria-label="Insert spare tile from top into column 2"[^>]*disabled/);
   });
 });

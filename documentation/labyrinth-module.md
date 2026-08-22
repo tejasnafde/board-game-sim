@@ -56,7 +56,11 @@ Validation:
 ## Objective and Win Conditions
 
 - Each player receives a private ordered objective queue.
+- All 24 catalog treasures start on distinct non-home board tiles. Only three
+  per player belong to objective queues; the rest are public decoys.
 - Objective is collected by ending `move_pawn` on the objective tile.
+- Collection removes the treasure from its tile and appends its ID to that
+  player's public `collectedObjectiveIds` trophy list.
 - A player finishes after all objectives are collected and they return home.
 - Play continues for placement order until one unfinished player remains. The
   first player in `finishOrder` is the winner.
@@ -66,8 +70,17 @@ Validation:
 `getPlayerView` includes:
 - Public board and pawn positions.
 - Public objective progress counts for all players.
-- Full objective queue only for the requesting player (`myState.remainingObjectives`).
+- Public collected-objective IDs for all players.
+- Only the requesting player's current objective (`myState.currentObjective`)
+  and total remaining count. Later assigned objectives stay secret.
 - Current objective coordinates are derived from the authoritative board and
   are `null` while that objective is on the spare tile.
 
 Opponent private objective queues are never exposed.
+
+## Mixed Tables
+
+Labyrinth supports two to four total seats with explicit human and computer
+counts. Computer seats are reserved when the session is created. The server
+rejects gameplay with `table_not_ready` and does not run bots until every
+reserved human seat has joined.

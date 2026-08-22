@@ -32,10 +32,14 @@
 
 - Landing: game hub with playable entries.
 - Battleship: session lobby, fleet setup, and turn-based firing board.
-- Labyrinth: session lobby, spare-tile insertion controls, and reachable-cell pawn movement.
+- Labyrinth: mixed human/computer table lobby, spare-tile insertion controls,
+  one-at-a-time private objectives, collected-treasure trophies, and
+  reachable-cell pawn movement.
 - Connect Four: session lobby, column controls, and a tactile drop board.
 
-Each playable lobby defaults to a server-backed computer game. Private tables are an explicit mode for people joining with the same game code.
+Battleship and Connect Four default to a server-backed computer game.
+Labyrinth exposes human and computer seat counts separately; its board remains
+locked until every selected human seat joins.
 
 ## Adding a Playable Game
 
@@ -58,8 +62,9 @@ only; authoritative server state is unchanged.
 
 ## Runtime Flow
 
-1. UI joins a session with `session.join`.
-2. Server sends `session.state_sync` and subsequent realtime events.
+1. UI creates a session with a canonical table plan or joins an existing code.
+2. Server sends `session.state_sync`, including authoritative seat readiness,
+   and subsequent realtime events.
 3. Reducer updates local client state from server events.
 4. Controller submits intents with `expectedSeq` from local state (`submitAction` or game-specific wrappers).
 5. UI reflects `action_rejected` and terminal events.

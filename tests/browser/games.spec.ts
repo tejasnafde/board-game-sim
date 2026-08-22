@@ -224,7 +224,8 @@ test("labyrinth vs computer: bot takes full turns and the human is never stuck",
   const page = await browser.newPage();
   await page.goto("/#/games/labyrinth");
   await page.fill("#player-id", "tejas");
-  await expect(page.locator("#mode-bot")).toBeChecked();
+  await expect(page.locator("#human-seats")).toHaveValue("1");
+  await expect(page.locator("#bot-seats")).toHaveValue("1");
   const lobbyActionsBottom = await page.locator("#create-btn").evaluate(
     (element) => element.getBoundingClientRect().bottom
   );
@@ -269,8 +270,8 @@ test("labyrinth: two-player game is not deadlocked, insert+move passes the turn"
 
   await alice.goto("/#/games/labyrinth");
   await alice.fill("#player-id", "alice");
-  await alice.check("#mode-private");
-  // Default seat count is 2 — the fix for the old hardcoded 4-seat deadlock.
+  await alice.selectOption("#human-seats", "2");
+  await alice.selectOption("#bot-seats", "0");
   await alice.click("#create-btn");
   await expect(alice.locator(".labyrinth-insert-btn").first()).toBeVisible();
   const code = await codeFrom(alice);
@@ -294,12 +295,49 @@ test("labyrinth: two-player game is not deadlocked, insert+move passes the turn"
   await bob.close();
 });
 
+test("labyrinth: two humans and one computer reserve seats and cycle every turn", async ({ browser }) => {
+  const alice = await browser.newPage();
+  const bob = await browser.newPage();
+
+  await alice.goto("/#/games/labyrinth");
+  await alice.fill("#player-id", "alice");
+  await alice.selectOption("#human-seats", "2");
+  await alice.selectOption("#bot-seats", "1");
+  await alice.click("#create-btn");
+
+  await expect(alice.locator(".labyrinth-turn-status")).toContainText("Waiting for 1 more player");
+  await expect(alice.getByRole("button", { name: "Rotate spare tile clockwise" })).toBeDisabled();
+  const code = await codeFrom(alice);
+
+  await bob.goto("/#/games/labyrinth");
+  await bob.fill("#player-id", "bob");
+  await bob.fill("#session-id", code);
+  await bob.click("#join-btn");
+
+  for (const page of [alice, bob]) {
+    await expect(page.locator(".labyrinth-player")).toHaveCount(3);
+    await expect(page.locator(".labyrinth-players")).toContainText("Computer");
+  }
+
+  await expect(alice.locator(".status-banner.your-turn")).toBeVisible();
+  await alice.locator(".labyrinth-insert-btn:not([disabled])").first().click();
+  await alice.locator(".labyrinth-cell.reachable").first().click();
+
+  await expect(bob.locator(".status-banner.your-turn")).toBeVisible();
+  await bob.locator(".labyrinth-insert-btn:not([disabled])").first().click();
+  await bob.locator(".labyrinth-cell.reachable").first().click();
+
+  await expect(alice.locator(".status-banner.your-turn")).toBeVisible();
+  await alice.close();
+  await bob.close();
+});
+
 test("labyrinth mobile keeps the full maze and controls inside the viewport", async ({ browser }) => {
   const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto("/#/games/labyrinth");
   await page.fill("#player-id", "tejas");
-  await expect(page.locator("#mode-bot")).toBeChecked();
+  await expect(page.locator("#bot-seats")).toHaveValue("1");
   await page.locator("#create-btn").dispatchEvent("click");
   await expect(page.locator("#labyrinth-board")).toBeVisible();
 

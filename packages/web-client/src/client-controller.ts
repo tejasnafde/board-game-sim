@@ -1,5 +1,5 @@
 import type { ServerEvent, ClientEvent } from "./realtime-client";
-import { createLogger, type JsonValue } from "@board-game-sim/shared";
+import { createLogger, type JsonValue, type TablePlan } from "@board-game-sim/shared";
 import {
   applyServerEvent,
   createActionEnvelope,
@@ -15,8 +15,13 @@ export interface ControllerTransport {
   subscribe(listener: (event: ServerEvent) => void): () => void;
 }
 
+export type CreateSessionOptions = {
+  gameId: string;
+  tablePlan: TablePlan;
+};
+
 export type ClientController = {
-  join(sessionId: string, playerId: string, gameId?: string, seatCount?: number, bots?: number): void;
+  join(sessionId: string, playerId: string, creation?: CreateSessionOptions): void;
   rejoin(): void;
   submitAction(actionType: string, payload: JsonValue): void;
   submitPlaceShips(placements: ShipPlacement[]): void;
@@ -28,9 +33,7 @@ export type ClientController = {
 export function createClientController(transport: ControllerTransport): ClientController {
   let state: ClientState = createInitialClientState();
   let actionCounter = 0;
-  let lastGameId: string | null = null;
-  let lastSeatCount: number | undefined;
-  let lastBots: number | undefined;
+  let lastCreation: CreateSessionOptions | null = null;
   const listeners = new Set<() => void>();
 
   const notify = (): void => {
@@ -56,7 +59,7 @@ export function createClientController(transport: ControllerTransport): ClientCo
    * If no gameId, just join - a typo'd code surfaces session_not_found instead of
    * silently creating a private empty game.
    */
-  function join(sessionId: string, playerId: string, gameId?: string, seatCount?: number, bots?: number): void {
+  function join(sessionId: string, playerId: string, creation?: CreateSessionOptions): void {
     // Reset per-session evidence: the game screen only shows again once the
     // server confirms this join with a state_sync.
     state = {
@@ -64,6 +67,7 @@ export function createClientController(transport: ControllerTransport): ClientCo
       sessionId,
       playerId,
       seatId: null,
+      table: null,
       synced: false,
       view: null,
       terminal: null,
@@ -72,14 +76,12 @@ export function createClientController(transport: ControllerTransport): ClientCo
       acceptedActions: []
     };
     notify();
-    if (gameId) {
-      lastGameId = gameId;
-      lastSeatCount = seatCount;
-      lastBots = bots;
-      log.info(`create ${sessionId} (${gameId}) as "${playerId}" seats=${seatCount ?? "default"} bots=${bots ?? 0}`);
-      transport.send({ type: "session.create", sessionId, gameId, playerId, seatCount, bots });
+    if (creation) {
+      lastCreation = creation;
+      log.info(`create ${sessionId} (${creation.gameId}) as "${playerId}" humans=${creation.tablePlan.humanSeats} bots=${creation.tablePlan.botSeats}`);
+      transport.send({ type: "session.create", sessionId, playerId, ...creation });
     } else {
-      lastGameId = null;
+      lastCreation = null;
       log.info(`join ${sessionId} as "${playerId}"`);
       transport.send({ type: "session.join", sessionId, playerId });
     }
@@ -89,8 +91,8 @@ export function createClientController(transport: ControllerTransport): ClientCo
     if (!state.sessionId || !state.playerId) {
       throw new Error("session_or_player_missing");
     }
-    if (lastGameId) {
-      transport.send({ type: "session.create", sessionId: state.sessionId, gameId: lastGameId, playerId: state.playerId, seatCount: lastSeatCount, bots: lastBots });
+    if (lastCreation) {
+      transport.send({ type: "session.create", sessionId: state.sessionId, playerId: state.playerId, ...lastCreation });
     } else {
       transport.send({ type: "session.join", sessionId: state.sessionId, playerId: state.playerId });
     }

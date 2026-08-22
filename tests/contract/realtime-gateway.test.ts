@@ -33,6 +33,18 @@ function build(analytics?: { track(event: string, surface: string, properties: R
   return { service, gateway: new RealtimeGateway(service, 0, analytics) };
 }
 
+function buildRegistered() {
+  const registry = new InMemoryGameRegistry();
+  registerBuiltInGames(registry);
+  const service = new SessionService(
+    registry,
+    new InMemoryEventRepository(),
+    new InMemorySessionRepository(),
+    new InMemorySnapshotRepository()
+  );
+  return { service, gateway: new RealtimeGateway(service) };
+}
+
 describe("realtime gateway", () => {
   test("reports authoritative session and first-action milestones", async () => {
     const calls: unknown[][] = [];
@@ -41,7 +53,8 @@ describe("realtime gateway", () => {
       type: "session.create",
       sessionId: "gw-analytics",
       gameId: "battleship",
-      playerId: "p1"
+      playerId: "p1",
+      bots: 1
     });
     await gateway.handleClientEvent({
       type: "action.submit",
@@ -215,6 +228,11 @@ describe("seat auto-claim", () => {
       gameId: "battleship",
       playerId: "tejas"
     });
+    await gateway.handleClientEvent({
+      type: "session.join",
+      sessionId: "gw-act",
+      playerId: "akshaya"
+    });
 
     const outbound = await gateway.handleClientEvent({
       type: "action.submit",
@@ -229,6 +247,105 @@ describe("seat auto-claim", () => {
     });
 
     expect(outbound[0]).toMatchObject({ type: "session.action_accepted" });
+  });
+});
+
+describe("mixed table seats", () => {
+  test("rejects plans outside the selected game's player limits", async () => {
+    const { gateway } = buildRegistered();
+    const result = await gateway.handleClientEvent({
+      type: "session.create",
+      sessionId: "invalid-battleship-table",
+      gameId: "battleship",
+      playerId: "tejas",
+      tablePlan: { humanSeats: 2, botSeats: 1 }
+    });
+
+    expect(result).toEqual([{
+      type: "session.action_rejected",
+      sessionId: "invalid-battleship-table",
+      reason: "invalid_table_plan"
+    }]);
+  });
+
+  test("reserves human seats separately from the final bot seat", async () => {
+    const { gateway } = buildRegistered();
+    const created = await gateway.handleClientEvent({
+      type: "session.create",
+      sessionId: "mixed-labyrinth",
+      gameId: "labyrinth",
+      playerId: "tejas",
+      tablePlan: { humanSeats: 2, botSeats: 1 }
+    });
+
+    expect(created[1]).toMatchObject({
+      type: "session.state_sync",
+      youAre: "player-1",
+      seats: { "player-1": "tejas", "player-3": "Computer" },
+      table: { humanSeats: 2, botSeats: 1, claimedHumanSeats: 1, ready: false }
+    });
+
+    const [friend] = await gateway.handleClientEvent({
+      type: "session.join",
+      sessionId: "mixed-labyrinth",
+      playerId: "friend"
+    });
+    expect(friend).toMatchObject({
+      type: "session.state_sync",
+      youAre: "player-2",
+      seats: { "player-1": "tejas", "player-2": "friend", "player-3": "Computer" },
+      table: { claimedHumanSeats: 2, ready: true }
+    });
+
+    const [full] = await gateway.handleClientEvent({
+      type: "session.join",
+      sessionId: "mixed-labyrinth",
+      playerId: "intruder"
+    });
+    expect(full).toMatchObject({ type: "session.action_rejected", reason: "session_full" });
+  });
+
+  test("rejects gameplay until every reserved human seat is claimed", async () => {
+    const { service, gateway } = buildRegistered();
+    await gateway.handleClientEvent({
+      type: "session.create",
+      sessionId: "waiting-labyrinth",
+      gameId: "labyrinth",
+      playerId: "tejas",
+      tablePlan: { humanSeats: 2, botSeats: 1 }
+    });
+
+    const blocked = await gateway.handleClientEvent({
+      type: "action.submit",
+      envelope: {
+        sessionId: "waiting-labyrinth",
+        expectedSeq: 0,
+        actorPlayerId: "tejas",
+        actionType: "rotate_spare",
+        payload: { rotationDeg: 90 },
+        clientActionId: "waiting-1"
+      }
+    });
+    expect(blocked).toEqual([{
+      type: "session.action_rejected",
+      sessionId: "waiting-labyrinth",
+      reason: "table_not_ready"
+    }]);
+    expect(service.getSessionSeq("waiting-labyrinth")).toBe(0);
+
+    await gateway.handleClientEvent({ type: "session.join", sessionId: "waiting-labyrinth", playerId: "friend" });
+    const accepted = await gateway.handleClientEvent({
+      type: "action.submit",
+      envelope: {
+        sessionId: "waiting-labyrinth",
+        expectedSeq: 0,
+        actorPlayerId: "tejas",
+        actionType: "rotate_spare",
+        payload: { rotationDeg: 90 },
+        clientActionId: "waiting-2"
+      }
+    });
+    expect(accepted[0]).toMatchObject({ type: "session.action_accepted", actorPlayerId: "player-1" });
   });
 });
 

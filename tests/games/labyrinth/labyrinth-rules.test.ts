@@ -27,6 +27,26 @@ describe("labyrinth rules", () => {
     expect(deterministicHash(first.state)).toBe(deterministicHash(second.state));
   });
 
+  test.each([2, 3, 4])("places all catalog treasures with private unique assignments for %i players", (playerCount) => {
+    const module = new LabyrinthModule();
+    const state = module.initGame({
+      sessionId: `catalog-${playerCount}`,
+      gameId: "labyrinth",
+      gameVersion: "0.1.0",
+      seed: "catalog-seed",
+      players: Array.from({ length: playerCount }, (_, index) => `p${index + 1}`),
+      definition
+    }).initialState;
+
+    const publicTreasures = state.board.flat().flatMap((tile) => tile.objectiveId ? [tile.objectiveId] : []);
+    const assignedTreasures = state.players.flatMap((player) => player.remainingObjectives.map((objective) => objective.id));
+    expect(publicTreasures).toHaveLength(definition.objectiveCatalog.length);
+    expect(new Set(publicTreasures)).toEqual(new Set(definition.objectiveCatalog));
+    expect(assignedTreasures).toHaveLength(playerCount * definition.objectivesPerPlayer);
+    expect(new Set(assignedTreasures).size).toBe(assignedTreasures.length);
+    expect(publicTreasures.length - assignedTreasures.length).toBe(24 - playerCount * 3);
+  });
+
   test("rotation and insertion are legal during insertion stage", () => {
     const { module, state } = initState();
     const legal = module.listLegalActions(state, "p1");
@@ -216,6 +236,8 @@ describe("labyrinth rules", () => {
 
     const afterCollectP1 = collect.nextState.players.find((p) => p.playerId === "p1");
     expect(afterCollectP1?.remainingObjectives.length).toBe(Math.max(0, p1.remainingObjectives.length - 1));
+    expect(afterCollectP1?.collectedObjectiveIds).toContain(objective.id);
+    expect(collect.nextState.board.flat().some((tile) => tile.objectiveId === objective.id)).toBe(false);
 
     if ((afterCollectP1?.remainingObjectives.length ?? 1) === 0) {
       const backToP1 = {
@@ -252,17 +274,23 @@ describe("labyrinth rules", () => {
     }
   });
 
-  test("player view hides opponents remaining objectives", () => {
+  test("player view reveals only the current private objective", () => {
     const { module, state } = initState();
     const view = module.getPlayerView({ state, playerId: "p1" }).visibleState as {
       players: Array<{ playerId: string; remainingObjectives?: unknown[]; objectivesRemainingCount: number }>;
-      myState: { remainingObjectives: unknown[] };
+      myState: {
+        remainingObjectives?: unknown[];
+        currentObjective: { id: string; position: { row: number; col: number } | null } | null;
+        objectivesRemainingCount: number;
+      };
     };
 
     const p2 = view.players.find((p) => p.playerId === "p2");
     expect(p2?.remainingObjectives).toBeUndefined();
     expect(typeof p2?.objectivesRemainingCount).toBe("number");
-    expect(Array.isArray(view.myState.remainingObjectives)).toBe(true);
+    expect(view.myState.remainingObjectives).toBeUndefined();
+    expect(view.myState.currentObjective?.id).toBe(state.players[0]?.remainingObjectives[0]?.id);
+    expect(view.myState.objectivesRemainingCount).toBe(state.players[0]?.remainingObjectives.length);
   });
 });
 

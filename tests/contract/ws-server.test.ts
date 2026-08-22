@@ -8,7 +8,7 @@ import {
   InMemorySnapshotRepository
 } from "@board-game-sim/engine";
 import { BattleshipModule } from "@board-game-sim/battleship";
-import { RealtimeGateway, SessionService, createWsRealtimeServer, type ServerEvent } from "@board-game-sim/server";
+import { RealtimeGateway, SessionService, createWsRealtimeServer, registerBuiltInGames, type ServerEvent } from "@board-game-sim/server";
 import definition from "../../packages/games/battleship/definition.json";
 
 const miniDefinition = {
@@ -54,6 +54,55 @@ function waitForEvent(
 
 describe("ws server adapter", () => {
   const socketTestsEnabled = process.env.ALLOW_SOCKET_TESTS === "1";
+
+  test.skipIf(!socketTestsEnabled)("broadcasts table readiness when the final human joins", async () => {
+    const registry = new InMemoryGameRegistry();
+    registerBuiltInGames(registry);
+    const service = new SessionService(
+      registry,
+      new InMemoryEventRepository(),
+      new InMemorySessionRepository(),
+      new InMemorySnapshotRepository()
+    );
+    const gateway = new RealtimeGateway(service);
+    const httpServer = createServer();
+    const wsServer = createWsRealtimeServer({ server: httpServer, gateway });
+    await new Promise<void>((resolve) => httpServer.listen(0, "127.0.0.1", resolve));
+    const address = httpServer.address();
+    if (!address || typeof address === "string") throw new Error("invalid_address");
+
+    const url = `ws://127.0.0.1:${address.port}/realtime`;
+    const creator = new WebSocket(url);
+    const friend = new WebSocket(url);
+    await Promise.all([waitForOpen(creator), waitForOpen(friend)]);
+
+    const initialSync = waitForEvent(creator, (event) => event.type === "session.state_sync");
+    creator.send(JSON.stringify({
+      type: "session.create",
+      sessionId: "ws-mixed",
+      gameId: "labyrinth",
+      playerId: "tejas",
+      tablePlan: { humanSeats: 2, botSeats: 1 }
+    }));
+    await expect(initialSync).resolves.toMatchObject({
+      type: "session.state_sync",
+      table: { claimedHumanSeats: 1, ready: false }
+    });
+
+    const creatorReady = waitForEvent(creator, (event) => event.type === "session.state_sync" && event.table?.ready === true);
+    const friendReady = waitForEvent(friend, (event) => event.type === "session.state_sync" && event.table?.ready === true);
+    friend.send(JSON.stringify({ type: "session.join", sessionId: "ws-mixed", playerId: "friend" }));
+
+    await expect(Promise.all([creatorReady, friendReady])).resolves.toMatchObject([
+      { type: "session.state_sync", youAre: "player-1", table: { ready: true } },
+      { type: "session.state_sync", youAre: "player-2", table: { ready: true } }
+    ]);
+
+    creator.close();
+    friend.close();
+    await wsServer.close();
+    await new Promise<void>((resolve, reject) => httpServer.close((error) => error ? reject(error) : resolve()));
+  });
 
   test.skipIf(!socketTestsEnabled)("joins and broadcasts accepted action events", async () => {
     const registry = new InMemoryGameRegistry();

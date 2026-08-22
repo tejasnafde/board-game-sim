@@ -8,6 +8,7 @@ import connect4Definition from "../../games/connect4/definition.json";
 import type { ClientEvent, ServerEvent } from "./protocol";
 import { SessionService } from "./session-service";
 import { noAnalytics, type GamingAnalytics } from "./analytics";
+import { normalizeTablePlan, TableRoster } from "./table-roster";
 
 // Supported games for on-demand session creation. New game? Add a row.
 const GAMES: Record<
@@ -33,15 +34,18 @@ function extractReason(error: unknown): string {
   return reason || "unknown_error";
 }
 
-export class RealtimeGateway {
-  // Auto-claim seats: engine playerIds are fixed at init (turn order), but
-  // humans type their own names. First join claims the first free seat; the
-  // same name always maps back to its seat (reconnect-safe).
-  // ponytail: names are trusted (friends-scale); auth if strangers ever join.
-  private readonly claimsBySession = new Map<string, Map<string, string>>();
+function isValidTablePlan(plan: { humanSeats: number; botSeats: number }, minSeats: number, maxSeats: number): boolean {
+  const totalSeats = plan.humanSeats + plan.botSeats;
+  return Number.isInteger(plan.humanSeats)
+    && Number.isInteger(plan.botSeats)
+    && plan.humanSeats >= 1
+    && plan.botSeats >= 0
+    && totalSeats >= minSeats
+    && totalSeats <= maxSeats;
+}
 
-  // Seats played by the server (vs-computer mode), per session.
-  private readonly botSeatsBySession = new Map<string, { gameId: string; seats: Set<string> }>();
+export class RealtimeGateway {
+  private readonly tableGames = new Map<string, string>();
   private readonly botLoopRunning = new Set<string>();
 
   /** Set by the transport layer to push room-wide syncs after paced bot moves. */
@@ -53,14 +57,17 @@ export class RealtimeGateway {
     private readonly sessions: SessionService,
     // 0 = bots reply inside the request (tests); >0 = paced, pushed via onSessionChanged
     private readonly botMoveDelayMs = 0,
-    private readonly analytics: GamingAnalytics = noAnalytics
+    private readonly analytics: GamingAnalytics = noAnalytics,
+    private readonly tables = new TableRoster()
   ) { }
 
   /** Let bot seats act until it's a human's turn (or terminal / nothing to do). */
   async playBotSeats(sessionId: string): Promise<void> {
-    const entry = this.botSeatsBySession.get(sessionId);
-    const game = entry ? GAMES[entry.gameId] : undefined;
-    if (!entry || !game) return;
+    if (!this.ensureTable(sessionId)) return;
+    if (!this.tables.summary(sessionId).ready) return;
+    const gameId = this.tableGames.get(sessionId);
+    const game = gameId ? GAMES[gameId] : undefined;
+    if (!game) return;
     if (this.botLoopRunning.has(sessionId)) return;
     this.botLoopRunning.add(sessionId);
     try {
@@ -71,14 +78,13 @@ export class RealtimeGateway {
   }
 
   private async runBotLoop(sessionId: string, game: (typeof GAMES)[string]): Promise<void> {
-    const entry = this.botSeatsBySession.get(sessionId);
-    if (!entry) return;
+    const botSeats = this.tables.botSeats(sessionId);
 
     for (let move = 0; move < MAX_BOT_MOVES; move += 1) {
       if (this.sessions.getTerminalResult(sessionId)) return;
 
       let acted = false;
-      for (const seat of entry.seats) {
+      for (const seat of botSeats) {
         const view = this.sessions.getPlayerView(sessionId, seat) as JsonValue;
         const seq = this.sessions.getSessionSeq(sessionId);
         const action = game.bot({
@@ -128,29 +134,24 @@ export class RealtimeGateway {
   }
 
   private resolveSeat(sessionId: string, name: string): string | null {
-    let claims = this.claimsBySession.get(sessionId);
-    if (claims?.has(name)) return claims.get(name)!;
-
-    const meta = this.sessions.getSessionMeta(sessionId);
-    if (!meta) return null;
-    if (!claims) {
-      claims = new Map();
-      this.claimsBySession.set(sessionId, claims);
-    }
-
-    const taken = new Set(claims.values());
-    // Prefer identity: a name that IS a roster seat gets that exact seat
-    // (explicit rosters and bots address seats by name).
-    const seat = meta.players.includes(name) && !taken.has(name)
-      ? name
-      : meta.players.find((s) => !taken.has(s));
+    if (!this.ensureTable(sessionId)) return null;
+    const seat = this.tables.claimHuman(sessionId, name);
     if (!seat) {
       log.warn(`${sessionId} seat claim failed for "${name}" — session full`);
       return null;
     }
-    claims.set(name, seat);
     log.info(`${sessionId} "${name}" claimed seat ${seat}`);
     return seat;
+  }
+
+  private ensureTable(sessionId: string): boolean {
+    if (this.tables.has(sessionId)) return true;
+    const meta = this.sessions.getSessionMeta(sessionId);
+    if (!meta) return false;
+    this.tables.create(sessionId, meta.players, { humanSeats: meta.players.length, botSeats: 0 });
+    for (const playerId of meta.players) this.tables.claimHuman(sessionId, playerId);
+    this.tableGames.set(sessionId, meta.gameId);
+    return true;
   }
 
   getTerminal(sessionId: string): { winnerPlayerId: string | null; reason: string } | null {
@@ -158,10 +159,7 @@ export class RealtimeGateway {
   }
 
   private seatNames(sessionId: string): Record<string, string> {
-    const claims = this.claimsBySession.get(sessionId);
-    const seats: Record<string, string> = {};
-    for (const [name, seat] of claims ?? []) seats[seat] = name;
-    return seats;
+    return this.tables.seatNames(sessionId);
   }
 
   async createStateSyncEvent(sessionId: string, playerName: string): Promise<ServerEvent> {
@@ -176,7 +174,8 @@ export class RealtimeGateway {
       seq: this.sessions.getSessionSeq(sessionId),
       view: this.sessions.getPlayerView(sessionId, seat) as JsonValue,
       youAre: seat,
-      seats: this.seatNames(sessionId)
+      seats: this.seatNames(sessionId),
+      table: this.tables.summary(sessionId)
     };
   }
 
@@ -194,14 +193,17 @@ export class RealtimeGateway {
         ];
       }
 
-      // Roster: the turn loop cycles through this exact list, so it must match
-      // the humans who will actually play — empty seats deadlock the game.
-      // Explicit `players` wins (tests/bots); otherwise generic seats sized by
-      // seatCount, claimed by name as people join.
-      const seatCount = Math.min(
-        game.maxSeats,
-        Math.max(game.minSeats, event.seatCount ?? game.minSeats)
-      );
+      const tablePlan = event.players
+        ? { humanSeats: event.players.length, botSeats: 0 }
+        : normalizeTablePlan(event, game.minSeats, game.maxSeats);
+      if (!isValidTablePlan(tablePlan, game.minSeats, game.maxSeats)) {
+        return [{
+          type: "session.action_rejected",
+          sessionId: event.sessionId,
+          reason: "invalid_table_plan"
+        }];
+      }
+      const seatCount = tablePlan.humanSeats + tablePlan.botSeats;
       const players = event.players && event.players.length >= 2
         ? event.players
         : Array.from({ length: seatCount }, (_, i) => `player-${i + 1}`);
@@ -229,20 +231,14 @@ export class RealtimeGateway {
         ];
       }
 
-      // Creator claims seat 1 before any bots claim theirs.
-      this.resolveSeat(event.sessionId, event.playerId);
-
-      const botCount = Math.min(event.bots ?? 0, players.length - 1);
-      if (botCount > 0) {
-        const seats = new Set<string>();
-        for (let i = 0; i < botCount; i += 1) {
-          const name = botCount === 1 ? "Computer" : `Computer ${i + 1}`;
-          const seat = this.resolveSeat(event.sessionId, name);
-          if (seat) seats.add(seat);
-        }
-        this.botSeatsBySession.set(event.sessionId, { gameId: event.gameId, seats });
-        await this.kickBots(event.sessionId);
+      this.tables.create(event.sessionId, players, tablePlan);
+      this.tableGames.set(event.sessionId, event.gameId);
+      if (event.players) {
+        for (const playerId of players) this.tables.claimHuman(event.sessionId, playerId);
+      } else {
+        this.tables.claimHuman(event.sessionId, event.playerId);
       }
+      await this.kickBots(event.sessionId);
 
       this.analytics.track("session_created", "lobby", { variant: event.gameId });
 
@@ -286,6 +282,13 @@ export class RealtimeGateway {
             reason: "actor_not_in_session"
           }
         ];
+      }
+      if (!this.tables.summary(event.envelope.sessionId).ready) {
+        return [{
+          type: "session.action_rejected",
+          sessionId: event.envelope.sessionId,
+          reason: "table_not_ready"
+        }];
       }
       const result = await this.sessions.submitAction({ ...event.envelope, actorPlayerId: seat });
       if (!result.accepted) {

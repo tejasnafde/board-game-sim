@@ -36,6 +36,23 @@ describe("web-client realtime state", () => {
     expect(state.terminal?.winnerPlayerId).toBe("p1");
   });
 
+  test("stores the authoritative table summary from state sync", () => {
+    const state = applyServerEvent(createInitialClientState(), {
+      type: "session.state_sync",
+      sessionId: "mixed",
+      seq: 0,
+      view: { phase: "play" },
+      table: { humanSeats: 2, botSeats: 1, claimedHumanSeats: 1, ready: false }
+    });
+
+    expect(state.table).toEqual({
+      humanSeats: 2,
+      botSeats: 1,
+      claimedHumanSeats: 1,
+      ready: false
+    });
+  });
+
   test("handles accepted/rejected actions and patches", () => {
     const state0: ClientState = {
       ...createInitialClientState(),

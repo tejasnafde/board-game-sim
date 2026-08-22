@@ -14,7 +14,7 @@ type LabyrinthView = {
   myState: {
     position: Coord;
     home: Coord;
-    remainingObjectives: { id: string }[];
+    currentObjective: { id: string } | null;
     reachableCells: Coord[];
   };
 };
@@ -58,7 +58,7 @@ export const labyrinthBot: GameBot = ({ view, playerId, rng }) => {
   const v = view as unknown as LabyrinthView;
   if (v.phase !== "play" || v.currentPlayerId !== playerId) return null;
 
-  const targetId = v.myState.remainingObjectives[0]?.id ?? null;
+  const targetId = v.myState.currentObjective?.id ?? null;
 
   if (v.turnStage === "insert") {
     const best: Array<{ insertion: Insertion; rotationDeg: RotationDeg }> = [];

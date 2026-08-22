@@ -52,6 +52,15 @@ export function createWsRealtimeServer(options: WsServerOptions) {
   const contexts = new WeakMap<WebSocket, ConnectionContext>();
   const sessionRooms = new Map<string, Set<WebSocket>>();
 
+  const syncRoom = async (sessionId: string): Promise<void> => {
+    const room = sessionRooms.get(sessionId);
+    if (!room) return;
+    for (const peer of room) {
+      const playerId = contexts.get(peer)?.playerBySession.get(sessionId);
+      if (playerId) send(peer, await options.gateway.createStateSyncEvent(sessionId, playerId));
+    }
+  };
+
   // Paced bot moves land outside any request; push fresh views to the room.
   options.gateway.onSessionChanged = async (sessionId: string, action: { seq: number; actorPlayerId: string; items: unknown[] }) => {
     const room = sessionRooms.get(sessionId);
@@ -67,8 +76,8 @@ export function createWsRealtimeServer(options: WsServerOptions) {
         actorPlayerId: action.actorPlayerId,
         events: action.items as never[]
       });
-      send(peer, await options.gateway.createStateSyncEvent(sessionId, playerId));
     }
+    await syncRoom(sessionId);
     const terminal = options.gateway.getTerminal(sessionId);
     if (terminal) {
       const event: ServerEvent = {
@@ -162,9 +171,14 @@ export function createWsRealtimeServer(options: WsServerOptions) {
       }
 
       if (incoming.type === "session.join" || incoming.type === "session.create") {
-        for (const event of outbound) {
-          send(socket, event);
+        const rejected = outbound.find((event) => event.type === "session.action_rejected");
+        if (rejected) {
+          send(socket, rejected);
+          leaveRoom(socket, incoming.sessionId);
+          return;
         }
+        for (const event of outbound) if (event.type !== "session.state_sync") send(socket, event);
+        await syncRoom(incoming.sessionId);
         return;
       }
 
@@ -176,16 +190,11 @@ export function createWsRealtimeServer(options: WsServerOptions) {
 
         const room = sessionRooms.get(incoming.envelope.sessionId) ?? new Set<WebSocket>();
         for (const peer of room) {
-          const peerCtx = contexts.get(peer);
-          const playerId = peerCtx?.playerBySession.get(incoming.envelope.sessionId);
           for (const event of outbound) {
             send(peer, event);
           }
-          if (playerId) {
-            const sync = await options.gateway.createStateSyncEvent(incoming.envelope.sessionId, playerId);
-            send(peer, sync);
-          }
         }
+        await syncRoom(incoming.envelope.sessionId);
       }
     });
 

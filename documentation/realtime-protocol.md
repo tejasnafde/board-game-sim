@@ -2,10 +2,11 @@
 
 ## Client -> Server
 
-1. `session.join`
-2. `action.submit`
-3. `session.leave`
-4. `chat.send` (optional)
+1. `session.create`
+2. `session.join`
+3. `action.submit`
+4. `session.leave`
+5. `chat.send` (optional)
 
 ## Server -> Client
 
@@ -18,6 +19,13 @@
 ## Envelope Rules
 
 - `action.submit` includes `expectedSeq` and `clientActionId`.
+- `session.create.tablePlan` declares authoritative `humanSeats` and
+  `botSeats`. Human seats are reserved at the front of the engine roster and
+  bot seats at the back. The table accepts no gameplay actions until every
+  human seat is claimed.
+- `session.state_sync.table` reports `humanSeats`, `botSeats`,
+  `claimedHumanSeats`, and `ready`. Room members receive personalized syncs
+  when another human joins, so a waiting client unlocks without reconnecting.
 - Stale sequence actions are rejected with reason code.
 - All accepted actions increment server sequence by 1.
 - `session.action_accepted` includes the accepted `seq`, the emitted domain
