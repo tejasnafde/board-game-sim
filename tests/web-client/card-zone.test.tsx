@@ -18,6 +18,9 @@ describe("CardZone", () => {
 
     expect(html).toContain("Unknown packet");
     expect(html).toContain('data-slot-key="opaque-slot-a"');
+    expect(html).toContain('role="img"');
+    expect(html).not.toContain("<button");
+    expect(html).not.toContain("aria-pressed");
     expect(html).not.toContain(secret);
   });
 

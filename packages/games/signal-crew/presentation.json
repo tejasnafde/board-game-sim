@@ -1,0 +1,18 @@
+{
+  "gameId": "signal-crew",
+  "version": "0.1.0",
+  "presentationVersion": "1",
+  "board": { "boardType": "none" },
+  "theme": {
+    "name": "relay-console",
+    "colors": {
+      "background": "#090b10",
+      "panel": "#121720",
+      "signal": "#6de6d5",
+      "warning": "#f0ac49"
+    }
+  },
+  "assets": [],
+  "pieceSprites": {},
+  "effects": {}
+}

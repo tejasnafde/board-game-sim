@@ -10,11 +10,13 @@ import { battleshipBot } from "@board-game-sim/battleship";
 import { labyrinthBot } from "@board-game-sim/labyrinth";
 import { connect4Bot } from "@board-game-sim/connect4";
 import { hexKingdomsBot } from "@board-game-sim/hex-kingdoms";
+import { signalCrewBot } from "@board-game-sim/signal-crew";
 import { RealtimeGateway, SessionService, registerBuiltInGames } from "@board-game-sim/server";
 import battleshipDefinition from "../../packages/games/battleship/definition.json";
 import labyrinthDefinition from "../../packages/games/labyrinth/definition.json";
 import connect4Definition from "../../packages/games/connect4/definition.json";
 import hexKingdomsDefinition from "../../packages/games/hex-kingdoms/definition.json";
+import signalCrewDefinition from "../../packages/games/signal-crew/definition.json";
 
 /**
  * Self-play harness: bots play the full server stack (gateway → session
@@ -68,6 +70,17 @@ const GAMES: SelfPlayGame[] = [
       ["alice", "bob", "carol", "dave"]
     ],
     maxActions: 50
+  },
+  {
+    gameId: "signal-crew",
+    bot: signalCrewBot,
+    definition: signalCrewDefinition as JsonValue,
+    rosters: [
+      ["alice", "bob"],
+      ["alice", "bob", "carol"],
+      ["alice", "bob", "carol", "dave"]
+    ],
+    maxActions: 100
   }
 ];
 

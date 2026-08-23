@@ -17,7 +17,9 @@ export default defineConfig({
       "@board-game-sim/connect4": fileURLToPath(new URL("./packages/games/connect4/src/index.ts", import.meta.url)),
       "@board-game-sim/connect4/": fileURLToPath(new URL("./packages/games/connect4/src/", import.meta.url)),
       "@board-game-sim/hex-kingdoms": fileURLToPath(new URL("./packages/games/hex-kingdoms/src/index.ts", import.meta.url)),
-      "@board-game-sim/hex-kingdoms/": fileURLToPath(new URL("./packages/games/hex-kingdoms/src/", import.meta.url))
+      "@board-game-sim/hex-kingdoms/": fileURLToPath(new URL("./packages/games/hex-kingdoms/src/", import.meta.url)),
+      "@board-game-sim/signal-crew": fileURLToPath(new URL("./packages/games/signal-crew/src/index.ts", import.meta.url)),
+      "@board-game-sim/signal-crew/": fileURLToPath(new URL("./packages/games/signal-crew/src/", import.meta.url))
     }
   },
   test: {

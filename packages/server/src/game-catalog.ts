@@ -4,10 +4,12 @@ import { BattleshipModule, battleshipBot } from "@board-game-sim/battleship";
 import { LabyrinthModule, labyrinthBot } from "@board-game-sim/labyrinth";
 import { Connect4Module, connect4Bot } from "@board-game-sim/connect4";
 import { HexKingdomsModule, hexKingdomsBot } from "@board-game-sim/hex-kingdoms";
+import { SignalCrewModule, signalCrewBot } from "@board-game-sim/signal-crew";
 import battleshipDefinition from "../../games/battleship/definition.json";
 import labyrinthDefinition from "../../games/labyrinth/definition.json";
 import connect4Definition from "../../games/connect4/definition.json";
 import hexKingdomsDefinition from "../../games/hex-kingdoms/definition.json";
+import signalCrewDefinition from "../../games/signal-crew/definition.json";
 
 export type BuiltInGame = RegisteredGame & {
   minSeats: number;
@@ -74,6 +76,15 @@ const catalog = createBuiltInGameCatalog([
     minSeats: 2,
     maxSeats: 4,
     bot: hexKingdomsBot
+  },
+  {
+    gameId: "signal-crew",
+    version: "0.1.0",
+    definition: signalCrewDefinition as JsonValue,
+    module: new SignalCrewModule(),
+    minSeats: 2,
+    maxSeats: 4,
+    bot: signalCrewBot
   }
 ]);
 

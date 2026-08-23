@@ -1,0 +1,20 @@
+{
+  "gameId": "signal-crew",
+  "version": "0.1.0",
+  "minPlayers": 2,
+  "maxPlayers": 4,
+  "channels": [
+    { "id": "azure", "label": "Azure", "symbol": "triangle", "glyph": "△" },
+    { "id": "amber", "label": "Amber", "symbol": "circle", "glyph": "○" },
+    { "id": "magenta", "label": "Magenta", "symbol": "square", "glyph": "□" },
+    { "id": "jade", "label": "Jade", "symbol": "diamond", "glyph": "◇" }
+  ],
+  "ranks": [1, 2, 3, 4],
+  "copiesPerFace": 2,
+  "relayNames": ["Horizon", "Beacon", "Aurora", "Vector", "Zenith"],
+  "socketsPerRelay": 2,
+  "handSize": { "2": 5, "3": 4, "4": 3 },
+  "bandwidth": { "2": 8, "3": 10, "4": 12 },
+  "interferenceLimit": 4,
+  "relayBandwidthReward": 1
+}
