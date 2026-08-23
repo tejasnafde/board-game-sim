@@ -3,9 +3,11 @@ import type { GameBot, JsonValue } from "@board-game-sim/shared";
 import { BattleshipModule, battleshipBot } from "@board-game-sim/battleship";
 import { LabyrinthModule, labyrinthBot } from "@board-game-sim/labyrinth";
 import { Connect4Module, connect4Bot } from "@board-game-sim/connect4";
+import { HexKingdomsModule, hexKingdomsBot } from "@board-game-sim/hex-kingdoms";
 import battleshipDefinition from "../../games/battleship/definition.json";
 import labyrinthDefinition from "../../games/labyrinth/definition.json";
 import connect4Definition from "../../games/connect4/definition.json";
+import hexKingdomsDefinition from "../../games/hex-kingdoms/definition.json";
 
 export type BuiltInGame = RegisteredGame & {
   minSeats: number;
@@ -63,6 +65,15 @@ const catalog = createBuiltInGameCatalog([
     minSeats: 2,
     maxSeats: 2,
     bot: connect4Bot
+  },
+  {
+    gameId: "hex-kingdoms",
+    version: "0.1.0",
+    definition: hexKingdomsDefinition as JsonValue,
+    module: new HexKingdomsModule(),
+    minSeats: 2,
+    maxSeats: 4,
+    bot: hexKingdomsBot
   }
 ]);
 

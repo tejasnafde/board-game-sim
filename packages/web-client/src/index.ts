@@ -7,6 +7,8 @@ export * from "./presentation";
 export * from "./realtime-client";
 export * from "./realtime-state";
 export * from "./renderer-registry";
+export * from "./components/hex-board";
+export * from "./components/card-zone";
 export * from "./routes";
 export * from "./runtime";
 

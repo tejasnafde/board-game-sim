@@ -1,7 +1,11 @@
 import { describe, expect, test } from "vitest";
 import battleshipPresentation from "../../packages/games/battleship/presentation.json";
 import connect4Presentation from "../../packages/games/connect4/presentation.json";
-import { createWebClientRuntime } from "../../packages/web-client/src/runtime";
+import hexPresentation from "../../packages/games/hex-kingdoms/presentation.json";
+import {
+  createReactWebClientRuntime,
+  createWebClientRuntime
+} from "../../packages/web-client/src/runtime";
 import type { ClientEvent, ServerEvent } from "../../packages/web-client/src/realtime-client";
 
 class FakeTransport {
@@ -38,7 +42,7 @@ describe("web client runtime", () => {
     expect(runtime.assetManager.resolveAssetUrl("tile-water")).toContain(
       "/games/battleship/assets/external/sea-warfare-set/effects/water.png"
     );
-    expect(runtime.renderer.render({ phase: "setup" })).toContain("board-root");
+    expect(runtime.renderer?.render({ phase: "setup" })).toContain("board-root");
 
     runtime.controller.join("s1", "p1");
     expect(transport.sent[0]?.type).toBe("session.join");
@@ -69,7 +73,7 @@ describe("web client runtime", () => {
       })
     });
 
-    expect(runtime.renderer.render({})).toBe("renderer:battleship");
+    expect(runtime.renderer?.render({})).toBe("renderer:battleship");
   });
 
   test("creates runtimes for presentations without optional art maps", () => {
@@ -78,5 +82,17 @@ describe("web client runtime", () => {
       baseAssetPath: "/games/connect4",
       transport: new FakeTransport()
     })).not.toThrow();
+  });
+
+  test("creates a React-owned hex runtime without a legacy renderer", () => {
+    const runtime = createReactWebClientRuntime({
+      presentation: hexPresentation,
+      baseAssetPath: "/games/hex-kingdoms",
+      transport: new FakeTransport()
+    });
+
+    expect(runtime.presentation.board.boardType).toBe("hex");
+    expect(runtime.renderer).toBeNull();
+    runtime.controller.join("hex-session", "tejas");
   });
 });

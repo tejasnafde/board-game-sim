@@ -8,8 +8,7 @@ Browser-first, authoritative, turn-based board game platform.
 - `packages/shared` shared contracts and utilities
 - `packages/engine` deterministic runtime core
 - `packages/server` session runtime and protocol handling
-- `packages/games/battleship` first game module
-- `packages/games/labyrinth` second game module
+- `packages/games/*` authoritative Battleship, Labyrinth, Connect Four, and Hex Kingdoms modules
 - `packages/web-client` browser client skeleton
 - `tests/` contract and game behavior test scaffolds
 

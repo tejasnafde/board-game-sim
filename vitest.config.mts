@@ -15,7 +15,9 @@ export default defineConfig({
       "@board-game-sim/labyrinth": fileURLToPath(new URL("./packages/games/labyrinth/src/index.ts", import.meta.url)),
       "@board-game-sim/labyrinth/": fileURLToPath(new URL("./packages/games/labyrinth/src/", import.meta.url)),
       "@board-game-sim/connect4": fileURLToPath(new URL("./packages/games/connect4/src/index.ts", import.meta.url)),
-      "@board-game-sim/connect4/": fileURLToPath(new URL("./packages/games/connect4/src/", import.meta.url))
+      "@board-game-sim/connect4/": fileURLToPath(new URL("./packages/games/connect4/src/", import.meta.url)),
+      "@board-game-sim/hex-kingdoms": fileURLToPath(new URL("./packages/games/hex-kingdoms/src/index.ts", import.meta.url)),
+      "@board-game-sim/hex-kingdoms/": fileURLToPath(new URL("./packages/games/hex-kingdoms/src/", import.meta.url))
     }
   },
   test: {

@@ -155,6 +155,10 @@ export class RealtimeGateway {
     if (!seat) {
       return { type: "session.action_rejected", sessionId, reason: "session_full" };
     }
+    return this.stateSyncEvent(sessionId, seat);
+  }
+
+  private stateSyncEvent(sessionId: string, seat: string): ServerEvent {
     return {
       type: "session.state_sync",
       sessionId,
@@ -255,7 +259,12 @@ export class RealtimeGateway {
         ];
       }
 
-      return [await this.createStateSyncEvent(event.sessionId, event.playerId)];
+      const seat = this.resolveSeat(event.sessionId, event.playerId);
+      if (!seat) {
+        return [{ type: "session.action_rejected", sessionId: event.sessionId, reason: "session_full" }];
+      }
+      if (this.tables.summary(event.sessionId).ready) await this.kickBots(event.sessionId);
+      return [this.stateSyncEvent(event.sessionId, seat)];
     }
 
     // ── Submit game action ────────────────────────────────────────────────────

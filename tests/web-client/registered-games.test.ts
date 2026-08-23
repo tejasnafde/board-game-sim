@@ -23,7 +23,7 @@ describe("registered game clients", () => {
       "sea-command",
       "classic-vector"
     ]);
-    expect(adapter?.runtime.renderer.render({
+    expect(adapter?.runtime.renderer?.render({
       ownBoard: {
         rows: 1,
         cols: 2,
@@ -42,7 +42,7 @@ describe("registered game clients", () => {
     });
 
     expect(adapter?.runtime.assets?.packId).toBe("classic-vector");
-    expect(adapter?.runtime.renderer.render({
+    expect(adapter?.runtime.renderer?.render({
       ownBoard: {
         rows: 1,
         cols: 2,

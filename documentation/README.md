@@ -8,5 +8,6 @@
 - `testing-strategy.md`: quality gates and scenario coverage.
 - `web-client.md`: frontend runtime and module map.
 - `labyrinth-module.md`: Labyrinth action model and hidden-info view rules.
+- `hex-kingdoms-module.md`: Hex Kingdoms rules, scoring, view, and verification.
 - `roadmap.md`: phased delivery plan.
 - `contributing-vision.md`: contributor guardrails.

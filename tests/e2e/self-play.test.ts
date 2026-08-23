@@ -9,10 +9,12 @@ import { createSeededRng, type GameBot, type JsonValue } from "@board-game-sim/s
 import { battleshipBot } from "@board-game-sim/battleship";
 import { labyrinthBot } from "@board-game-sim/labyrinth";
 import { connect4Bot } from "@board-game-sim/connect4";
+import { hexKingdomsBot } from "@board-game-sim/hex-kingdoms";
 import { RealtimeGateway, SessionService, registerBuiltInGames } from "@board-game-sim/server";
 import battleshipDefinition from "../../packages/games/battleship/definition.json";
 import labyrinthDefinition from "../../packages/games/labyrinth/definition.json";
 import connect4Definition from "../../packages/games/connect4/definition.json";
+import hexKingdomsDefinition from "../../packages/games/hex-kingdoms/definition.json";
 
 /**
  * Self-play harness: bots play the full server stack (gateway → session
@@ -54,6 +56,17 @@ const GAMES: SelfPlayGame[] = [
     bot: connect4Bot,
     definition: connect4Definition as JsonValue,
     rosters: [["alice", "bob"]],
+    maxActions: 50
+  },
+  {
+    gameId: "hex-kingdoms",
+    bot: hexKingdomsBot,
+    definition: hexKingdomsDefinition as JsonValue,
+    rosters: [
+      ["alice", "bob"],
+      ["alice", "bob", "carol"],
+      ["alice", "bob", "carol", "dave"]
+    ],
     maxActions: 50
   }
 ];

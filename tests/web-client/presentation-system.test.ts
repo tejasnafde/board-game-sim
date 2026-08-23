@@ -1,5 +1,6 @@
 import { describe, expect, test } from "vitest";
 import presentation from "../../packages/games/battleship/presentation.json";
+import hexPresentation from "../../packages/games/hex-kingdoms/presentation.json";
 import { AssetManager } from "../../packages/web-client/src/asset-manager";
 import { RendererRegistry } from "../../packages/web-client/src/renderer-registry";
 import { validatePresentationDefinition } from "../../packages/web-client/src/presentation";
@@ -20,6 +21,37 @@ describe("presentation system", () => {
         }
       })
     ).toThrow("unknown_asset_reference");
+  });
+
+  test("validates hex and boardless React-owned presentations", () => {
+    const hex = validatePresentationDefinition(hexPresentation);
+    expect(hex.board).toEqual({
+      boardType: "hex",
+      radius: 4,
+      orientation: "pointy",
+      hexSize: 48
+    });
+
+    const boardless = validatePresentationDefinition({
+      ...presentation,
+      gameId: "signal-crew",
+      assets: [],
+      pieceSprites: {},
+      effects: {},
+      board: { boardType: "none" }
+    });
+    expect(boardless.board).toEqual({ boardType: "none" });
+  });
+
+  test("rejects incomplete board metadata for each presentation type", () => {
+    expect(() => validatePresentationDefinition({
+      ...hexPresentation,
+      board: { boardType: "hex", radius: 4 }
+    })).toThrow("invalid_presentation_definition");
+    expect(() => validatePresentationDefinition({
+      ...presentation,
+      board: { boardType: "grid", rows: 10, cols: 10 }
+    })).toThrow("invalid_presentation_definition");
   });
 
   test("resolves asset paths from base path", () => {

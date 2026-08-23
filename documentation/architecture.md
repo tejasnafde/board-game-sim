@@ -16,7 +16,9 @@
 
 4. Game Registry
 - Resolves `gameId@version` to definition + module.
-- Built-in registration now includes `battleship@0.1.0` and `labyrinth@0.1.0`.
+- The immutable built-in catalog currently registers Battleship, Labyrinth,
+  Connect Four, and Hex Kingdoms with their definitions, modules, bots, and
+  supported seat ranges.
 - Presentation metadata (`presentation.json`) is loaded by the web client for render mappings and assets.
 
 5. Persistence
@@ -32,7 +34,9 @@
   metadata, theme variables, and license credits.
 - `AssetManager` remains as compatibility for presentation files while game
   adapters migrate to semantic asset roles.
-- `RendererRegistry` maps board type (`grid`/`hex`/`graph`) to concrete renderer implementation.
+- Presentation boards support `grid`, `hex`, `graph`, and boardless `none`
+  contracts. React-owned games can omit a legacy string renderer; Battleship's
+  runtime subtype guarantees its grid renderer is present.
 - `RealtimeClient` transports websocket protocol events.
 - `ClientController` maps UI interactions to intent submissions using sequence-safe envelopes and generic `submitAction(actionType, payload)` support.
 - React owns each playable game view and subscribes directly to controller
@@ -40,9 +44,9 @@
 - `createReactGameUiAdapter` owns the React root lifecycle for every game.
   Per-game adapters provide a static lobby and a typed game component, keeping
   mount, unmount, rematch, logging, and realtime behavior out of new games.
-- Battleship, Labyrinth, and Connect Four use declarative React interactions;
+- Battleship, Labyrinth, Connect Four, and Hex Kingdoms use declarative React interactions;
   their adapters submit intents and never patch authoritative game state.
-- `registered-games.ts` is the single explicit registration point for the three
+- `registered-games.ts` is the single explicit registration point for the four
   playable clients and roadmap entries. The adapter map is derived from it.
 - Battleship proves the asset-pack seam with `sea-command` and
   `classic-vector`; the selected pack is persisted without touching game state.

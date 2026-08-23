@@ -25,6 +25,7 @@ describe("server game catalog", () => {
       expect(entry.maxSeats).toBeGreaterThanOrEqual(entry.minSeats);
       expect(typeof entry.bot).toBe("function");
     }
+    expect(BUILT_IN_GAMES.map((entry) => entry.gameId)).toContain("hex-kingdoms");
   });
 
   test("rejects duplicate game IDs", () => {

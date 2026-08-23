@@ -9,11 +9,33 @@ import type { AssetResolver } from "./asset-pack";
 export type WebClientRuntime = {
   presentation: PresentationDefinition;
   assetManager: AssetManager;
-  renderer: GameRenderer;
+  renderer: GameRenderer | null;
   controller: ReturnType<typeof createClientController>;
   assets?: AssetResolver;
   rejoin: () => void;
 };
+
+export type RenderedWebClientRuntime = WebClientRuntime & { renderer: GameRenderer };
+
+type RuntimeInput = {
+  presentation: unknown;
+  baseAssetPath: string;
+  transport: ControllerTransport;
+  assets?: AssetResolver;
+};
+
+function createRuntimeBase(input: RuntimeInput): Omit<WebClientRuntime, "renderer"> {
+  const presentation = validatePresentationDefinition(input.presentation);
+  const assetManager = new AssetManager(presentation, input.baseAssetPath);
+  const controller = createClientController(input.transport);
+  return {
+    presentation,
+    assetManager,
+    controller,
+    assets: input.assets,
+    rejoin: () => controller.rejoin()
+  };
+}
 
 export function createWebClientRuntime(input: {
   presentation: unknown;
@@ -24,25 +46,19 @@ export function createWebClientRuntime(input: {
     presentation: PresentationDefinition;
     assetManager: AssetManager;
   }) => GameRenderer;
-}): WebClientRuntime {
-  const presentation = validatePresentationDefinition(input.presentation);
-  const assetManager = new AssetManager(presentation, input.baseAssetPath);
+}): RenderedWebClientRuntime {
+  const runtime = createRuntimeBase(input);
 
   const rendererRegistry = new RendererRegistry();
   rendererRegistry.register("grid", () => new GridRenderer());
-  const renderer = input.createRenderer?.({ presentation, assetManager })
-    ?? rendererRegistry.create(presentation.board.boardType);
+  const renderer = input.createRenderer?.({
+    presentation: runtime.presentation,
+    assetManager: runtime.assetManager
+  }) ?? rendererRegistry.create(runtime.presentation.board.boardType);
 
-  const controller = createClientController(input.transport);
+  return { ...runtime, renderer };
+}
 
-  return {
-    presentation,
-    assetManager,
-    renderer,
-    controller,
-    assets: input.assets,
-    rejoin: () => {
-      controller.rejoin();
-    }
-  };
+export function createReactWebClientRuntime(input: RuntimeInput): WebClientRuntime {
+  return { ...createRuntimeBase(input), renderer: null };
 }
