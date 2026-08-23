@@ -170,17 +170,18 @@ describe("ws server adapter", () => {
       })
     );
 
-    const [accepted1, accepted2, patch1, patch2] = await Promise.all([
+    const [accepted1, accepted2, sync1, sync2] = await Promise.all([
       waitForEvent(c1, (e) => e.type === "session.action_accepted"),
       waitForEvent(c2, (e) => e.type === "session.action_accepted"),
-      waitForEvent(c1, (e) => e.type === "session.state_patch"),
-      waitForEvent(c2, (e) => e.type === "session.state_patch")
+      waitForEvent(c1, (e) => e.type === "session.state_sync" && e.seq === 1),
+      waitForEvent(c2, (e) => e.type === "session.state_sync" && e.seq === 1)
     ]);
 
     expect(accepted1.type).toBe("session.action_accepted");
     expect(accepted2.type).toBe("session.action_accepted");
-    expect(patch1.type).toBe("session.state_patch");
-    expect(patch2.type).toBe("session.state_patch");
+    expect(sync1.type).toBe("session.state_sync");
+    expect(sync2.type).toBe("session.state_sync");
+    expect(JSON.stringify([accepted1, accepted2, sync1, sync2])).not.toContain("integrityHash");
 
     c1.close();
     c2.close();

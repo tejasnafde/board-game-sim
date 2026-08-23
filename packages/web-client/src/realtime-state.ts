@@ -20,7 +20,6 @@ export type ClientState = {
   synced: boolean;
   seq: number;
   view: JsonValue | null;
-  patch: JsonValue | null;
   pendingActionId: string | null;
   lastError: string | null;
   /** Domain events from the most recent action_accepted (hit/miss/sunk feedback). */
@@ -39,7 +38,6 @@ export function createInitialClientState(): ClientState {
     synced: false,
     seq: 0,
     view: null,
-    patch: null,
     pendingActionId: null,
     lastError: null,
     lastEvents: [],
@@ -79,7 +77,6 @@ export function applyServerEvent(state: ClientState, event: ServerEvent): Client
       synced: true,
       seq: event.seq,
       view: event.view,
-      patch: null,
       lastError: null
     };
   }
@@ -105,14 +102,6 @@ export function applyServerEvent(state: ClientState, event: ServerEvent): Client
       ...state,
       pendingActionId: null,
       lastError: event.reason
-    };
-  }
-
-  if (event.type === "session.state_patch") {
-    return {
-      ...state,
-      seq: event.seq,
-      patch: event.patch
     };
   }
 

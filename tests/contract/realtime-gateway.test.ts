@@ -14,7 +14,10 @@ const miniDefinition = {
   ships: [{ id: "destroyer", size: 2 }]
 };
 
-function build(analytics?: { track(event: string, surface: string, properties: Record<string, string>): void }) {
+function build(
+  analytics?: { track(event: string, surface: string, properties: Record<string, string>): void },
+  seedFactory?: (input: { sessionId: string; gameId: string }) => string
+) {
   const registry = new InMemoryGameRegistry();
   registry.register({
     gameId: "battleship",
@@ -30,7 +33,7 @@ function build(analytics?: { track(event: string, surface: string, properties: R
     new InMemorySnapshotRepository()
   );
 
-  return { service, gateway: new RealtimeGateway(service, 0, analytics) };
+  return { service, gateway: new RealtimeGateway(service, 0, analytics, undefined, seedFactory) };
 }
 
 function buildRegistered() {
@@ -46,6 +49,28 @@ function buildRegistered() {
 }
 
 describe("realtime gateway", () => {
+  test("uses an injected private seed and never sends it to clients", async () => {
+    const calls: Array<{ sessionId: string; gameId: string }> = [];
+    const privateSeed = "server-only-test-seed";
+    const { service, gateway } = build(undefined, (input) => {
+      calls.push(input);
+      return privateSeed;
+    });
+
+    const outbound = await gateway.handleClientEvent({
+      type: "session.create",
+      sessionId: "public-session-code",
+      gameId: "battleship",
+      playerId: "p1",
+      bots: 1
+    });
+
+    expect(calls).toEqual([{ sessionId: "public-session-code", gameId: "battleship" }]);
+    expect(service.getSessionMeta("public-session-code")?.seed).toBe(privateSeed);
+    expect(JSON.stringify(outbound)).not.toContain(privateSeed);
+    expect(JSON.stringify(outbound)).not.toContain("public-session-code-seed");
+  });
+
   test("reports authoritative session and first-action milestones", async () => {
     const calls: unknown[][] = [];
     const { service, gateway } = build({ track: (...args) => calls.push(args) });
@@ -126,7 +151,7 @@ describe("realtime gateway", () => {
     });
   });
 
-  test("returns accepted and patch on valid action", async () => {
+  test("returns accepted events without exposing a canonical state hash", async () => {
     const { service, gateway } = build();
     await service.createSession({
       sessionId: "gw-3",
@@ -150,12 +175,12 @@ describe("realtime gateway", () => {
       }
     });
 
-    expect(events).toHaveLength(2);
+    expect(events).toHaveLength(1);
     expect(events[0]).toMatchObject({
       type: "session.action_accepted",
       actorPlayerId: "p1"
     });
-    expect(events[1]?.type).toBe("session.state_patch");
+    expect(JSON.stringify(events)).not.toContain("integrityHash");
   });
 
   test("builds player-specific state sync event", async () => {
