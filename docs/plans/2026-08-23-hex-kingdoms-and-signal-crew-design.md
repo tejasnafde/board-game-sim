@@ -47,10 +47,11 @@ and game-agnostic:
 The React adapters continue to submit intents through the existing client
 controller. They never patch authoritative state.
 
-`PresentationDefinition.board` becomes a discriminated union so grid and hex
-metadata do not pretend to share rows and columns. The web runtime no longer
-requires a legacy string renderer for React-owned game views; Battleship keeps
-its grid renderer explicitly where it is actually used.
+`PresentationDefinition.board` becomes a discriminated union for grid, hex,
+graph, and an explicit boardless React-owned presentation. Signal Crew does not
+pretend to be a one-cell grid. The web runtime no longer requires a legacy
+string renderer for React-owned game views; Battleship keeps its grid renderer
+explicitly where it is actually used.
 
 ## Server-Only Randomness
 
@@ -58,7 +59,9 @@ The realtime gateway currently derives a seed from the public session ID. A
 client can reproduce that value, so view redaction alone cannot protect a
 hidden deck.
 
-Before Signal Crew ships, session creation receives an injected seed factory:
+Before either game ships, session creation receives an injected seed factory.
+Hex Kingdoms' future market and Signal Crew's hands are both predictable from
+the current public-session-derived seed:
 
 - Production generates a cryptographically unpredictable server-only seed.
 - Tests may supply a deterministic seed factory.
@@ -69,6 +72,14 @@ Before Signal Crew ships, session creation receives an injected seed factory:
 
 This change applies to all newly created sessions and preserves deterministic
 rule execution after the seed is chosen.
+
+Canonical integrity hashes also remain server-only. The current realtime
+`session.state_patch` broadcasts a hash of full authoritative state after every
+action; for hidden games that becomes an equality oracle over possible hands
+or future market order. The gateway removes that canonical hash from outbound
+protocol data. If clients need an integrity marker later, it is computed from
+that recipient's personalized view. Replay and audit continue to use the
+canonical hash inside the server boundary.
 
 ## Hex Kingdoms
 
@@ -273,6 +284,12 @@ actor draws when the deck remains. Completing a relay restores bandwidth.
 **Recycle a packet** is illegal at full bandwidth. It reveals and publicly
 discards an owned packet, restores one bandwidth, and draws when possible.
 
+**Stand by** is legal only when the actor has no legal clue, transmission, or
+recycle action. It changes no cards or tracks, records a public stand-by event,
+and consumes the turn normally. Its main purpose is to prevent an empty-handed
+player at zero bandwidth from deadlocking the final orbit; it is never a
+voluntary pass.
+
 Neither legal-action enumeration nor enabled socket controls may depend on an
 actor's true hidden face. The UI may highlight a socket only when recorded
 knowledge proves every remaining candidate matches it.
@@ -323,9 +340,11 @@ sockets, and the known two-copy composition.
 It prefers, in order: a certain transmission; a clue that makes the next
 player's card certainly playable; a proven-safe recycle; a high-information
 clue; a forced low-risk recycle at zero bandwidth; and a calculated
-final-orbit transmission. Seeded randomness resolves equal evaluations. Its
-public reasoning describes visible intent without leaking hidden faces or
-private calculations.
+final-orbit transmission. Seeded randomness resolves equal evaluations.
+Version one derives readable bot feedback from the accepted public action or
+event, such as giving a rank clue or transmitting to a named relay. A
+client-supplied rationale is not trusted or broadcast because humans could
+spoof it and it could become a hidden-data channel.
 
 ### Signal Crew testing and playtesting
 
@@ -334,6 +353,10 @@ sizes, unique mission requirements, every successful action path, immutable
 illegal-action rejection, positive and negative clue updates, card departure,
 draw and no-draw paths, relay rewards, final-orbit boundaries, terminal
 precedence, all terminal reasons, and replay integrity.
+
+Focused final-orbit tests include an empty-handed player at zero bandwidth who
+may stand by, rejection when any productive action exists, and correct orbit
+decrement and terminal resolution after standing by.
 
 After every accepted action tests assert that all 32 opaque IDs exist exactly
 once across deck, hands, discard, and sockets; every true face remains inside
@@ -346,8 +369,8 @@ sentinel faces to prove own faces and deck order are absent without confusing
 legitimate public requirements with leaks. They also prove teammate visibility,
 unknown-viewer concealment, reconnect stability, safe IDs, event redaction,
 identical legal-action shape regardless of hidden face, and no rejected-action
-oracle. Browser network payloads, diagnostics, DOM, and accessibility trees are
-part of this gate.
+or canonical-integrity-hash oracle. Browser network payloads, diagnostics, DOM,
+and accessibility trees are part of this gate.
 
 Bot tests prove inactivity behavior, certain transmissions, actionable clues,
 safe recycling, zero-bandwidth play, final-orbit risks, determinism, accepted
@@ -398,4 +421,3 @@ The complete gate requires:
   per-game documentation;
 - deployment only after both games satisfy the gate and the user has not asked
   to keep the current environment undeployed.
-
