@@ -8,6 +8,7 @@ describe("game hub", () => {
       ["labyrinth", "live"],
       ["connect4", "live"],
       ["hex-kingdoms", "live"],
+      ["signal-crew", "live"],
       ["catan", "coming-soon"]
     ]);
     expect(GAME_HUB_CARDS.find((card) => card.gameId === "labyrinth")?.releaseTag).toBe("Playable now");
@@ -17,6 +18,8 @@ describe("game hub", () => {
     expect(resolveGameHubNavigation("battleship")).toEqual({ name: "game", gameId: "battleship" });
     expect(resolveGameHubNavigation("labyrinth")).toEqual({ name: "game", gameId: "labyrinth" });
     expect(resolveGameHubNavigation("connect4")).toEqual({ name: "game", gameId: "connect4" });
+    expect(resolveGameHubNavigation("hex-kingdoms")).toEqual({ name: "game", gameId: "hex-kingdoms" });
+    expect(resolveGameHubNavigation("signal-crew")).toEqual({ name: "game", gameId: "signal-crew" });
     expect(resolveGameHubNavigation("catan")).toBeNull();
   });
 });

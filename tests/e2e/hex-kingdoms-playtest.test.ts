@@ -62,11 +62,11 @@ describe("Hex Kingdoms full-session playtests", () => {
   }
 
   for (const seats of [2, 3, 4]) {
-    test(`${seats}-seat 100-seed balance soak stays varied and invariant-safe`, async () => {
+    test(`${seats}-seat 250-seed balance soak stays varied and invariant-safe`, async () => {
       const winners = new Set<string>();
       let ties = 0;
       let landmarkContests = 0;
-      for (let seedIndex = 0; seedIndex < 100; seedIndex += 1) {
+      for (let seedIndex = 0; seedIndex < 250; seedIndex += 1) {
         const policies = policyRoster(seats, seedIndex % HEX_TEST_POLICIES.length);
         policies[seedIndex % seats] = hexKingdomsBot;
         const game = await runSyntheticGame({
@@ -83,8 +83,8 @@ describe("Hex Kingdoms full-session playtests", () => {
         if (Object.values(view.scores).some((score) => score.landmarks > 0)) landmarkContests += 1;
       }
       expect(winners.size).toBeGreaterThan(1);
-      expect(ties).toBeLessThan(50);
-      expect(landmarkContests).toBeGreaterThan(50);
+      expect(ties).toBeLessThan(125);
+      expect(landmarkContests).toBeGreaterThan(125);
     }, 120_000);
   }
 });

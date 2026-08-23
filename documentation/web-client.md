@@ -1,7 +1,7 @@
 # Web Client
 
 `packages/web-client` contains playable browser flows for Battleship,
-Labyrinth, Connect Four, and Hex Kingdoms.
+Labyrinth, Connect Four, Hex Kingdoms, and Signal Crew.
 
 ## Modules
 
@@ -41,10 +41,12 @@ Labyrinth, Connect Four, and Hex Kingdoms.
 - Connect Four: session lobby, column controls, and a tactile drop board.
 - Hex Kingdoms: mixed table lobby, tile market, interactive territory map,
   score projection, and final kingdom ledger.
+- Signal Crew: mixed table lobby, relay rack, asymmetric packet hands,
+  shared mission tracks, and a guided deduction action dock.
 
 Battleship and Connect Four default to a server-backed computer game.
-Labyrinth and Hex Kingdoms expose human and computer seat counts separately; their boards remain
-locked until every selected human seat joins.
+Labyrinth, Hex Kingdoms, and Signal Crew expose human and computer seat counts
+separately; their boards remain locked until every selected human seat joins.
 
 ## Adding a Playable Game
 

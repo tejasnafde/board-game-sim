@@ -34,6 +34,10 @@
 2. Every view serializes at every sequence and no nonterminal state deadlocks.
 3. Accepted sequence numbers are monotonic and terminal state rejects further actions.
 4. Hex Kingdoms runs all 2–4 seat product splits plus deterministic balance soaks.
+5. Signal Crew runs all 2–4 seat product splits, hidden-view assertions, and
+   deterministic difficulty soaks.
+6. The five-game matrix exercises supported all-computer and human/computer
+   compositions through terminal state.
 
 ## Web Client Scenarios
 

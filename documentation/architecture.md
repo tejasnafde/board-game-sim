@@ -17,8 +17,8 @@
 4. Game Registry
 - Resolves `gameId@version` to definition + module.
 - The immutable built-in catalog currently registers Battleship, Labyrinth,
-  Connect Four, and Hex Kingdoms with their definitions, modules, bots, and
-  supported seat ranges.
+  Connect Four, Hex Kingdoms, and Signal Crew with their definitions, modules,
+  bots, and supported seat ranges.
 - Presentation metadata (`presentation.json`) is loaded by the web client for render mappings and assets.
 
 5. Persistence
@@ -44,9 +44,10 @@
 - `createReactGameUiAdapter` owns the React root lifecycle for every game.
   Per-game adapters provide a static lobby and a typed game component, keeping
   mount, unmount, rematch, logging, and realtime behavior out of new games.
-- Battleship, Labyrinth, Connect Four, and Hex Kingdoms use declarative React interactions;
-  their adapters submit intents and never patch authoritative game state.
-- `registered-games.ts` is the single explicit registration point for the four
+- Battleship, Labyrinth, Connect Four, Hex Kingdoms, and Signal Crew use
+  declarative React interactions; their adapters submit intents and never
+  patch authoritative game state.
+- `registered-games.ts` is the single explicit registration point for the five
   playable clients and roadmap entries. The adapter map is derived from it.
 - Battleship proves the asset-pack seam with `sea-command` and
   `classic-vector`; the selected pack is persisted without touching game state.

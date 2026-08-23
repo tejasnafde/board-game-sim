@@ -26,6 +26,7 @@ describe("server game catalog", () => {
       expect(typeof entry.bot).toBe("function");
     }
     expect(BUILT_IN_GAMES.map((entry) => entry.gameId)).toContain("hex-kingdoms");
+    expect(BUILT_IN_GAMES.map((entry) => entry.gameId)).toContain("signal-crew");
   });
 
   test("rejects duplicate game IDs", () => {

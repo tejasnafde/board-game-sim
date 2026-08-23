@@ -43,5 +43,5 @@ required.
 Rule, scoring, bot, contract, recovery, component, adapter, browser, and
 full-session tests cover the module. Product-table tests run every human/bot
 split for two, three, and four seats. Synthetic playtests use independent
-policies and the production bot, including a 300-game deterministic balance
+policies and the production bot, including a 750-game deterministic balance
 corpus.

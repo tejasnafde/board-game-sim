@@ -16,7 +16,9 @@
       "@board-game-sim/connect4": ["packages/games/connect4/src/index.ts"],
       "@board-game-sim/connect4/*": ["packages/games/connect4/src/*"],
       "@board-game-sim/hex-kingdoms": ["packages/games/hex-kingdoms/src/index.ts"],
-      "@board-game-sim/hex-kingdoms/*": ["packages/games/hex-kingdoms/src/*"]
+      "@board-game-sim/hex-kingdoms/*": ["packages/games/hex-kingdoms/src/*"],
+      "@board-game-sim/signal-crew": ["packages/games/signal-crew/src/index.ts"],
+      "@board-game-sim/signal-crew/*": ["packages/games/signal-crew/src/*"]
     }
   },
   "include": [
