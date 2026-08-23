@@ -1,24 +1,10 @@
-import { createLogger, createSeededRng, type GameBot, type JsonValue } from "@board-game-sim/shared";
-import { battleshipBot } from "@board-game-sim/battleship";
-import { labyrinthBot } from "@board-game-sim/labyrinth";
-import { connect4Bot } from "@board-game-sim/connect4";
-import battleshipDefinition from "../../games/battleship/definition.json";
-import labyrinthDefinition from "../../games/labyrinth/definition.json";
-import connect4Definition from "../../games/connect4/definition.json";
+import { createLogger, createSeededRng, type JsonValue } from "@board-game-sim/shared";
 import type { ClientEvent, ServerEvent } from "./protocol";
 import { SessionService } from "./session-service";
 import { noAnalytics, type GamingAnalytics } from "./analytics";
 import { normalizeTablePlan, TableRoster } from "./table-roster";
-
-// Supported games for on-demand session creation. New game? Add a row.
-const GAMES: Record<
-  string,
-  { version: string; minSeats: number; maxSeats: number; bot: GameBot; definition: JsonValue }
-> = {
-  battleship: { version: "0.1.0", minSeats: 2, maxSeats: 2, bot: battleshipBot, definition: battleshipDefinition as JsonValue },
-  labyrinth: { version: "0.1.0", minSeats: 2, maxSeats: 4, bot: labyrinthBot, definition: labyrinthDefinition as JsonValue },
-  connect4: { version: "0.1.0", minSeats: 2, maxSeats: 2, bot: connect4Bot, definition: connect4Definition as JsonValue }
-};
+import { createPrivateSessionSeed, type SessionSeedFactory } from "./session-seed";
+import { resolveBuiltInGame, type BuiltInGame } from "./game-catalog";
 
 // Safety cap on consecutive bot moves per trigger (multi-bot rounds are legal;
 // an infinitely-looping module bug is not).
@@ -58,7 +44,8 @@ export class RealtimeGateway {
     // 0 = bots reply inside the request (tests); >0 = paced, pushed via onSessionChanged
     private readonly botMoveDelayMs = 0,
     private readonly analytics: GamingAnalytics = noAnalytics,
-    private readonly tables = new TableRoster()
+    private readonly tables = new TableRoster(),
+    private readonly seedFactory: SessionSeedFactory = createPrivateSessionSeed
   ) { }
 
   /** Let bot seats act until it's a human's turn (or terminal / nothing to do). */
@@ -66,7 +53,7 @@ export class RealtimeGateway {
     if (!this.ensureTable(sessionId)) return;
     if (!this.tables.summary(sessionId).ready) return;
     const gameId = this.tableGames.get(sessionId);
-    const game = gameId ? GAMES[gameId] : undefined;
+    const game = gameId ? resolveBuiltInGame(gameId) : null;
     if (!game) return;
     if (this.botLoopRunning.has(sessionId)) return;
     this.botLoopRunning.add(sessionId);
@@ -77,7 +64,7 @@ export class RealtimeGateway {
     }
   }
 
-  private async runBotLoop(sessionId: string, game: (typeof GAMES)[string]): Promise<void> {
+  private async runBotLoop(sessionId: string, game: BuiltInGame): Promise<void> {
     const botSeats = this.tables.botSeats(sessionId);
 
     for (let move = 0; move < MAX_BOT_MOVES; move += 1) {
@@ -182,7 +169,7 @@ export class RealtimeGateway {
   async handleClientEvent(event: ClientEvent): Promise<ServerEvent[]> {
     // ── Create session on demand ──────────────────────────────────────────────
     if (event.type === "session.create") {
-      const game = GAMES[event.gameId];
+      const game = resolveBuiltInGame(event.gameId);
       if (!game) {
         return [
           {
@@ -213,7 +200,7 @@ export class RealtimeGateway {
           sessionId: event.sessionId,
           gameId: event.gameId,
           gameVersion: game.version,
-          seed: `${event.sessionId}-seed`,
+          seed: this.seedFactory({ sessionId: event.sessionId, gameId: event.gameId }),
           players
         });
       } catch (error) {
@@ -308,24 +295,16 @@ export class RealtimeGateway {
         this.analytics.track("gameplay_started", "gameplay", { variant: meta.gameId });
       }
 
-      const outbound: ServerEvent[] = [
-        {
-          type: "session.action_accepted",
-          sessionId: event.envelope.sessionId,
-          seq: result.seq,
-          actorPlayerId: seat,
-          events: result.events.map((item) => ({
-            eventType: item.eventType,
-            payload: item.payload
-          })) as JsonValue[]
-        },
-        {
-          type: "session.state_patch",
-          sessionId: event.envelope.sessionId,
-          seq: result.seq,
-          patch: { integrityHash: result.integrityHash }
-        }
-      ];
+      const outbound: ServerEvent[] = [{
+        type: "session.action_accepted",
+        sessionId: event.envelope.sessionId,
+        seq: result.seq,
+        actorPlayerId: seat,
+        events: result.events.map((item) => ({
+          eventType: item.eventType,
+          payload: item.payload
+        })) as JsonValue[]
+      }];
 
       const terminal = this.sessions.getTerminalResult(event.envelope.sessionId);
       if (terminal) {

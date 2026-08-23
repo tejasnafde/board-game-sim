@@ -67,7 +67,7 @@ export class SessionRuntime<State> {
     };
 
     this.sessions.set(meta.sessionId, session);
-    log.info(`${meta.sessionId} init ${meta.gameId}@${meta.gameVersion} players=[${meta.players.join(",")}] seed=${meta.seed} hash=${session.integrityHash}`);
+    log.info(`${meta.sessionId} init ${meta.gameId}@${meta.gameVersion} players=[${meta.players.join(",")}] hash=${session.integrityHash}`);
 
     for (const event of initialized.emittedEvents) {
       await this.eventRepo.append({

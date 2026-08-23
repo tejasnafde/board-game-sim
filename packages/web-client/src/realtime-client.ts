@@ -20,7 +20,6 @@ export type ServerEvent =
   | { type: "session.created"; sessionId: string; gameId: string; players: string[] }
   | { type: "session.action_accepted"; sessionId: string; seq: number; actorPlayerId?: string; events: JsonValue[] }
   | { type: "session.action_rejected"; sessionId: string; reason: string }
-  | { type: "session.state_patch"; sessionId: string; seq: number; patch: JsonValue }
   | { type: "session.terminal"; sessionId: string; winnerPlayerId: string | null; reason: string };
 
 export interface SocketLike {

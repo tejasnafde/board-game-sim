@@ -47,8 +47,8 @@
 - Battleship proves the asset-pack seam with `sea-command` and
   `classic-vector`; the selected pack is persisted without touching game state.
 - `ClientState` reducer applies `state_sync`, including authoritative table
-  readiness, plus `action_accepted/rejected`, `state_patch`, and `terminal`
-  events.
+  readiness, plus `action_accepted/rejected` and `terminal` events. Canonical
+  integrity hashes remain server-only.
 
 ## Runtime Flow
 

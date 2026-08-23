@@ -53,7 +53,7 @@ describe("web-client realtime state", () => {
     });
   });
 
-  test("handles accepted/rejected actions and patches", () => {
+  test("handles accepted and rejected actions without canonical patches", () => {
     const state0: ClientState = {
       ...createInitialClientState(),
       pendingActionId: "a1"
@@ -74,17 +74,9 @@ describe("web-client realtime state", () => {
       events: []
     }]);
 
-    const patched = applyServerEvent(accepted, {
-      type: "session.state_patch",
-      sessionId: "s1",
-      seq: 2,
-      patch: { integrityHash: "h1" }
-    });
-    expect((patched.patch as { integrityHash: string }).integrityHash).toBe("h1");
-
     const rejected = applyServerEvent(
       {
-        ...patched,
+        ...accepted,
         pendingActionId: "a2"
       },
       {
