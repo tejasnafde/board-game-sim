@@ -4,6 +4,8 @@
 
 - Engine contract tests are mandatory.
 - Game behavior tests are mandatory for each module.
+- Every game bot must reach terminal state through the full gateway and player-view boundary.
+- New games must pass every supported product human/bot split and synthetic all-bot seat count.
 
 ## Contract Test Scenarios
 
@@ -25,6 +27,13 @@
 
 1. Correct player-scoped sync after reconnect.
 2. Snapshot + replay equals in-memory state hash.
+
+## Full-Session Playtests
+
+1. Policies receive only personalized production views.
+2. Every view serializes at every sequence and no nonterminal state deadlocks.
+3. Accepted sequence numbers are monotonic and terminal state rejects further actions.
+4. Hex Kingdoms runs all 2–4 seat product splits plus deterministic balance soaks.
 
 ## Web Client Scenarios
 

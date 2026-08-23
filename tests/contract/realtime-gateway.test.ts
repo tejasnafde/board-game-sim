@@ -36,7 +36,7 @@ function build(
   return { service, gateway: new RealtimeGateway(service, 0, analytics, undefined, seedFactory) };
 }
 
-function buildRegistered() {
+function buildRegistered(seedFactory?: (input: { sessionId: string; gameId: string }) => string) {
   const registry = new InMemoryGameRegistry();
   registerBuiltInGames(registry);
   const service = new SessionService(
@@ -45,7 +45,7 @@ function buildRegistered() {
     new InMemorySessionRepository(),
     new InMemorySnapshotRepository()
   );
-  return { service, gateway: new RealtimeGateway(service) };
+  return { service, gateway: new RealtimeGateway(service, 0, undefined, undefined, seedFactory) };
 }
 
 describe("realtime gateway", () => {
@@ -276,6 +276,30 @@ describe("seat auto-claim", () => {
 });
 
 describe("mixed table seats", () => {
+  test("starts reserved bots when the final human joins on a bot turn", async () => {
+    const { service, gateway } = buildRegistered(() => "join-bot-2");
+    await gateway.handleClientEvent({
+      type: "session.create",
+      sessionId: "bot-starts-after-join",
+      gameId: "hex-kingdoms",
+      playerId: "tejas",
+      tablePlan: { humanSeats: 2, botSeats: 1 }
+    });
+
+    const [joined] = await gateway.handleClientEvent({
+      type: "session.join",
+      sessionId: "bot-starts-after-join",
+      playerId: "friend"
+    });
+
+    expect(service.getSessionSeq("bot-starts-after-join")).toBeGreaterThan(0);
+    expect(joined).toMatchObject({
+      type: "session.state_sync",
+      table: { ready: true },
+      view: { currentPlayerId: "player-1" }
+    });
+  });
+
   test("rejects plans outside the selected game's player limits", async () => {
     const { gateway } = buildRegistered();
     const result = await gateway.handleClientEvent({

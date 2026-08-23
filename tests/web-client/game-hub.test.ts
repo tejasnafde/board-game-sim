@@ -7,6 +7,7 @@ describe("game hub", () => {
       ["battleship", "live"],
       ["labyrinth", "live"],
       ["connect4", "live"],
+      ["hex-kingdoms", "live"],
       ["catan", "coming-soon"]
     ]);
     expect(GAME_HUB_CARDS.find((card) => card.gameId === "labyrinth")?.releaseTag).toBe("Playable now");

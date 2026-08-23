@@ -13,7 +13,10 @@ import type {
   ClientEvent,
   ServerEvent
 } from "../../packages/web-client/src/realtime-client";
-import { createWebClientRuntime, type WebClientRuntime } from "../../packages/web-client/src/runtime";
+import {
+  createWebClientRuntime,
+  type RenderedWebClientRuntime
+} from "../../packages/web-client/src/runtime";
 
 class FakeTransport implements ControllerTransport {
   private readonly listeners: Array<(event: ServerEvent) => void> = [];
@@ -36,7 +39,7 @@ class FakeTransport implements ControllerTransport {
 }
 
 function runtimeWith(presentation: unknown, view: JsonValue): {
-  runtime: WebClientRuntime;
+  runtime: RenderedWebClientRuntime;
   transport: FakeTransport;
 } {
   const transport = new FakeTransport();

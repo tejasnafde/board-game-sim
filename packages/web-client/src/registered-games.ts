@@ -1,12 +1,13 @@
 import type { ControllerTransport } from "./client-controller";
 import type { AssetPackRegistry } from "./asset-pack";
 import { createGameCatalog, type GameCatalogEntry } from "./game-catalog";
-import { battleshipManifest, connect4Manifest, labyrinthManifest } from "./game-manifests";
+import { battleshipManifest, connect4Manifest, hexKingdomsManifest, labyrinthManifest } from "./game-manifests";
 import { createBattleshipUiAdapter } from "./game-adapters/battleship";
 import { createConnect4UiAdapter } from "./game-adapters/connect4";
 import { createLabyrinthUiAdapter } from "./game-adapters/labyrinth";
+import { createHexKingdomsUiAdapter } from "./game-adapters/hex-kingdoms";
 import type { PlayableGameUiAdapter } from "./game-adapters/playable-game-ui";
-import { createWebClientRuntime } from "./runtime";
+import { createReactWebClientRuntime, createWebClientRuntime } from "./runtime";
 import { battleshipAssetPacks } from "./game-assets/battleship";
 import { GridRenderer } from "./grid-renderer";
 
@@ -99,6 +100,28 @@ export const gameCatalog = createGameCatalog<RegisteredGame>([
       createUiAdapter: ({ transport, baseAssetPath }) => createConnect4UiAdapter(
         createWebClientRuntime({
           presentation: connect4Manifest.presentation,
+          baseAssetPath,
+          transport
+        })
+      )
+    }
+  },
+  {
+    manifest: {
+      gameId: "hex-kingdoms",
+      version: "0.1.0",
+      title: "Hex Kingdoms",
+      summary: "Draft terrain, connect your realm, and contest ancient landmarks.",
+      status: "live",
+      releaseTag: "Playable now",
+      players: "2-4 players",
+      turnStyle: "Ten placement turns",
+      defaultAssetPackId: "crownlands-table"
+    },
+    client: {
+      createUiAdapter: ({ transport, baseAssetPath }) => createHexKingdomsUiAdapter(
+        createReactWebClientRuntime({
+          presentation: hexKingdomsManifest.presentation,
           baseAssetPath,
           transport
         })

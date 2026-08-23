@@ -1,6 +1,6 @@
 import { createElement, useState, useSyncExternalStore } from "react";
 import { battleshipManifest } from "../../game-manifests";
-import type { WebClientRuntime } from "../../runtime";
+import type { RenderedWebClientRuntime } from "../../runtime";
 import type { PlayableGameBindContext, PlayableGameUiAdapter } from "../playable-game-ui";
 import { createReactGameUiAdapter } from "../react-game-ui-adapter";
 import { BattleshipGameView, BattleshipSetupView } from "./game-view";
@@ -21,7 +21,7 @@ import {
 import { inferBattleshipScreen } from "./selectors";
 import type { BattleshipDefinition, ClientView, PlacementDraft } from "./types";
 
-export function createBattleshipUiAdapter(runtime: WebClientRuntime): PlayableGameUiAdapter {
+export function createBattleshipUiAdapter(runtime: RenderedWebClientRuntime): PlayableGameUiAdapter {
   const definition = battleshipManifest.definition as BattleshipDefinition;
   const shipSpecs = definition.ships;
   const shipPreview = Object.fromEntries(
@@ -59,7 +59,7 @@ export function createBattleshipUiAdapter(runtime: WebClientRuntime): PlayableGa
 function BattleshipControllerView(input: {
   context: PlayableGameBindContext;
   definition: BattleshipDefinition;
-  runtime: WebClientRuntime;
+  runtime: RenderedWebClientRuntime;
   shipPreview: Parameters<typeof BattleshipSetupView>[0]["shipPreview"];
 }) {
   const state = useSyncExternalStore(

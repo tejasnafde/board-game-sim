@@ -1,6 +1,7 @@
 # Web Client
 
-`packages/web-client` contains playable browser flows for Battleship, Labyrinth, and Connect Four.
+`packages/web-client` contains playable browser flows for Battleship,
+Labyrinth, Connect Four, and Hex Kingdoms.
 
 ## Modules
 
@@ -27,6 +28,8 @@
 - `game-adapters/<game>/game-view.tsx`: typed, declarative setup and gameplay UI.
 - `game-adapters/index.ts`: derives the playable adapter map from the catalog.
 - `grid-renderer.ts`: default renderer for grid board games.
+- `components/hex-board.tsx`: responsive axial geometry with accessible input targets.
+- `components/card-zone.tsx`: reusable visible/hidden card and tile collections.
 
 ## Screens
 
@@ -36,9 +39,11 @@
   one-at-a-time private objectives, collected-treasure trophies, and
   reachable-cell pawn movement.
 - Connect Four: session lobby, column controls, and a tactile drop board.
+- Hex Kingdoms: mixed table lobby, tile market, interactive territory map,
+  score projection, and final kingdom ledger.
 
 Battleship and Connect Four default to a server-backed computer game.
-Labyrinth exposes human and computer seat counts separately; its board remains
+Labyrinth and Hex Kingdoms expose human and computer seat counts separately; their boards remain
 locked until every selected human seat joins.
 
 ## Adding a Playable Game

@@ -1,0 +1,23 @@
+{
+  "gameId": "hex-kingdoms",
+  "version": "0.1.0",
+  "presentationVersion": "0.1.0",
+  "board": {
+    "boardType": "hex",
+    "radius": 4,
+    "orientation": "pointy",
+    "hexSize": 48
+  },
+  "theme": {
+    "name": "crownlands-table",
+    "colors": {
+      "meadow": "#8aa35b",
+      "forest": "#315f46",
+      "mountain": "#7d746c",
+      "water": "#377f9c"
+    }
+  },
+  "assets": [],
+  "pieceSprites": {},
+  "effects": {}
+}

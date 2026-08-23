@@ -1,0 +1,41 @@
+{
+  "gameId": "hex-kingdoms",
+  "version": "0.1.0",
+  "minPlayers": 2,
+  "maxPlayers": 4,
+  "turnsPerPlayer": 10,
+  "marketSize": 4,
+  "terrains": ["meadow", "forest", "mountain", "water"],
+  "tileRecipe": {
+    "plain": 6,
+    "village": 3,
+    "keep": 2,
+    "shrine": 1
+  },
+  "layouts": {
+    "2": {
+      "radius": 3,
+      "capitals": [{ "q": -3, "r": 0 }, { "q": 3, "r": 0 }],
+      "landmarks": [{ "q": 0, "r": 0 }, { "q": 0, "r": -2 }, { "q": 0, "r": 2 }]
+    },
+    "3": {
+      "radius": 3,
+      "capitals": [{ "q": -3, "r": 0 }, { "q": 3, "r": -3 }, { "q": 0, "r": 3 }],
+      "landmarks": [{ "q": 0, "r": 0 }, { "q": 0, "r": -2 }, { "q": 2, "r": 0 }]
+    },
+    "4": {
+      "radius": 4,
+      "capitals": [{ "q": -4, "r": 0 }, { "q": 0, "r": -4 }, { "q": 4, "r": 0 }, { "q": 0, "r": 4 }],
+      "landmarks": [{ "q": 0, "r": -1 }, { "q": -1, "r": 1 }, { "q": 1, "r": 0 }]
+    }
+  },
+  "scoring": {
+    "crownlandsPerTile": 1,
+    "diversitySet": 3,
+    "villageCap": 4,
+    "keepCap": 3,
+    "shrineByLandmark": 4,
+    "landmarkUnique": 5,
+    "landmarkTied": 2
+  }
+}
