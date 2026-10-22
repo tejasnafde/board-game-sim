@@ -1,6 +1,6 @@
 # Server image for Cloud Run. tsx runs the TypeScript directly — no compile
 # step; this is friends-scale, not a build-pipeline showcase.
-FROM node:22-slim
+FROM node:22.23.4-slim
 WORKDIR /app
 
 COPY package.json package-lock.json ./
