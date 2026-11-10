@@ -29,22 +29,22 @@ User-agent: Google-Extended
 Allow: /
 
 User-agent: GPTBot
-Disallow: /
+Allow: /
 
 User-agent: ClaudeBot
-Disallow: /
+Allow: /
 
 User-agent: Applebot-Extended
-Disallow: /
+Allow: /
 
 User-agent: Meta-ExternalAgent
-Disallow: /
+Allow: /
 
 User-agent: CCBot
-Disallow: /
+Allow: /
 
 User-agent: Bytespider
-Disallow: /
+Allow: /
 
 User-agent: *
 Allow: /
